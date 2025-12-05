@@ -4,44 +4,32 @@ on:
   push:
     branches:
       - main
+
 jobs:
   build-windows:
-    runs-on: self-hosted
+    permissions:
+      contents: write
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: lts/*
 
-      - name: Install Rust
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri https://win.rustup.rs/x86_64 -OutFile rustup-init.exe
-          .\rustup-init.exe -y --default-toolchain stable
-          echo "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Install NSIS
-        shell: pwsh
-        run: |
-          # Clear Tauri's cached NSIS (may be corrupted/inaccessible)
-          Remove-Item -Path "$env:LOCALAPPDATA\tauri" -Recurse -Force -ErrorAction SilentlyContinue
-          # Install NSIS via Chocolatey
-          choco install nsis -y --force
-          # Install Tauri NSIS plugin
-          Invoke-WebRequest -Uri "https://github.com/tauri-apps/nsis-tauri-utils/releases/download/nsis_tauri_utils-v0.5.2/nsis_tauri_utils.dll" -OutFile "C:\Program Files (x86)\NSIS\Plugins\x86-unicode\nsis_tauri_utils.dll"
-
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_NSIS_PATH: C:\Program Files (x86)\NSIS
         with:
           tagName: v__VERSION__
           releaseName: "App v__VERSION__"
-          releaseBody: "See the assets for download."
+          releaseBody: "See the assets to download this version and install."
           releaseDraft: true
