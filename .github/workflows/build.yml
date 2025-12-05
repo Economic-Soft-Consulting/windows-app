@@ -7,6 +7,9 @@ on:
 permissions:
   contents: write
 
+env:
+  LOCAL_CACHE_DIR: C:\.cache\github-actions
+
 jobs:
   build-windows:
     runs-on: self-hosted
@@ -18,17 +21,30 @@ jobs:
         with:
           node-version: lts/*
 
-      - name: Cache node_modules
-        uses: corca-ai/local-cache@v2
-        with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('**/package-lock.json') }}
+      - name: Restore node_modules cache
+        shell: pwsh
+        run: |
+          $cacheKey = "node-modules-${{ hashFiles('**/package-lock.json') }}"
+          $cachePath = "$env:LOCAL_CACHE_DIR\$cacheKey"
+          if (Test-Path $cachePath) {
+            Write-Host "Cache hit: $cacheKey"
+            Copy-Item -Path "$cachePath\*" -Destination "node_modules" -Recurse -Force
+          } else {
+            Write-Host "Cache miss: $cacheKey"
+          }
 
-      - name: Cache Next.js
-        uses: corca-ai/local-cache@v2
-        with:
-          path: .next/cache
-          key: nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+      - name: Restore Next.js cache
+        shell: pwsh
+        run: |
+          $cacheKey = "nextjs-${{ hashFiles('**/package-lock.json') }}"
+          $cachePath = "$env:LOCAL_CACHE_DIR\$cacheKey"
+          if (Test-Path $cachePath) {
+            Write-Host "Cache hit: $cacheKey"
+            New-Item -ItemType Directory -Force -Path ".next" | Out-Null
+            Copy-Item -Path "$cachePath\*" -Destination ".next\cache" -Recurse -Force
+          } else {
+            Write-Host "Cache miss: $cacheKey"
+          }
 
       - name: Install Rust
         shell: pwsh
@@ -42,11 +58,17 @@ jobs:
           rustup default stable
           echo "$env:USERPROFILE\.cargo\bin" >> $env:GITHUB_PATH
 
-      - name: Cache Rust target
-        uses: corca-ai/local-cache@v2
-        with:
-          path: src-tauri/target
-          key: rust-target-${{ hashFiles('**/Cargo.lock') }}
+      - name: Restore Rust cache
+        shell: pwsh
+        run: |
+          $cacheKey = "rust-target-${{ hashFiles('**/Cargo.lock') }}"
+          $cachePath = "$env:LOCAL_CACHE_DIR\$cacheKey"
+          if (Test-Path $cachePath) {
+            Write-Host "Cache hit: $cacheKey"
+            Copy-Item -Path "$cachePath\*" -Destination "src-tauri\target" -Recurse -Force
+          } else {
+            Write-Host "Cache miss: $cacheKey"
+          }
 
       - name: Install dependencies
         run: npm ci
@@ -62,3 +84,36 @@ jobs:
           tagName: v__VERSION__
           releaseName: "eSoft Facturi v__VERSION__"
           releaseBody: "See the assets for download."
+
+      - name: Save caches
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:LOCAL_CACHE_DIR | Out-Null
+
+          # Save node_modules
+          $nodeKey = "node-modules-${{ hashFiles('**/package-lock.json') }}"
+          $nodeCachePath = "$env:LOCAL_CACHE_DIR\$nodeKey"
+          if (!(Test-Path $nodeCachePath) -and (Test-Path "node_modules")) {
+            Write-Host "Saving node_modules cache..."
+            New-Item -ItemType Directory -Force -Path $nodeCachePath | Out-Null
+            Copy-Item -Path "node_modules\*" -Destination $nodeCachePath -Recurse -Force
+          }
+
+          # Save Next.js cache
+          $nextKey = "nextjs-${{ hashFiles('**/package-lock.json') }}"
+          $nextCachePath = "$env:LOCAL_CACHE_DIR\$nextKey"
+          if (!(Test-Path $nextCachePath) -and (Test-Path ".next\cache")) {
+            Write-Host "Saving Next.js cache..."
+            New-Item -ItemType Directory -Force -Path $nextCachePath | Out-Null
+            Copy-Item -Path ".next\cache\*" -Destination $nextCachePath -Recurse -Force
+          }
+
+          # Save Rust target
+          $rustKey = "rust-target-${{ hashFiles('**/Cargo.lock') }}"
+          $rustCachePath = "$env:LOCAL_CACHE_DIR\$rustKey"
+          if (!(Test-Path $rustCachePath) -and (Test-Path "src-tauri\target")) {
+            Write-Host "Saving Rust cache..."
+            New-Item -ItemType Directory -Force -Path $rustCachePath | Out-Null
+            Copy-Item -Path "src-tauri\target\*" -Destination $rustCachePath -Recurse -Force
+          }
