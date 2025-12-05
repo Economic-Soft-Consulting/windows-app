@@ -13,33 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check if version already released
-        id: check_release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
-          $tag = "v$version"
-          Write-Host "Checking for existing release with tag: $tag"
-          $release = gh release view $tag 2>&1
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "Release $tag already exists, skipping build"
-            echo "skip=true" >> $env:GITHUB_OUTPUT
-          } else {
-            Write-Host "Release $tag does not exist, proceeding with build"
-            echo "skip=false" >> $env:GITHUB_OUTPUT
-          }
-
       - name: Setup Node
-        if: steps.check_release.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: "npm"
 
       - name: Install Rust
-        if: steps.check_release.outputs.skip != 'true'
         shell: pwsh
         run: |
           $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
@@ -52,18 +32,15 @@ jobs:
           echo "$env:USERPROFILE\.cargo\bin" >> $env:GITHUB_PATH
 
       - name: Rust cache
-        if: steps.check_release.outputs.skip != 'true'
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
 
       - name: Install dependencies
-        if: steps.check_release.outputs.skip != 'true'
         run: npm ci
         shell: pwsh
 
       - name: Build Tauri app
-        if: steps.check_release.outputs.skip != 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
