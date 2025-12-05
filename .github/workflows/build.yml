@@ -17,6 +17,8 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        env:
+          SHELL: pwsh
 
       - name: Install dependencies
         run: npm ci
