@@ -28,7 +28,8 @@ jobs:
           $cachePath = "$env:LOCAL_CACHE_DIR\$cacheKey"
           if (Test-Path $cachePath) {
             Write-Host "Cache hit: $cacheKey"
-            Copy-Item -Path "$cachePath\*" -Destination "node_modules" -Recurse -Force
+            robocopy "$cachePath" "node_modules" /E /NFL /NDL /NJH /NJS /NC /NS
+            if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
           } else {
             Write-Host "Cache miss: $cacheKey"
           }
@@ -40,8 +41,9 @@ jobs:
           $cachePath = "$env:LOCAL_CACHE_DIR\$cacheKey"
           if (Test-Path $cachePath) {
             Write-Host "Cache hit: $cacheKey"
-            New-Item -ItemType Directory -Force -Path ".next" | Out-Null
-            Copy-Item -Path "$cachePath\*" -Destination ".next\cache" -Recurse -Force
+            New-Item -ItemType Directory -Force -Path ".next\cache" | Out-Null
+            robocopy "$cachePath" ".next\cache" /E /NFL /NDL /NJH /NJS /NC /NS
+            if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
           } else {
             Write-Host "Cache miss: $cacheKey"
           }
@@ -65,7 +67,9 @@ jobs:
           $cachePath = "$env:LOCAL_CACHE_DIR\$cacheKey"
           if (Test-Path $cachePath) {
             Write-Host "Cache hit: $cacheKey"
-            Copy-Item -Path "$cachePath\*" -Destination "src-tauri\target" -Recurse -Force
+            New-Item -ItemType Directory -Force -Path "src-tauri\target" | Out-Null
+            robocopy "$cachePath" "src-tauri\target" /E /NFL /NDL /NJH /NJS /NC /NS
+            if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
           } else {
             Write-Host "Cache miss: $cacheKey"
           }
@@ -96,8 +100,7 @@ jobs:
           $nodeCachePath = "$env:LOCAL_CACHE_DIR\$nodeKey"
           if (!(Test-Path $nodeCachePath) -and (Test-Path "node_modules")) {
             Write-Host "Saving node_modules cache..."
-            New-Item -ItemType Directory -Force -Path $nodeCachePath | Out-Null
-            Copy-Item -Path "node_modules\*" -Destination $nodeCachePath -Recurse -Force
+            robocopy "node_modules" "$nodeCachePath" /E /NFL /NDL /NJH /NJS /NC /NS
           }
 
           # Save Next.js cache
@@ -105,8 +108,7 @@ jobs:
           $nextCachePath = "$env:LOCAL_CACHE_DIR\$nextKey"
           if (!(Test-Path $nextCachePath) -and (Test-Path ".next\cache")) {
             Write-Host "Saving Next.js cache..."
-            New-Item -ItemType Directory -Force -Path $nextCachePath | Out-Null
-            Copy-Item -Path ".next\cache\*" -Destination $nextCachePath -Recurse -Force
+            robocopy ".next\cache" "$nextCachePath" /E /NFL /NDL /NJH /NJS /NC /NS
           }
 
           # Save Rust target
@@ -114,6 +116,7 @@ jobs:
           $rustCachePath = "$env:LOCAL_CACHE_DIR\$rustKey"
           if (!(Test-Path $rustCachePath) -and (Test-Path "src-tauri\target")) {
             Write-Host "Saving Rust cache..."
-            New-Item -ItemType Directory -Force -Path $rustCachePath | Out-Null
-            Copy-Item -Path "src-tauri\target\*" -Destination $rustCachePath -Recurse -Force
+            robocopy "src-tauri\target" "$rustCachePath" /E /NFL /NDL /NJH /NJS /NC /NS
           }
+
+          exit 0
