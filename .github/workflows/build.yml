@@ -42,4 +42,3 @@ jobs:
           tagName: v__VERSION__
           releaseName: "App v__VERSION__"
           releaseBody: "See the assets for download."
-          releaseDraft: true
