@@ -1,67 +1,18 @@
-use serde::Serialize;
-use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_updater::{Update, UpdaterExt};
+use log::{error, info};
+use tauri::{AppHandle, Emitter};
+use tauri_plugin_updater::UpdaterExt;
 
-#[derive(Debug, Serialize, Clone)]
-struct UpdateInfo {
-    version: String,
-    current_version: String,
-}
+async fn check_and_install_updates(app: AppHandle) {
+    info!("Checking for updates...");
 
-#[derive(Debug, Serialize, Clone)]
-struct DownloadProgress {
-    downloaded: usize,
-    total: Option<u64>,
-}
+    // Emit event to show loading screen
+    let _ = app.emit("update-checking", ());
 
-struct PendingUpdate(Mutex<Option<Update>>);
-
-#[tauri::command]
-async fn install_update(
-    app: AppHandle,
-    pending: State<'_, PendingUpdate>,
-) -> Result<(), String> {
-    let update = {
-        let mut guard = pending.0.lock().map_err(|e| e.to_string())?;
-        guard.take()
-    };
-
-    if let Some(update) = update {
-        let app_clone = app.clone();
-        update
-            .download_and_install(
-                move |downloaded, total| {
-                    let _ = app_clone.emit(
-                        "update-download-progress",
-                        DownloadProgress {
-                            downloaded,
-                            total,
-                        },
-                    );
-                },
-                || {},
-            )
-            .await
-            .map_err(|e| e.to_string())?;
-
-        app.emit("update-installed", ()).map_err(|e| e.to_string())?;
-        Ok(())
-    } else {
-        Err("No pending update".to_string())
-    }
-}
-
-#[tauri::command]
-async fn restart_app(app: AppHandle) {
-    app.restart();
-}
-
-async fn check_for_updates(app: AppHandle) {
     let updater = match app.updater() {
         Ok(u) => u,
         Err(e) => {
-            eprintln!("Failed to get updater: {}", e);
+            error!("Failed to get updater: {}", e);
+            let _ = app.emit("update-done", ());
             return;
         }
     };
@@ -69,11 +20,13 @@ async fn check_for_updates(app: AppHandle) {
     let update = match updater.check().await {
         Ok(Some(update)) => update,
         Ok(None) => {
-            println!("No update available");
+            info!("No update available - app is up to date");
+            let _ = app.emit("update-done", ());
             return;
         }
         Err(e) => {
-            eprintln!("Failed to check for updates (offline?): {}", e);
+            error!("Failed to check for updates (offline?): {}", e);
+            let _ = app.emit("update-done", ());
             return;
         }
     };
@@ -81,33 +34,46 @@ async fn check_for_updates(app: AppHandle) {
     let current_version = update.current_version.clone();
     let new_version = update.version.clone();
 
-    println!("Update available: {} -> {}", current_version, new_version);
+    info!("Update available: {} -> {}", current_version, new_version);
+    let _ = app.emit("update-downloading", new_version.clone());
 
-    if let Some(pending) = app.try_state::<PendingUpdate>() {
-        if let Ok(mut guard) = pending.0.lock() {
-            *guard = Some(update);
+    // Download and install
+    match update
+        .download_and_install(
+            |_downloaded, _total| {},
+            || {
+                info!("Download finished");
+            },
+        )
+        .await
+    {
+        Ok(_) => {
+            info!("Update installed successfully, restarting...");
+            app.restart();
+        }
+        Err(e) => {
+            error!("Failed to install update: {}", e);
+            let _ = app.emit("update-done", ());
         }
     }
-
-    let _ = app.emit(
-        "update-available",
-        UpdateInfo {
-            version: new_version,
-            current_version,
-        },
-    );
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::LogDir { file_name: Some("app".into()) },
+                ))
+                .build(),
+        )
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(PendingUpdate(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![install_update, restart_app])
         .setup(|app| {
+            info!("App started, version: {}", app.package_info().version);
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                check_for_updates(handle).await;
+                check_and_install_updates(handle).await;
             });
             Ok(())
         })
