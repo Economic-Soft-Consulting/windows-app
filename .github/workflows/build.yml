@@ -17,9 +17,9 @@ jobs:
           cache: "npm"
 
       - name: Add Cargo to PATH
-          run: echo "$env:USERPROFILE\.cargo\bin" >> $env:GITHUB_PATH
-          shell: pwsh
-          
+        run: echo "$env:USERPROFILE\.cargo\bin" >> $env:GITHUB_PATH
+        shell: pwsh
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
