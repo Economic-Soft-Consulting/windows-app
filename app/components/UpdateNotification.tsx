@@ -6,7 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 type UpdateState = "checking" | "downloading" | "done";
 
 export function UpdateNotification() {
-  const [state, setState] = useState<UpdateState>("checking");
+  const [state, setState] = useState<UpdateState>("done");
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
