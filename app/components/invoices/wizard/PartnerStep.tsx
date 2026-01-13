@@ -57,8 +57,8 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
           </p>
         </div>
       ) : (
-        <ScrollArea className="h-[400px] pr-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <ScrollArea className="h-[calc(100vh-380px)] min-h-[200px] max-h-[500px] pr-4">
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-2">
             {partners.map((partner) => {
               const isSelected = selectedPartner?.id === partner.id;
               return (

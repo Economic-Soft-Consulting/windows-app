@@ -94,30 +94,28 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
       <CardFooter className="pt-3 border-t gap-2">
         <Button
           variant="outline"
-          size="sm"
-          className="flex-1 h-10"
+          className="flex-1 h-11"
           onClick={() => onView(invoice.id)}
         >
-          <Eye className="h-4 w-4 mr-1.5" />
+          <Eye className="h-5 w-5 mr-1.5" />
           Detalii
         </Button>
 
         {canSend && (
           <Button
             variant={invoice.status === "failed" ? "outline" : "default"}
-            size="sm"
-            className="flex-1 h-10"
+            className="flex-1 h-11"
             onClick={() => onSend(invoice.id)}
             disabled={isSending}
           >
             {invoice.status === "failed" ? (
               <>
-                <RotateCcw className="h-4 w-4 mr-1.5" />
+                <RotateCcw className="h-5 w-5 mr-1.5" />
                 Reîncearcă
               </>
             ) : (
               <>
-                <Send className="h-4 w-4 mr-1.5" />
+                <Send className="h-5 w-5 mr-1.5" />
                 Trimite
               </>
             )}
@@ -129,10 +127,9 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
             <AlertDialogTrigger asChild>
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-10 px-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                className="h-11 w-11 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-5 w-5" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>

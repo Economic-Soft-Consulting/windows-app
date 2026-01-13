@@ -33,7 +33,7 @@ export function LocationStep({
           const location = partner.locations.find((l) => l.id === value);
           if (location) onSelect(location);
         }}
-        className="grid gap-3 sm:grid-cols-2"
+        className="grid gap-3 sm:grid-cols-2 md:grid-cols-2"
       >
         {partner.locations.map((location) => {
           const isSelected = selectedLocation?.id === location.id;

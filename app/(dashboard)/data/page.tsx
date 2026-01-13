@@ -45,15 +45,15 @@ export default function DataPage() {
       </div>
 
       <Tabs defaultValue="partners">
-        <TabsList className="h-12">
-          <TabsTrigger value="partners" className="h-10 px-4 gap-2">
+        <TabsList className="h-14">
+          <TabsTrigger value="partners" className="h-11 px-4 gap-2">
             <Building2 className="h-4 w-4" />
             Parteneri
             <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs">
               {partners.length}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="products" className="h-10 px-4 gap-2">
+          <TabsTrigger value="products" className="h-11 px-4 gap-2">
             <Package className="h-4 w-4" />
             Produse
             <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs">
@@ -87,11 +87,11 @@ export default function DataPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
                 {partners.map((partner) => (
                   <Card key={partner.id}>
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-lg">{partner.name}</CardTitle>
+                      <CardTitle className="text-lg truncate">{partner.name}</CardTitle>
                       <CardDescription>
                         {partner.locations.length} locații
                       </CardDescription>
@@ -150,7 +150,7 @@ export default function DataPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
                 {products.map((product) => (
                   <Card key={product.id}>
                     <CardHeader className="pb-3">

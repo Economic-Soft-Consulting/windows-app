@@ -55,7 +55,7 @@ export function ReviewStep({
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         {/* Partner & Location Info */}
         <Card>
           <CardHeader className="pb-3">
@@ -118,29 +118,29 @@ export function ReviewStep({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Produs</TableHead>
-                  <TableHead className="text-right w-24">Cantitate</TableHead>
-                  <TableHead className="text-right w-28">Preț unitar</TableHead>
-                  <TableHead className="text-right w-28">Total</TableHead>
+                  <TableHead className="min-w-0">Produs</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Cantitate</TableHead>
+                  <TableHead className="text-right whitespace-nowrap hidden sm:table-cell">Preț unitar</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {cartItems.map((item) => (
                   <TableRow key={item.product.id}>
-                    <TableCell className="font-medium">
-                      {item.product.name}
+                    <TableCell className="font-medium min-w-0">
+                      <span className="line-clamp-2">{item.product.name}</span>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
                       {item.quantity} {item.product.unit_of_measure}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap hidden sm:table-cell">
                       {formatCurrency(item.product.price)}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium whitespace-nowrap">
                       {formatCurrency(item.product.price * item.quantity)}
                     </TableCell>
                   </TableRow>
@@ -148,10 +148,13 @@ export function ReviewStep({
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={3} className="text-right font-semibold">
+                  <TableCell colSpan={2} className="text-right font-semibold sm:hidden">
                     Total
                   </TableCell>
-                  <TableCell className="text-right font-bold text-lg">
+                  <TableCell colSpan={3} className="text-right font-semibold hidden sm:table-cell">
+                    Total
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-lg whitespace-nowrap">
                     {formatCurrency(totalAmount)}
                   </TableCell>
                 </TableRow>

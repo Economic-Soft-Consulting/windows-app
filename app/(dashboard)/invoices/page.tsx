@@ -62,22 +62,23 @@ export default function InvoicesPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-        <TabsList className="h-12">
-          <TabsTrigger value="all" className="h-10 px-4 gap-2">
+        <TabsList className="h-14 flex-wrap sm:flex-nowrap">
+          <TabsTrigger value="all" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
             Toate
             <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs">
               {counts.all}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="pending" className="h-10 px-4 gap-2">
-            În așteptare
+          <TabsTrigger value="pending" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
+            <span className="hidden sm:inline">În așteptare</span>
+            <span className="sm:hidden">Așteptare</span>
             {counts.pending > 0 && (
               <span className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 px-2 py-0.5 rounded-full text-xs">
                 {counts.pending}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="sent" className="h-10 px-4 gap-2">
+          <TabsTrigger value="sent" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
             Trimise
             {counts.sent > 0 && (
               <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full text-xs">
@@ -85,7 +86,7 @@ export default function InvoicesPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="failed" className="h-10 px-4 gap-2">
+          <TabsTrigger value="failed" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
             Eșuate
             {counts.failed > 0 && (
               <span className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-full text-xs">
@@ -120,7 +121,7 @@ export default function InvoicesPage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
           {invoices.map((invoice) => (
             <InvoiceCard
               key={invoice.id}

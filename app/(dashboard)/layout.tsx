@@ -11,9 +11,10 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { checkIsFirstRun, isFirstRun } = useSyncStatus();
+  const { checkIsFirstRun } = useSyncStatus();
   const [showFirstRun, setShowFirstRun] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     checkIsFirstRun().then((result) => {
@@ -37,10 +38,17 @@ export default function DashboardLayout({
         <FirstRunOverlay onComplete={() => setShowFirstRun(false)} />
       )}
       <div className="h-screen flex bg-background">
-        <Sidebar />
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-auto p-6">{children}</main>
+          <Header onMenuClick={() => setSidebarOpen(true)} />
+          <main className="flex-1 overflow-auto p-4 sm:p-6">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
+          </main>
         </div>
       </div>
     </>

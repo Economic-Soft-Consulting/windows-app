@@ -107,7 +107,7 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         {/* Product Search */}
         <div className="space-y-4">
           <div className="relative">
@@ -130,7 +130,7 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
               <h3 className="text-lg font-medium">Nu s-au găsit produse</h3>
             </div>
           ) : (
-            <ScrollArea className="h-[350px] pr-4">
+            <ScrollArea className="h-[calc(100vh-420px)] min-h-[200px] max-h-[400px] pr-4">
               <div className="space-y-2">
                 {products.map((product) => {
                   const inCart = getCartQuantity(product.id) > 0;
@@ -162,12 +162,11 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
                             </div>
                           </div>
                           <Button
-                            size="sm"
                             variant={inCart ? "secondary" : "default"}
-                            className="h-10 w-10 p-0"
+                            className="h-11 w-11 p-0"
                             onClick={() => addToCart(product)}
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-5 w-5" />
                           </Button>
                         </div>
                       </CardContent>
@@ -191,13 +190,13 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <ShoppingCart className="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <p className="text-muted-foreground">
-                  Adaugă produse din lista din stânga
+                  Adaugă produse din lista de mai sus
                 </p>
               </CardContent>
             </Card>
           ) : (
             <>
-              <ScrollArea className="h-[280px] pr-4">
+              <ScrollArea className="h-[calc(100vh-480px)] min-h-[150px] max-h-[350px] pr-4">
                 <div className="space-y-2">
                   {cartItems.map((item) => (
                     <Card key={item.product.id}>
@@ -212,14 +211,13 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
                               {item.product.unit_of_measure}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <Button
                               variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
+                              className="h-11 w-11 p-0"
                               onClick={() => updateQuantity(item.product.id, -1)}
                             >
-                              <Minus className="h-3 w-3" />
+                              <Minus className="h-4 w-4" />
                             </Button>
                             <Input
                               type="number"
@@ -230,24 +228,22 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
                                   parseInt(e.target.value) || 0
                                 )
                               }
-                              className="w-16 h-8 text-center"
+                              className="w-16 h-11 text-center"
                               min={1}
                             />
                             <Button
                               variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
+                              className="h-11 w-11 p-0"
                               onClick={() => updateQuantity(item.product.id, 1)}
                             >
-                              <Plus className="h-3 w-3" />
+                              <Plus className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-11 w-11 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => removeFromCart(item.product.id)}
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
