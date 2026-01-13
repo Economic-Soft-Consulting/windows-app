@@ -1,4 +1,10 @@
 use log::info;
+use tauri::Manager;
+
+mod commands;
+mod database;
+mod mock_api;
+mod models;
 
 #[cfg(not(debug_assertions))]
 mod updater;
@@ -9,13 +15,20 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .target(tauri_plugin_log::Target::new(
-                    tauri_plugin_log::TargetKind::LogDir { file_name: Some("app".into()) },
+                    tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("app".into()),
+                    },
                 ))
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             info!("App started, version: {}", app.package_info().version);
+
+            // Initialize database
+            let db = database::init_database(app.handle())
+                .expect("Failed to initialize database");
+            app.manage(db);
 
             #[cfg(not(debug_assertions))]
             {
@@ -30,6 +43,25 @@ pub fn run() {
 
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            // Sync commands
+            commands::check_first_run,
+            commands::get_sync_status,
+            commands::sync_all_data,
+            commands::check_online_status,
+            // Partner commands
+            commands::get_partners,
+            commands::search_partners,
+            // Product commands
+            commands::get_products,
+            commands::search_products,
+            // Invoice commands
+            commands::create_invoice,
+            commands::get_invoices,
+            commands::get_invoice_detail,
+            commands::send_invoice,
+            commands::delete_invoice,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
