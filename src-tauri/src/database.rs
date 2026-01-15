@@ -53,6 +53,7 @@ const SCHEMA: &str = r#"
 
     CREATE TABLE IF NOT EXISTS invoices (
         id TEXT PRIMARY KEY,
+        invoice_number INTEGER UNIQUE,
         partner_id TEXT NOT NULL,
         location_id TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',

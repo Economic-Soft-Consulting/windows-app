@@ -76,3 +76,9 @@ export async function sendInvoice(invoiceId: string): Promise<Invoice> {
 export async function deleteInvoice(invoiceId: string): Promise<void> {
   return invoke<void>("delete_invoice", { invoiceId });
 }
+
+// ==================== PRINT COMMANDS ====================
+
+export async function printInvoiceToHtml(invoiceId: string): Promise<string> {
+  return invoke<string>("print_invoice_to_html", { invoiceId });
+}

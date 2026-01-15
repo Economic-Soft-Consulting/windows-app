@@ -10,6 +10,11 @@ export function UpdateNotification() {
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
+    // Only setup Tauri listeners if running in Tauri context
+    if (typeof window === "undefined" || !window.__TAURI_INTERNALS__) {
+      return;
+    }
+
     let unlistenChecking: (() => void) | undefined;
     let unlistenDownloading: (() => void) | undefined;
     let unlistenDone: (() => void) | undefined;

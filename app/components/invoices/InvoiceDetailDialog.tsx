@@ -15,10 +15,14 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import { useInvoiceDetail } from "@/hooks/useInvoices";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Calendar, FileText } from "lucide-react";
+import { MapPin, Calendar, FileText, Printer } from "lucide-react";
+import { printInvoiceToHtml } from "@/lib/tauri/commands";
+import { toast } from "sonner";
+import { useState } from "react";
 
 interface InvoiceDetailDialogProps {
   invoiceId: string | null;
@@ -51,15 +55,58 @@ export function InvoiceDetailDialog({
   onOpenChange,
 }: InvoiceDetailDialogProps) {
   const { detail, isLoading } = useInvoiceDetail(open ? invoiceId : null);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const handlePrint = async () => {
+    if (!invoiceId) return;
+    
+    setIsPrinting(true);
+    try {
+      const html = await printInvoiceToHtml(invoiceId);
+      
+      // Open print dialog with the HTML
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        // Trigger print dialog after a brief delay to ensure content is rendered
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+      }
+      
+      toast.success("Factură pregătită pentru imprimare");
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Eroare la generarea facturilor pentru imprimare");
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            <FileText className="h-5 w-5" />
-            Detalii factură
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-3">
+            <DialogTitle className="flex items-center gap-3">
+              <FileText className="h-5 w-5" />
+              Detalii factură
+            </DialogTitle>
+            {detail && detail.invoice.status === "sent" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                disabled={isPrinting}
+                className="gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                {isPrinting ? "Se imprimă..." : "Imprimare"}
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         {isLoading ? (

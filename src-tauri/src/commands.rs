@@ -1,6 +1,7 @@
 use crate::database::Database;
 use crate::mock_api;
 use crate::models::*;
+use crate::print_invoice;
 use chrono::Utc;
 use log::info;
 use tauri::State;
@@ -375,10 +376,19 @@ pub fn create_invoice(
         ));
     }
 
-    // Insert invoice
+    // Get next invoice number
+    let invoice_number: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(invoice_number), 0) + 1 FROM invoices",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(1);
+
+    // Insert invoice with auto-generated number
     conn.execute(
-        "INSERT INTO invoices (id, partner_id, location_id, status, total_amount, notes, created_at) VALUES (?1, ?2, ?3, 'pending', ?4, ?5, ?6)",
-        (&invoice_id, &request.partner_id, &request.location_id, total_amount, &request.notes, &now),
+        "INSERT INTO invoices (id, invoice_number, partner_id, location_id, status, total_amount, notes, created_at) VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?6, ?7)",
+        (&invoice_id, invoice_number, &request.partner_id, &request.location_id, total_amount, &request.notes, &now),
     )
     .map_err(|e| e.to_string())?;
 
@@ -566,8 +576,8 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
 
     // Update based on result and return the invoice
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-
-    match result {
+    
+    let invoice_sent = match result {
         Ok(()) => {
             conn.execute(
                 "UPDATE invoices SET status = 'sent', sent_at = ?1, error_message = NULL WHERE id = ?2",
@@ -575,6 +585,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             )
             .map_err(|e| e.to_string())?;
             info!("Invoice {} sent successfully", invoice_id);
+            true
         }
         Err(ref error) => {
             conn.execute(
@@ -583,10 +594,11 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             )
             .map_err(|e| e.to_string())?;
             info!("Invoice {} failed to send: {}", invoice_id, error);
+            false
         }
-    }
+    };
 
-    // Fetch and return the updated invoice
+    // Fetch the updated invoice
     let invoice: Invoice = conn
         .query_row(
             r#"
@@ -619,6 +631,16 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         )
         .map_err(|e| format!("Invoice not found: {}", e))?;
 
+    // Drop the lock before async operation
+    drop(conn);
+
+    // If invoice was sent successfully, trigger automatic printing
+    // Note: Printing will be triggered by frontend calling print_invoice_to_html
+    // We can't use await here with the db state due to Send trait requirements
+    if invoice_sent {
+        info!("Invoice {} ready for printing", invoice_id);
+    }
+
     Ok(invoice)
 }
 
@@ -639,4 +661,104 @@ pub fn delete_invoice(db: State<'_, Database>, invoice_id: String) -> Result<(),
 
     info!("Deleted invoice {}", invoice_id);
     Ok(())
+}
+
+// ==================== PRINT COMMANDS ====================
+
+#[tauri::command]
+pub async fn print_invoice_to_html(
+    db: State<'_, Database>,
+    invoice_id: String,
+) -> Result<String, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    
+    // Get invoice number first
+    let invoice_number: i64 = conn
+        .query_row(
+            "SELECT invoice_number FROM invoices WHERE id = ?1",
+            [&invoice_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Invoice not found: {}", e))?;
+
+    // Fetch invoice details
+    let invoice = get_invoice_for_print(&conn, &invoice_id)?;
+
+    // Fetch invoice items
+    let mut stmt = conn
+        .prepare(
+            r#"
+            SELECT ii.id, ii.product_id, p.name, ii.quantity, ii.unit_price, p.unit_of_measure, ii.total_price
+            FROM invoice_items ii
+            JOIN products p ON ii.product_id = p.id
+            WHERE ii.invoice_id = ?1
+            "#,
+        )
+        .map_err(|e| e.to_string())?;
+
+    let items: Vec<InvoiceItem> = stmt
+        .query_map([&invoice_id], |row| {
+            Ok(InvoiceItem {
+                id: row.get(0)?,
+                invoice_id: invoice_id.clone(),
+                product_id: row.get(1)?,
+                product_name: row.get(2)?,
+                quantity: row.get(3)?,
+                unit_price: row.get(4)?,
+                unit_of_measure: row.get(5)?,
+                total_price: row.get(6)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    // Generate HTML
+    let html = print_invoice::generate_invoice_html(&invoice, &items, invoice_number);
+
+    // Trigger browser print dialog
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use webview to print
+        // This will be handled by the frontend JavaScript
+    }
+
+    info!("Generated HTML for invoice {} with {} items", invoice_id, items.len());
+    Ok(html)
+}
+
+fn get_invoice_for_print(
+    conn: &rusqlite::Connection,
+    invoice_id: &str,
+) -> Result<Invoice, String> {
+    conn.query_row(
+        r#"
+        SELECT
+            i.id, i.partner_id, p.name, i.location_id, l.name,
+            i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
+            (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
+        FROM invoices i
+        JOIN partners p ON i.partner_id = p.id
+        JOIN locations l ON i.location_id = l.id
+        WHERE i.id = ?1
+        "#,
+        [invoice_id],
+        |row| {
+            Ok(Invoice {
+                id: row.get(0)?,
+                partner_id: row.get(1)?,
+                partner_name: row.get(2)?,
+                location_id: row.get(3)?,
+                location_name: row.get(4)?,
+                status: InvoiceStatus::from(row.get::<_, String>(5)?),
+                total_amount: row.get(6)?,
+                notes: row.get(7)?,
+                created_at: row.get(8)?,
+                sent_at: row.get(9)?,
+                error_message: row.get(10)?,
+                item_count: row.get(11)?,
+            })
+        },
+    )
+    .map_err(|e| format!("Invoice not found: {}", e))
 }
