@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Database, Home, X, Settings, Wifi } from "lucide-react";
+import { FileText, Database, Home, X, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -26,11 +26,6 @@ const navItems = [
     href: "/settings",
     label: "Setări",
     icon: Settings,
-  },
-  {
-    href: "/api-settings",
-    label: "API",
-    icon: Wifi,
   },
 ];
 

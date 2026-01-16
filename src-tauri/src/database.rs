@@ -28,15 +28,37 @@ impl Database {
             conn: Mutex::new(conn),
         })
     }
+
+    pub fn clear_sync_data(&self) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        
+        info!("Clearing partners, locations, products and sync metadata...");
+        
+        // Disable foreign key constraints temporarily
+        conn.execute("PRAGMA foreign_keys = OFF", [])?;
+        
+        // Delete all sync data
+        conn.execute("DELETE FROM locations", [])?;
+        conn.execute("DELETE FROM partners", [])?;
+        conn.execute("DELETE FROM products", [])?;
+        conn.execute("DELETE FROM sync_metadata", [])?;
+        
+        // Re-enable foreign key constraints
+        conn.execute("PRAGMA foreign_keys = ON", [])?;
+        
+        info!("✅ Successfully cleared all sync data");
+        
+        Ok(())
+    }
 }
 
 const SCHEMA: &str = r#"
     CREATE TABLE IF NOT EXISTS partners (
         id TEXT PRIMARY KEY,
+        cod TEXT,
         name TEXT NOT NULL,
         cif TEXT,
         reg_com TEXT,
-        cod TEXT,
         blocat TEXT,
         tva_la_incasare TEXT,
         persoana_fizica TEXT,
@@ -44,6 +66,22 @@ const SCHEMA: &str = r#"
         cod_intern TEXT,
         observatii TEXT,
         data_adaugarii TEXT,
+        clasa TEXT,
+        simbol_clasa TEXT,
+        cod_clasa TEXT,
+        inactiv TEXT,
+        categorie_pret_implicita TEXT,
+        simbol_categorie_pret TEXT,
+        scadenta_la_vanzare TEXT,
+        scadenta_la_cumparare TEXT,
+        credit_client TEXT,
+        discount_fix TEXT,
+        tip_partener TEXT,
+        mod_aplicare_discount TEXT,
+        moneda TEXT,
+        data_nastere TEXT,
+        caracterizare_contabila_denumire TEXT,
+        caracterizare_contabila_simbol TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     );
@@ -51,27 +89,122 @@ const SCHEMA: &str = r#"
     CREATE TABLE IF NOT EXISTS locations (
         id TEXT PRIMARY KEY,
         partner_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        address TEXT,
+        id_sediu TEXT,
         cod_sediu TEXT,
+        name TEXT NOT NULL,
         localitate TEXT,
         strada TEXT,
         numar TEXT,
+        numar2 TEXT,
+        bloc TEXT,
+        scara TEXT,
+        etaj TEXT,
+        apartament TEXT,
         judet TEXT,
         tara TEXT,
+        sector TEXT,
         cod_postal TEXT,
+        cod_siruta TEXT,
         telefon TEXT,
         email TEXT,
+        gln TEXT,
+        latitudine TEXT,
+        longitudine TEXT,
+        traseu_livrare TEXT,
+        poz_traseu_livrare TEXT,
+        traseu_vizitare TEXT,
+        poz_traseu_vizitare TEXT,
+        gestiune_livrare TEXT,
+        simbol_gest_livrare TEXT,
+        cod_subunitate TEXT,
+        subunitate TEXT,
+        tip_sediu TEXT,
+        scadenta_la_vanzare TEXT,
+        zile_depasire TEXT,
         inactiv TEXT,
+        cod_client TEXT,
+        denumire_superior TEXT,
+        agent_marca TEXT,
+        agent_nume TEXT,
+        agent_prenume TEXT,
+        address TEXT,
         FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS products (
         id TEXT PRIMARY KEY,
+        cod_obiect TEXT,
+        cod_articol TEXT,
         name TEXT NOT NULL,
         unit_of_measure TEXT NOT NULL,
         price REAL NOT NULL,
-        class TEXT
+        pret_cu_tva REAL,
+        pret_valuta REAL,
+        pret_minim REAL,
+        pret_referinta REAL,
+        class TEXT,
+        simbol_clasa TEXT,
+        cod_clasa TEXT,
+        clasa_web TEXT,
+        simbol_clasa_web TEXT,
+        cod_clasa_web TEXT,
+        clasa_stat TEXT,
+        simbol_clasa_stat TEXT,
+        cod_clasa_stat TEXT,
+        producator TEXT,
+        id_producator TEXT,
+        gestiune_implicita TEXT,
+        simbol_cont_implicit TEXT,
+        simbol_tip_cont_implicit TEXT,
+        cod_locatie_implicita TEXT,
+        cod_ext_locatie_implicita TEXT,
+        den_locatie_implicita TEXT,
+        cod_extern TEXT,
+        cod_intern TEXT,
+        procent_tva TEXT,
+        um_implicita TEXT,
+        paritate_um_implicita TEXT,
+        um_specifica TEXT,
+        um_alternativa TEXT,
+        relatie_um_spec TEXT,
+        masa TEXT,
+        volum TEXT,
+        greutate_specifica TEXT,
+        serviciu TEXT,
+        are_data_expirare TEXT,
+        cod_vamal TEXT,
+        cod_d394 TEXT,
+        data_adaugarii TEXT,
+        vizibil_comenzi_online TEXT,
+        inactiv_comenzi_online TEXT,
+        cod_catalog TEXT,
+        promotie TEXT,
+        discount_promo TEXT,
+        zile_plata TEXT,
+        inactiv TEXT,
+        blocat TEXT,
+        descriere TEXT,
+        dci TEXT,
+        tip_serie TEXT,
+        cod_cnas TEXT,
+        coef_cnas TEXT,
+        check_autenticitate TEXT,
+        d1 TEXT,
+        d2 TEXT,
+        d3 TEXT,
+        simbol_centru_cost TEXT,
+        cod_cpv TEXT,
+        constructie_noua TEXT,
+        risc_fiscal TEXT,
+        luni_garantie TEXT,
+        caract_suplim TEXT,
+        zile_valabil TEXT,
+        adaos_exceptie TEXT,
+        nefacturabil TEXT,
+        simbol_cont_serv TEXT,
+        fara_stoc TEXT,
+        voucher_cadou TEXT,
+        categorie_pret_implicita TEXT
     );
 
     CREATE TABLE IF NOT EXISTS invoices (
@@ -124,6 +257,22 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         "ALTER TABLE partners ADD COLUMN cod_intern TEXT;",
         "ALTER TABLE partners ADD COLUMN observatii TEXT;",
         "ALTER TABLE partners ADD COLUMN data_adaugarii TEXT;",
+        "ALTER TABLE partners ADD COLUMN clasa TEXT;",
+        "ALTER TABLE partners ADD COLUMN simbol_clasa TEXT;",
+        "ALTER TABLE partners ADD COLUMN cod_clasa TEXT;",
+        "ALTER TABLE partners ADD COLUMN inactiv TEXT;",
+        "ALTER TABLE partners ADD COLUMN categorie_pret_implicita TEXT;",
+        "ALTER TABLE partners ADD COLUMN simbol_categorie_pret TEXT;",
+        "ALTER TABLE partners ADD COLUMN scadenta_la_vanzare TEXT;",
+        "ALTER TABLE partners ADD COLUMN scadenta_la_cumparare TEXT;",
+        "ALTER TABLE partners ADD COLUMN credit_client TEXT;",
+        "ALTER TABLE partners ADD COLUMN discount_fix TEXT;",
+        "ALTER TABLE partners ADD COLUMN tip_partener TEXT;",
+        "ALTER TABLE partners ADD COLUMN mod_aplicare_discount TEXT;",
+        "ALTER TABLE partners ADD COLUMN moneda TEXT;",
+        "ALTER TABLE partners ADD COLUMN data_nastere TEXT;",
+        "ALTER TABLE partners ADD COLUMN caracterizare_contabila_denumire TEXT;",
+        "ALTER TABLE partners ADD COLUMN caracterizare_contabila_simbol TEXT;",
     ];
     
     for sql in partner_columns {

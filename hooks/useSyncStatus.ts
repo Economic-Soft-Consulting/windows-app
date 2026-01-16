@@ -23,10 +23,14 @@ export function useSyncStatus() {
   const triggerSync = useCallback(async () => {
     setIsSyncing(true);
     setError(null);
+    // Dispatch event when sync starts
+    window.dispatchEvent(new CustomEvent('sync-started'));
     try {
       const newStatus = await syncAllData();
       setStatus(newStatus);
       setIsFirstRun(false);
+      // Dispatch event when sync completes
+      window.dispatchEvent(new CustomEvent('sync-completed'));
       return newStatus;
     } catch (e) {
       setError(String(e));

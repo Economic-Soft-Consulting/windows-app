@@ -11,6 +11,10 @@ import type {
 
 // ==================== SYNC COMMANDS ====================
 
+export async function clearDatabase(): Promise<void> {
+  return invoke<void>("clear_database");
+}
+
 export async function checkFirstRun(): Promise<boolean> {
   return invoke<boolean>("check_first_run");
 }
@@ -85,4 +89,10 @@ export async function getAvailablePrinters(): Promise<string[]> {
 
 export async function printInvoiceToHtml(invoiceId: string, printerName?: string): Promise<string> {
   return invoke<string>("print_invoice_to_html", { invoiceId, printerName });
+}
+
+// ==================== DEBUG COMMANDS ====================
+
+export async function debugDbCounts(): Promise<string> {
+  return invoke<string>("debug_db_counts");
 }

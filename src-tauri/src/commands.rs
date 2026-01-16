@@ -7,9 +7,9 @@ use chrono::Utc;
 use log::info;
 use tauri::State;
 use uuid::Uuid;
-use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
+use rusqlite::params;
 
 // Helper function to read logo and convert to base64
 fn read_logo_to_base64() -> Option<String> {
@@ -32,6 +32,11 @@ fn read_logo_to_base64() -> Option<String> {
 }
 
 // ==================== SYNC COMMANDS ====================
+
+#[tauri::command]
+pub fn clear_database(db: State<'_, Database>) -> Result<(), String> {
+    db.clear_sync_data().map_err(|e| e.to_string())
+}
 
 #[tauri::command]
 pub fn check_first_run(db: State<'_, Database>) -> Result<bool, String> {
@@ -80,22 +85,16 @@ pub fn get_sync_status(db: State<'_, Database>) -> Result<SyncStatus, String> {
 
 #[tauri::command]
 pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String> {
-    info!("Starting data sync...");
-
     // Try real API first
     let (partners, products) = match api_client::ApiClient::from_default() {
         Ok(api) => {
-            info!("Attempting to fetch from real API...");
-            
             // Try to get partners from API
             match api.get_all_partners().await {
                 Ok(api_partners) => {
-                    info!("✅ Successfully fetched {} partners from API", api_partners.len());
                     
                     // Try to get articles from API
                     match api.get_all_articles().await {
                         Ok(api_articles) => {
-                            info!("✅ Successfully fetched {} articles from API", api_articles.len());
                             
                             // Convert API data to our models
                             let partners = convert_api_partners_to_model(api_partners);
@@ -103,25 +102,20 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                             
                             (partners, products)
                         }
-                        Err(e) => {
-                            info!("⚠ API articles failed: {}, using mock data", e);
+                        Err(_) => {
                             (mock_api::fetch_partners().await, mock_api::fetch_products().await)
                         }
                     }
                 }
-                Err(e) => {
-                    info!("⚠ API partners failed: {}, using mock data", e);
+                Err(_) => {
                     (mock_api::fetch_partners().await, mock_api::fetch_products().await)
                 }
             }
         }
-        Err(e) => {
-            info!("⚠ Cannot connect to API: {}, using mock data", e);
+        Err(_) => {
             (mock_api::fetch_partners().await, mock_api::fetch_products().await)
         }
     };
-
-    info!("Proceeding with {} partners, {} products", partners.len(), products.len());
 
     // Now do all database operations synchronously
     let now = Utc::now().to_rfc3339();
@@ -138,8 +132,8 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
         // Save partners
         for partner in &partners {
             conn.execute(
-                "INSERT OR REPLACE INTO partners (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-                (
+                "INSERT OR IGNORE INTO partners (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
+                params![
                     &partner.id, 
                     &partner.name, 
                     &partner.cif, 
@@ -153,15 +147,29 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                     &partner.observatii,
                     &partner.data_adaugarii,
                     &partner.created_at, 
-                    &partner.updated_at
-                ),
+                    &partner.updated_at,
+                    &partner.clasa,
+                    &partner.simbol_clasa,
+                    &partner.cod_clasa,
+                    &partner.categorie_pret_implicita,
+                    &partner.simbol_categorie_pret,
+                    &partner.scadenta_la_vanzare,
+                    &partner.scadenta_la_cumparare,
+                    &partner.discount_fix,
+                    &partner.tip_partener,
+                    &partner.mod_aplicare_discount,
+                    &partner.moneda,
+                    &partner.data_nastere,
+                    &partner.caracterizare_contabila_denumire,
+                    &partner.caracterizare_contabila_simbol,
+                ],
             )
             .map_err(|e| format!("Failed to save partner: {}", e))?;
 
             // Save locations
             for location in &partner.locations {
                 conn.execute(
-                    "INSERT OR REPLACE INTO locations (id, partner_id, name, address, cod_sediu, localitate, strada, numar, judet, tara, cod_postal, telefon, email, inactiv) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                    "INSERT OR IGNORE INTO locations (id, partner_id, name, address, cod_sediu, localitate, strada, numar, judet, tara, cod_postal, telefon, email, inactiv) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                     (
                         &location.id, 
                         &location.partner_id, 
@@ -186,7 +194,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
         // Save products
         for product in &products {
             conn.execute(
-                "INSERT OR REPLACE INTO products (id, name, unit_of_measure, price, class) VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT OR IGNORE INTO products (id, name, unit_of_measure, price, class) VALUES (?1, ?2, ?3, ?4, ?5)",
                 (&product.id, &product.name, &product.unit_of_measure, product.price, &product.class),
             )
             .map_err(|e| format!("Failed to save product: {}", e))?;
@@ -252,13 +260,31 @@ fn convert_api_partners_to_model(api_partners: Vec<api_client::PartnerInfo>) -> 
     api_partners
         .into_iter()
         .map(|api_partner| {
-            let partner_id = api_partner.id.clone();
+            // Generate ID if empty - use COD or CIF or UUID as fallback
+            let partner_id = if api_partner.id.is_empty() {
+                api_partner.cod.clone()
+                    .filter(|c| !c.is_empty())
+                    .or_else(|| api_partner.cod_fiscal.clone().filter(|c| !c.is_empty()))
+                    .unwrap_or_else(|| Uuid::new_v4().to_string())
+            } else {
+                api_partner.id.clone()
+            };
+            
             let now = Utc::now().to_rfc3339();
 
             // Convert locations with all fields
             let locations: Vec<Location> = api_partner.sedii
                 .into_iter()
                 .map(|sediu| {
+                    // Generate location ID if empty
+                    let location_id = if sediu.id_sediu.is_empty() {
+                        sediu.cod_sediu.clone()
+                            .filter(|c| !c.is_empty())
+                            .unwrap_or_else(|| Uuid::new_v4().to_string())
+                    } else {
+                        sediu.id_sediu
+                    };
+                    
                     let address = format!(
                         "{} {}, {}, {}",
                         sediu.strada.as_deref().unwrap_or(""),
@@ -268,7 +294,7 @@ fn convert_api_partners_to_model(api_partners: Vec<api_client::PartnerInfo>) -> 
                     ).trim().to_string();
 
                     Location {
-                        id: sediu.id_sediu,
+                        id: location_id,
                         partner_id: partner_id.clone(),
                         name: sediu.denumire,
                         address: Some(address),
@@ -301,6 +327,22 @@ fn convert_api_partners_to_model(api_partners: Vec<api_client::PartnerInfo>) -> 
                 data_adaugarii: api_partner.data_adaugarii.clone(),
                 created_at: api_partner.data_adaugarii.unwrap_or(now.clone()),
                 updated_at: now,
+                clasa: api_partner.clasa,
+                simbol_clasa: api_partner.simbol_clasa,
+                cod_clasa: api_partner.cod_clasa,
+                inactiv: api_partner.inactiv,
+                categorie_pret_implicita: api_partner.categorie_pret_implicita,
+                simbol_categorie_pret: api_partner.simbol_categorie_pret,
+                scadenta_la_vanzare: api_partner.scadenta_la_vanzare,
+                scadenta_la_cumparare: api_partner.scadenta_la_cumparare,
+                credit_client: api_partner.credit_client,
+                discount_fix: api_partner.discount_fix,
+                tip_partener: api_partner.tip_partener,
+                mod_aplicare_discount: api_partner.mod_aplicare_discount,
+                moneda: api_partner.moneda,
+                data_nastere: api_partner.data_nastere,
+                caracterizare_contabila_denumire: api_partner.caracterizare_contabila_denumire,
+                caracterizare_contabila_simbol: api_partner.caracterizare_contabila_simbol,
                 locations,
             }
         })
@@ -312,6 +354,15 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
     api_articles
         .into_iter()
         .map(|api_article| {
+            // Generate ID if empty - use CodObiect or UUID as fallback
+            let product_id = if api_article.id.is_empty() {
+                api_article.cod_obiect.clone()
+                    .filter(|c| !c.is_empty())
+                    .unwrap_or_else(|| Uuid::new_v4().to_string())
+            } else {
+                api_article.id.clone()
+            };
+            
             // Parse price from string
             let price = api_article.pret_vanzare
                 .as_ref()
@@ -319,7 +370,7 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
                 .unwrap_or(0.0);
 
             Product {
-                id: api_article.id,
+                id: product_id,
                 name: api_article.denumire,
                 unit_of_measure: api_article.um,
                 price,
@@ -427,12 +478,18 @@ pub fn get_partners(db: State<'_, Database>) -> Result<Vec<PartnerWithLocations>
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let mut stmt = conn
-        .prepare("SELECT id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at FROM partners ORDER BY name")
+        .prepare("SELECT id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, inactiv, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, credit_client, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol FROM partners ORDER BY name")
         .map_err(|e| e.to_string())?;
 
-    let partners: Vec<(String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, String, String)> = stmt
+    let partners: Vec<(
+        String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, String, String,
+        Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>
+    )> = stmt
         .query_map([], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?, row.get(12)?, row.get(13)?))
+            Ok((
+                row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?, row.get(12)?, row.get(13)?,
+                row.get(14)?, row.get(15)?, row.get(16)?, row.get(17)?, row.get(18)?, row.get(19)?, row.get(20)?, row.get(21)?, row.get(22)?, row.get(23)?, row.get(24)?, row.get(25)?, row.get(26)?, row.get(27)?, row.get(28)?, row.get(29)?
+            ))
         })
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
@@ -440,7 +497,7 @@ pub fn get_partners(db: State<'_, Database>) -> Result<Vec<PartnerWithLocations>
 
     let mut result = Vec::new();
 
-    for (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at) in partners {
+    for (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, inactiv, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, credit_client, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol) in partners {
         let mut loc_stmt = conn
             .prepare("SELECT id, partner_id, name, address, cod_sediu, localitate, strada, numar, judet, tara, cod_postal, telefon, email, inactiv FROM locations WHERE partner_id = ?1")
             .map_err(|e| e.to_string())?;
@@ -483,6 +540,22 @@ pub fn get_partners(db: State<'_, Database>) -> Result<Vec<PartnerWithLocations>
             data_adaugarii,
             created_at,
             updated_at,
+            clasa,
+            simbol_clasa,
+            cod_clasa,
+            inactiv,
+            categorie_pret_implicita,
+            simbol_categorie_pret,
+            scadenta_la_vanzare,
+            scadenta_la_cumparare,
+            credit_client,
+            discount_fix,
+            tip_partener,
+            mod_aplicare_discount,
+            moneda,
+            data_nastere,
+            caracterizare_contabila_denumire,
+            caracterizare_contabila_simbol,
             locations,
         });
     }
@@ -499,12 +572,18 @@ pub fn search_partners(
     let search_query = format!("%{}%", query);
 
     let mut stmt = conn
-        .prepare("SELECT id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at FROM partners WHERE name LIKE ?1 ORDER BY name")
+        .prepare("SELECT id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, inactiv, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, credit_client, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol FROM partners WHERE name LIKE ?1 ORDER BY name")
         .map_err(|e| e.to_string())?;
 
-    let partners: Vec<(String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, String, String)> = stmt
+    let partners: Vec<(
+        String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, String, String,
+        Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>
+    )> = stmt
         .query_map([&search_query], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?, row.get(12)?, row.get(13)?))
+            Ok((
+                row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?, row.get(9)?, row.get(10)?, row.get(11)?, row.get(12)?, row.get(13)?,
+                row.get(14)?, row.get(15)?, row.get(16)?, row.get(17)?, row.get(18)?, row.get(19)?, row.get(20)?, row.get(21)?, row.get(22)?, row.get(23)?, row.get(24)?, row.get(25)?, row.get(26)?, row.get(27)?, row.get(28)?, row.get(29)?
+            ))
         })
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
@@ -512,7 +591,7 @@ pub fn search_partners(
 
     let mut result = Vec::new();
 
-    for (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at) in partners {
+    for (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, inactiv, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, credit_client, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol) in partners {
         let mut loc_stmt = conn
             .prepare("SELECT id, partner_id, name, address, cod_sediu, localitate, strada, numar, judet, tara, cod_postal, telefon, email, inactiv FROM locations WHERE partner_id = ?1")
             .map_err(|e| e.to_string())?;
@@ -555,6 +634,22 @@ pub fn search_partners(
             data_adaugarii,
             created_at,
             updated_at,
+            clasa,
+            simbol_clasa,
+            cod_clasa,
+            inactiv,
+            categorie_pret_implicita,
+            simbol_categorie_pret,
+            scadenta_la_vanzare,
+            scadenta_la_cumparare,
+            credit_client,
+            discount_fix,
+            tip_partener,
+            mod_aplicare_discount,
+            moneda,
+            data_nastere,
+            caracterizare_contabila_denumire,
+            caracterizare_contabila_simbol,
             locations,
         });
     }
@@ -635,12 +730,12 @@ pub fn create_invoice(
         )
         .map_err(|e| format!("Partner not found: {}", e))?;
 
-    // Get location name
-    let location_name: String = conn
+    // Get location name and address
+    let (location_name, location_address): (String, Option<String>) = conn
         .query_row(
-            "SELECT name FROM locations WHERE id = ?1",
+            "SELECT name, address FROM locations WHERE id = ?1",
             [&request.location_id],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| format!("Location not found: {}", e))?;
 
@@ -696,13 +791,6 @@ pub fn create_invoice(
         .map_err(|e| e.to_string())?;
     }
 
-    info!(
-        "Created invoice {} with {} items, total: {}",
-        invoice_id,
-        items_to_insert.len(),
-        total_amount
-    );
-
     Ok(Invoice {
         id: invoice_id,
         partner_id: request.partner_id,
@@ -711,6 +799,7 @@ pub fn create_invoice(
         partner_reg_com: None,
         location_id: request.location_id,
         location_name,
+        location_address,
         status: InvoiceStatus::Pending,
         total_amount,
         item_count: items_to_insert.len() as i32,
@@ -732,7 +821,7 @@ pub fn get_invoices(
         Some(status) => format!(
             r#"
             SELECT
-                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name,
+                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
                 (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
             FROM invoices i
@@ -745,7 +834,7 @@ pub fn get_invoices(
         ),
         None => r#"
             SELECT
-                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name,
+                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
                 (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
             FROM invoices i
@@ -768,13 +857,14 @@ pub fn get_invoices(
                 partner_reg_com: row.get(4)?,
                 location_id: row.get(5)?,
                 location_name: row.get(6)?,
-                status: InvoiceStatus::from(row.get::<_, String>(7)?),
-                total_amount: row.get(8)?,
-                notes: row.get(9)?,
-                created_at: row.get(10)?,
-                sent_at: row.get(11)?,
-                error_message: row.get(12)?,
-                item_count: row.get(13)?,
+                location_address: row.get(7)?,
+                status: InvoiceStatus::from(row.get::<_, String>(8)?),
+                total_amount: row.get(9)?,
+                notes: row.get(10)?,
+                created_at: row.get(11)?,
+                sent_at: row.get(12)?,
+                error_message: row.get(13)?,
+                item_count: row.get(14)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -796,7 +886,7 @@ pub fn get_invoice_detail(
         .query_row(
             r#"
             SELECT
-                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name,
+                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
                 (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
             FROM invoices i
@@ -814,13 +904,14 @@ pub fn get_invoice_detail(
                     partner_reg_com: row.get(4)?,
                     location_id: row.get(5)?,
                     location_name: row.get(6)?,
-                    status: InvoiceStatus::from(row.get::<_, String>(7)?),
-                    total_amount: row.get(8)?,
-                    notes: row.get(9)?,
-                    created_at: row.get(10)?,
-                    sent_at: row.get(11)?,
-                    error_message: row.get(12)?,
-                    item_count: row.get(13)?,
+                    location_address: row.get(7)?,
+                    status: InvoiceStatus::from(row.get::<_, String>(8)?),
+                    total_amount: row.get(9)?,
+                    notes: row.get(10)?,
+                    created_at: row.get(11)?,
+                    sent_at: row.get(12)?,
+                    error_message: row.get(13)?,
+                    item_count: row.get(14)?,
                 })
             },
         )
@@ -885,7 +976,6 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                 [&now, &invoice_id],
             )
             .map_err(|e| e.to_string())?;
-            info!("Invoice {} sent successfully", invoice_id);
             true
         }
         Err(ref error) => {
@@ -894,7 +984,6 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                 [error, &invoice_id],
             )
             .map_err(|e| e.to_string())?;
-            info!("Invoice {} failed to send: {}", invoice_id, error);
             false
         }
     };
@@ -904,7 +993,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         .query_row(
             r#"
             SELECT
-                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name,
+                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
                 (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
             FROM invoices i
@@ -922,13 +1011,14 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                     partner_reg_com: row.get(4)?,
                     location_id: row.get(5)?,
                     location_name: row.get(6)?,
-                    status: InvoiceStatus::from(row.get::<_, String>(7)?),
-                    total_amount: row.get(8)?,
-                    notes: row.get(9)?,
-                    created_at: row.get(10)?,
-                    sent_at: row.get(11)?,
-                    error_message: row.get(12)?,
-                    item_count: row.get(13)?,
+                    location_address: row.get(7)?,
+                    status: InvoiceStatus::from(row.get::<_, String>(8)?),
+                    total_amount: row.get(9)?,
+                    notes: row.get(10)?,
+                    created_at: row.get(11)?,
+                    sent_at: row.get(12)?,
+                    error_message: row.get(13)?,
+                    item_count: row.get(14)?,
                 })
             },
         )
@@ -1246,7 +1336,7 @@ fn get_invoice_for_print(
     conn.query_row(
         r#"
         SELECT
-            i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name,
+            i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
             i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
             (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
         FROM invoices i
@@ -1264,15 +1354,57 @@ fn get_invoice_for_print(
                 partner_reg_com: row.get(4)?,
                 location_id: row.get(5)?,
                 location_name: row.get(6)?,
-                status: InvoiceStatus::from(row.get::<_, String>(7)?),
-                total_amount: row.get(8)?,
-                notes: row.get(9)?,
-                created_at: row.get(10)?,
-                sent_at: row.get(11)?,
-                error_message: row.get(12)?,
-                item_count: row.get(13)?,
+                location_address: row.get(7)?,
+                status: InvoiceStatus::from(row.get::<_, String>(8)?),
+                total_amount: row.get(9)?,
+                notes: row.get(10)?,
+                created_at: row.get(11)?,
+                sent_at: row.get(12)?,
+                error_message: row.get(13)?,
+                item_count: row.get(14)?,
             })
         },
     )
     .map_err(|e| format!("Invoice not found: {}", e))
+}
+
+#[tauri::command]
+pub fn debug_db_counts(db: State<'_, Database>) -> Result<String, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    
+    let partners_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM partners", [], |row| row.get(0))
+        .unwrap_or(0);
+    
+    let products_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))
+        .unwrap_or(0);
+    
+    let partners_list: Vec<(String, String, Option<String>)> = conn
+        .prepare("SELECT id, name, inactiv FROM partners ORDER BY name")
+        .map_err(|e| e.to_string())?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    
+    let products_list: Vec<(String, String)> = conn
+        .prepare("SELECT id, name FROM products ORDER BY name")
+        .map_err(|e| e.to_string())?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    
+    let mut result = format!("Database counts:\nPartners: {}\nProducts: {}\n\n", partners_count, products_count);
+    result.push_str("Partners:\n");
+    for (id, name, inactiv) in partners_list {
+        result.push_str(&format!("  - {} | {} | inactiv: {:?}\n", id, name, inactiv));
+    }
+    result.push_str("\nProducts:\n");
+    for (id, name) in products_list {
+        result.push_str(&format!("  - {} | {}\n", id, name));
+    }
+    
+    Ok(result)
 }

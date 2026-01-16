@@ -40,6 +40,8 @@ pub struct PartnerFilter {
     pub cod_fiscal: Option<String>,
     #[serde(rename = "Email", skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
+    #[serde(rename = "SimbolClasa", skip_serializing_if = "Option::is_none")]
+    pub simbol_clasa: Option<String>,
     #[serde(rename = "Paginare", skip_serializing_if = "Option::is_none")]
     pub paginare: Option<Pagination>,
 }
@@ -113,6 +115,39 @@ pub struct PartnerInfo {
     pub observatii: Option<String>,
     #[serde(rename = "DataAdaugarii")]
     pub data_adaugarii: Option<String>,
+    // New fields for extended schema
+    #[serde(rename = "Clasa")]
+    pub clasa: Option<String>,
+    #[serde(rename = "SimbolClasa")]
+    pub simbol_clasa: Option<String>,
+    #[serde(rename = "CodClasa")]
+    pub cod_clasa: Option<String>,
+    #[serde(rename = "CategoriePretImplicita")]
+    pub categorie_pret_implicita: Option<String>,
+    #[serde(rename = "SimbolCategoriePret")]
+    pub simbol_categorie_pret: Option<String>,
+    #[serde(rename = "ScadentaLaVanzare")]
+    pub scadenta_la_vanzare: Option<String>,
+    #[serde(rename = "ScadentaLaCumparare")]
+    pub scadenta_la_cumparare: Option<String>,
+    #[serde(rename = "DiscountFix")]
+    pub discount_fix: Option<String>,
+    #[serde(rename = "TipPartener")]
+    pub tip_partener: Option<String>,
+    #[serde(rename = "ModAplicareDiscount")]
+    pub mod_aplicare_discount: Option<String>,
+    #[serde(rename = "Moneda")]
+    pub moneda: Option<String>,
+    #[serde(rename = "DataNastere")]
+    pub data_nastere: Option<String>,
+    #[serde(rename = "CaracterizareContabilaDenumire")]
+    pub caracterizare_contabila_denumire: Option<String>,
+    #[serde(rename = "CaracterizareContabilaSimbol")]
+    pub caracterizare_contabila_simbol: Option<String>,
+    #[serde(rename = "Inactiv")]
+    pub inactiv: Option<String>,
+    #[serde(rename = "CreditClient")]
+    pub credit_client: Option<String>,
     #[serde(rename = "Sedii")]
     pub sedii: Vec<SediuInfo>,
 }
@@ -163,7 +198,6 @@ pub struct ArticleInfo {
     #[serde(rename = "ID")]
     pub id: String,
     #[serde(rename = "CodObiect")]
-    #[allow(dead_code)]
     pub cod_obiect: Option<String>,
     #[serde(rename = "Denumire")]
     pub denumire: String,
@@ -229,8 +263,6 @@ impl ApiClient {
     // Get all partners (with pagination)
     pub async fn get_partners(&self, filter: Option<PartnerFilter>) -> Result<PartnerResponse, String> {
         let url = format!("{}/\"GetInfoParteneri\"", self.config.base_url);
-        
-        info!("Fetching partners from API: {}", url);
 
         let filter = filter.unwrap_or(PartnerFilter {
             data_referinta: None,
@@ -239,6 +271,7 @@ impl ApiClient {
             marca_agent: None,
             cod_fiscal: None,
             email: None,
+            simbol_clasa: None,
             paginare: None,
         });
 
@@ -258,16 +291,12 @@ impl ApiClient {
             .await
             .map_err(|e| format!("Failed to parse partner response: {}", e))?;
 
-        info!("Successfully fetched {} partners", partner_response.info_parteneri.len());
-
         Ok(partner_response)
     }
 
     // Get all articles (with pagination)
     pub async fn get_articles(&self, filter: Option<ArticleFilter>) -> Result<ArticleResponse, String> {
         let url = format!("{}/\"GetInfoArticole\"", self.config.base_url);
-        
-        info!("Fetching articles from API: {}", url);
 
         let filter = filter.unwrap_or(ArticleFilter {
             data_referinta: None,
@@ -296,8 +325,6 @@ impl ApiClient {
             .await
             .map_err(|e| format!("Failed to parse article response: {}", e))?;
 
-        info!("Successfully fetched {} articles", article_response.info_articole.len());
-
         Ok(article_response)
     }
 
@@ -315,6 +342,7 @@ impl ApiClient {
                 marca_agent: None,
                 cod_fiscal: None,
                 email: None,
+                simbol_clasa: Some("AGENTI".to_string()),
                 paginare: Some(Pagination {
                     pagina: Some(page.to_string()),
                     inregistrari: Some(per_page.to_string()),
@@ -327,50 +355,38 @@ impl ApiClient {
                     let count = response.info_parteneri.len();
                     
                     if count == 0 {
-                        info!("No more partners to fetch on page {}", page);
                         break;
                     }
                     
                     all_partners.extend(response.info_parteneri);
 
-                    info!("Fetched page {} with {} partners (total so far: {})", page, count, all_partners.len());
-
                     // Check pagination info from response
                     let should_continue = if let Some(paginare) = &response.paginare {
-                        info!("Pagination info: {:?}", paginare);
-                        
                         if let Some(total_pages_str) = &paginare.total_pagini {
                             if let Ok(total_pages) = total_pages_str.parse::<i32>() {
-                                info!("Total pages from API: {}, current page: {}", total_pages, page);
                                 page < total_pages
                             } else {
-                                // Can't parse total_pages, continue if we got results
                                 count > 0
                             }
                         } else {
-                            // No total_pages info, continue if we got results
                             count > 0
                         }
                     } else {
-                        // No pagination info, continue if we got results
                         count > 0
                     };
 
                     if !should_continue {
-                        info!("Stopping pagination: reached last page or no pagination info");
                         break;
                     }
 
                     page += 1;
                 }
                 Err(e) => {
-                    error!("Failed to fetch partners page {}: {}", page, e);
                     return Err(e);
                 }
             }
         }
 
-        info!("✅ Total partners fetched: {}", all_partners.len());
         Ok(all_partners)
     }
 
@@ -385,7 +401,7 @@ impl ApiClient {
                 data_referinta: None,
                 denumire: None,
                 clasa: None,
-                simbol_clasa: None,
+                simbol_clasa: Some(vec!["OUA".to_string()]),
                 vizibil_comenzi_online: None,
                 inactiv: Some("NU".to_string()),
                 blocat: Some("NU".to_string()),

@@ -18,7 +18,7 @@ import type { PartnerWithLocations, Location, CartItem } from "@/lib/tauri/types
 
 interface ReviewStepProps {
   partner: PartnerWithLocations;
-  location: Location;
+  location?: Location;
   cartItems: CartItem[];
   notes: string;
   onNotesChange: (notes: string) => void;
@@ -72,9 +72,15 @@ export function ReviewStep({
             <div className="flex items-start gap-2 text-sm">
               <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium">{location.name}</p>
-                {location.address && (
-                  <p className="text-muted-foreground">{location.address}</p>
+                {location ? (
+                  <>
+                    <p className="font-medium">{location.name}</p>
+                    {location.address && (
+                      <p className="text-muted-foreground">{location.address}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">Fără sediu specific</p>
                 )}
               </div>
             </div>

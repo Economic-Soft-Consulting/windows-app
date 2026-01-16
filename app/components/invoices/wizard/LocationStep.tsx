@@ -50,12 +50,12 @@ export function LocationStep({
         >
           {partner.locations.map((location) => {
             const isSelected = selectedLocation?.id === location.id;
-          return (
-            <Label
-              key={location.id}
-              htmlFor={location.id}
-              className="cursor-pointer"
-            >
+            return (
+              <Label
+                key={location.id}
+                htmlFor={location.id}
+                className="cursor-pointer"
+              >
               <Card
                 className={cn(
                   "transition-all hover:border-primary/50",

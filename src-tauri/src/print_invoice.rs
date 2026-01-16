@@ -361,7 +361,7 @@ pub fn generate_invoice_html(
         invoice.partner_cif.as_deref().unwrap_or("N/A"),
         invoice.partner_reg_com.as_deref().unwrap_or("N/A"),
         invoice.location_name,
-        format!("Adresa: {}", invoice.partner_name),
+        format!("Adresa: {}", invoice.location_address.as_deref().unwrap_or("N/A")),
         products_html,
         total_without_vat,
         total_vat,

@@ -55,7 +55,8 @@ export function InvoiceWizard() {
         case 1:
           return selectedPartner !== null;
         case 2:
-          return selectedLocation !== null;
+          // Location is optional - allow continuing even without selection
+          return true;
         case 3:
           return cartItems.length > 0;
         case 4:
@@ -109,7 +110,7 @@ export function InvoiceWizard() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedPartner || !selectedLocation || cartItems.length === 0) {
+    if (!selectedPartner || cartItems.length === 0) {
       return;
     }
 
@@ -118,7 +119,7 @@ export function InvoiceWizard() {
     try {
       const request: CreateInvoiceRequest = {
         partner_id: selectedPartner.id,
-        location_id: selectedLocation.id,
+        location_id: selectedLocation?.id || "",
         notes: notes || undefined,
         items: cartItems.map((item) => ({
           product_id: item.product.id,
@@ -223,10 +224,10 @@ export function InvoiceWizard() {
           {currentStep === 3 && (
             <ProductsStep cartItems={cartItems} onUpdateCart={setCartItems} />
           )}
-          {currentStep === 4 && selectedPartner && selectedLocation && (
+          {currentStep === 4 && selectedPartner && (
             <ReviewStep
               partner={selectedPartner}
-              location={selectedLocation}
+              location={selectedLocation || undefined}
               cartItems={cartItems}
               notes={notes}
               onNotesChange={setNotes}

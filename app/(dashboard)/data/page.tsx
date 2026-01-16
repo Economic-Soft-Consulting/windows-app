@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePartners } from "@/hooks/usePartners";
 import { useProducts } from "@/hooks/useProducts";
-import { Search, Building2, Package, MapPin, Loader2 } from "lucide-react";
+import { useSyncStatus } from "@/hooks/useSyncStatus";
+import { Search, Building2, Package, MapPin, Loader2, Trash2 } from "lucide-react";
+import { clearDatabase } from "@/lib/tauri/commands";
+import { toast } from "sonner";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("ro-RO", {
@@ -21,9 +25,25 @@ function formatCurrency(amount: number): string {
 export default function DataPage() {
   const [partnerSearch, setPartnerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const [isClearing, setIsClearing] = useState(false);
 
-  const { partners, isLoading: partnersLoading, search: searchPartners } = usePartners();
-  const { products, isLoading: productsLoading, search: searchProducts } = useProducts();
+  const { partners, isLoading: partnersLoading, search: searchPartners, refresh: refreshPartners } = usePartners();
+  const { products, isLoading: productsLoading, search: searchProducts, refresh: refreshProducts } = useProducts();
+  const { isSyncing } = useSyncStatus();
+
+  // Listen for sync completion event from anywhere in the app
+  useEffect(() => {
+    const handleSyncCompleted = () => {
+      console.log("Sync completed event received, refreshing data...");
+      setTimeout(() => {
+        refreshPartners();
+        refreshProducts();
+      }, 500);
+    };
+
+    window.addEventListener('sync-completed', handleSyncCompleted);
+    return () => window.removeEventListener('sync-completed', handleSyncCompleted);
+  }, [refreshPartners, refreshProducts]);
 
   const handlePartnerSearch = (query: string) => {
     setPartnerSearch(query);
@@ -35,13 +55,47 @@ export default function DataPage() {
     searchProducts(query);
   };
 
+  const handleClearDatabase = async () => {
+    if (!confirm("Sigur vrei să ștergi toate datele (parteneri, locații, produse)? Această acțiune nu poate fi anulată!")) {
+      return;
+    }
+
+    setIsClearing(true);
+    try {
+      await clearDatabase();
+      toast.success("Baza de date a fost curățată cu succes");
+      refreshPartners();
+      refreshProducts();
+    } catch (error) {
+      console.error("Failed to clear database:", error);
+      toast.error("Eroare la curățarea bazei de date");
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Date</h1>
-        <p className="text-muted-foreground">
-          Vizualizează partenerii și produsele disponibile
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Date</h1>
+          <p className="text-muted-foreground">
+            Vizualizează partenerii și produsele disponibile
+          </p>
+        </div>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={handleClearDatabase}
+          disabled={isClearing}
+        >
+          {isClearing ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4 mr-2" />
+          )}
+          Curăță baza de date
+        </Button>
       </div>
 
       <Tabs defaultValue="partners">
@@ -87,28 +141,28 @@ export default function DataPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {partners.map((partner) => (
-                  <Card key={partner.id}>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg truncate">{partner.name}</CardTitle>
-                      <CardDescription>
+                  <Card key={partner.id} className="text-sm">
+                    <CardHeader className="pb-2 pt-3 px-3">
+                      <CardTitle className="text-base truncate">{partner.name}</CardTitle>
+                      <CardDescription className="text-xs">
                         {partner.locations.length} locații
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                      <ScrollArea className="h-24">
-                        <div className="space-y-2">
+                    <CardContent className="px-3 pb-3">
+                      <ScrollArea className="h-20">
+                        <div className="space-y-1.5">
                           {partner.locations.map((location) => (
                             <div
                               key={location.id}
-                              className="flex items-start gap-2 text-sm"
+                              className="flex items-start gap-1.5 text-xs"
                             >
-                              <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                              <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
                               <div>
-                                <p className="font-medium">{location.name}</p>
+                                <p className="font-medium leading-tight">{location.name}</p>
                                 {location.address && (
-                                  <p className="text-muted-foreground text-xs">
+                                  <p className="text-muted-foreground text-[10px] leading-tight">
                                     {location.address}
                                   </p>
                                 )}
@@ -150,25 +204,25 @@ export default function DataPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {products.map((product) => (
-                  <Card key={product.id}>
-                    <CardHeader className="pb-3">
+                  <Card key={product.id} className="text-sm">
+                    <CardHeader className="pb-2 pt-3 px-3">
                       <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-base">{product.name}</CardTitle>
+                        <CardTitle className="text-sm leading-tight">{product.name}</CardTitle>
                         {product.class && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                             {product.class}
                           </Badge>
                         )}
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 pb-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           UM: {product.unit_of_measure}
                         </span>
-                        <span className="text-lg font-bold">
+                        <span className="text-base font-bold">
                           {formatCurrency(product.price)}
                         </span>
                       </div>

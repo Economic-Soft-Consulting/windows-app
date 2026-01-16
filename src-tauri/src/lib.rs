@@ -47,6 +47,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             // Sync commands
+            commands::clear_database,
             commands::check_first_run,
             commands::get_sync_status,
             commands::sync_all_data,
@@ -68,6 +69,8 @@ pub fn run() {
             // API test commands
             commands::test_api_partners,
             commands::test_api_articles,
+            // Debug commands
+            commands::debug_db_counts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

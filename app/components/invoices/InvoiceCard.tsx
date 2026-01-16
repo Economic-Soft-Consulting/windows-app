@@ -67,13 +67,13 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
   };
 
   return (
-    <Card className="flex flex-col">
-      <CardHeader className="pb-3">
+    <Card className="flex flex-col text-sm">
+      <CardHeader className="pb-2 pt-3 px-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg truncate">{invoice.partner_name}</h3>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-              <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+            <h3 className="font-semibold text-base truncate leading-tight">{invoice.partner_name}</h3>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+              <MapPin className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{invoice.location_name}</span>
             </div>
           </div>
@@ -81,73 +81,73 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 pb-3">
-        <div className="space-y-3">
+      <CardContent className="flex-1 pb-2 px-3">
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Package className="h-4 w-4" />
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Package className="h-3 w-3" />
               <span>{invoice.item_count} produse</span>
             </div>
-            <span className="text-xl font-bold">{formatCurrency(invoice.total_amount)}</span>
+            <span className="text-base font-bold">{formatCurrency(invoice.total_amount)}</span>
           </div>
 
-          <div className="text-sm text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             {formatDate(invoice.created_at)}
           </div>
 
           {invoice.status === "failed" && invoice.error_message && (
-            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded">
+            <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-1.5 rounded leading-tight">
               {invoice.error_message}
             </div>
           )}
 
           {invoice.status === "sent" && invoice.sent_at && (
-            <div className="text-sm text-green-600 dark:text-green-400">
+            <div className="text-xs text-green-600 dark:text-green-400">
               Trimisă: {formatDate(invoice.sent_at)}
             </div>
           )}
         </div>
       </CardContent>
 
-      <CardFooter className="pt-3 border-t gap-2">
+      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2">
         <Button
           variant="outline"
-          className="flex-1 h-11"
+          className="flex-1 h-9 text-xs"
           onClick={() => onView(invoice.id)}
         >
-          <Eye className="h-5 w-5 mr-1.5" />
+          <Eye className="h-3.5 w-3.5 mr-1" />
           Detalii
         </Button>
 
         <Button
           variant="outline"
-          className="h-11 w-11 p-0"
+          className="h-9 w-9 p-0"
           onClick={handlePrint}
           disabled={isPrinting}
           title="Imprimare"
         >
           {isPrinting ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
-            <Printer className="h-5 w-5" />
+            <Printer className="h-3.5 w-3.5" />
           )}
         </Button>
 
         {canSend && (
           <Button
             variant={invoice.status === "failed" ? "outline" : "default"}
-            className="flex-1 h-11"
+            className="flex-1 h-9 text-xs"
             onClick={() => onSend(invoice.id)}
             disabled={isSending}
           >
             {invoice.status === "failed" ? (
               <>
-                <RotateCcw className="h-5 w-5 mr-1.5" />
+                <RotateCcw className="h-3.5 w-3.5 mr-1" />
                 Reîncearcă
               </>
             ) : (
               <>
-                <Send className="h-5 w-5 mr-1.5" />
+                <Send className="h-3.5 w-3.5 mr-1" />
                 Trimite
               </>
             )}
@@ -159,9 +159,9 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
             <AlertDialogTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-11 w-11 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
-                <Trash2 className="h-5 w-5" />
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
