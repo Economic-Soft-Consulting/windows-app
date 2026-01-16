@@ -3,6 +3,8 @@
 export interface Partner {
   id: string;
   name: string;
+  cif?: string;
+  reg_com?: string;
   created_at: string;
   updated_at: string;
 }
@@ -17,6 +19,8 @@ export interface Location {
 export interface PartnerWithLocations {
   id: string;
   name: string;
+  cif?: string;
+  reg_com?: string;
   created_at: string;
   updated_at: string;
   locations: Location[];
@@ -36,6 +40,8 @@ export interface Invoice {
   id: string;
   partner_id: string;
   partner_name: string;
+  partner_cif?: string;
+  partner_reg_com?: string;
   location_id: string;
   location_name: string;
   status: InvoiceStatus;

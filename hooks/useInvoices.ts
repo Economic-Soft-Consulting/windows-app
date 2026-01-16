@@ -6,6 +6,7 @@ import {
   sendInvoice,
   deleteInvoice,
   getInvoiceDetail,
+  printInvoiceToHtml,
 } from "@/lib/tauri/commands";
 import type { Invoice, InvoiceStatus, InvoiceDetail } from "@/lib/tauri/types";
 import { toast } from "sonner";

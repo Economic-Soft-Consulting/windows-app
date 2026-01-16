@@ -12,10 +12,10 @@ pub struct CompanyInfo {
 
 // KARIN company details
 pub const KARIN: CompanyInfo = CompanyInfo {
-    name: "KARIN FASHION SRL",
-    cif: "12345678",
-    reg_com: "J40/123456/2023",
-    address: "Str. Designului 25, Sector 4, BUCURESTI",
+    name: "KARIN SRL",
+    cif: "RO5379259",
+    reg_com: "J24/380/1994",
+    address: " 	Str. Nicolae Balcescu 43 Cod 435400, Loc. Seini, Jud. Maramures",
     bank_name: "BRD - Groupe Société Générale",
     bank_account: "RO12BRDE445SV20475833001 (RON)",
     capital: "200 RON",
@@ -25,8 +25,9 @@ pub fn generate_invoice_html(
     invoice: &Invoice,
     items: &[InvoiceItem],
     invoice_number: i64,
+    logo_base64: Option<&str>,
 ) -> String {
-    let vat_rate = 0.24;
+    let vat_rate = 0.21;
     let total_without_vat = invoice.total_amount / (1.0 + vat_rate);
     let total_vat = invoice.total_amount - total_without_vat;
     
@@ -70,7 +71,7 @@ pub fn generate_invoice_html(
         @media print {{
             @page {{
                 size: 80mm 297mm;
-                margin: 0;
+                margin: 3mm 6mm 3mm 0.5mm;
             }}
             body {{ 
                 margin: 0; 
@@ -87,14 +88,14 @@ pub fn generate_invoice_html(
 
         body {{
             font-family: Arial, Helvetica, sans-serif;
-            width: 76mm;
+            width: 68mm;
             margin: 0 auto;
             padding: 2mm;
             padding-bottom: 50px; 
-            font-size: 13px;
+            font-size: 10.5px;
             font-weight: bold;
             color: #000000;
-            line-height: 1.2;
+            line-height: 1.15;
             background: white;
             position: relative;
             min-height: 290mm;
@@ -214,13 +215,20 @@ pub fn generate_invoice_html(
             left: 0;
             width: 100%;
             text-align: center;
-            font-size: 10px;
+            font-size: 20px;
             color: #000000;
             font-weight: normal;
             font-style: italic;
             border-top: 1px solid #000;
             padding-top: 5px;
             background-color: white;
+        }}
+
+        .footer-logo {{
+            width: 60mm;
+            height: auto;
+            display: block;
+            margin: 0 auto 5px auto;
         }}
     </style>
 </head>
@@ -230,7 +238,8 @@ pub fn generate_invoice_html(
     
     <div class="header-meta">
         Seria: {} &nbsp; Nr: {}<br>
-        Data (zi/luna/an): {}
+        Data emitere: {}<br>
+        Data scadenta: {}
     </div>
 
     <div class="section">
@@ -253,12 +262,14 @@ pub fn generate_invoice_html(
     <div class="section">
         <span class="section-title">CUMPARATOR:</span>
         {}<br>
+        CIF: {}<br>
+        Reg.Com: {}<br>
         Locatie: {}<br>
         {}
     </div>
 
     <div style="font-size: 12px; margin-bottom: 5px;">
-        Cota TVA: 24% (TVA la incasare)
+        Cota TVA: 21% (TVA la incasare)
     </div>
 
     <div class="products-container">
@@ -309,14 +320,36 @@ pub fn generate_invoice_html(
     </div>
 
     <div class="footer-branding">
-        printed by karin app
+        {}
+        printed by eSOFT app
     </div>
 
+    <script>
+        // Auto-open print dialog when page loads
+        function triggerPrint() {{
+            window.print();
+        }}
+        
+        // Try multiple triggers to ensure print dialog opens
+        if (document.readyState === 'loading') {{
+            document.addEventListener('DOMContentLoaded', function() {{
+                setTimeout(triggerPrint, 300);
+            }});
+        }} else {{
+            triggerPrint();
+        }}
+        
+        // Fallback after window load
+        window.addEventListener('load', function() {{
+            setTimeout(triggerPrint, 100);
+        }});
+    </script>
 </body>
 </html>"#,
         invoice_series,
         invoice_number,
         format_date(&invoice.created_at),
+        due_date.clone(),
         KARIN.name,
         KARIN.cif,
         KARIN.reg_com,
@@ -325,13 +358,20 @@ pub fn generate_invoice_html(
         KARIN.bank_account,
         KARIN.capital,
         invoice.partner_name,
+        invoice.partner_cif.as_deref().unwrap_or("N/A"),
+        invoice.partner_reg_com.as_deref().unwrap_or("N/A"),
         invoice.location_name,
         format!("Adresa: {}", invoice.partner_name),
         products_html,
         total_without_vat,
         total_vat,
         invoice.total_amount,
-        due_date
+        due_date,
+        if let Some(logo) = logo_base64 {
+            format!(r#"<img src="{}" class="footer-logo" alt="Logo" />"#, logo)
+        } else {
+            String::new()
+        }
     )
 }
 

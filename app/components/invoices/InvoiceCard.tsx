@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
-import { Send, Trash2, Eye, RotateCcw, MapPin, Package } from "lucide-react";
+import { Send, Trash2, Eye, RotateCcw, MapPin, Package, Printer, Loader2 } from "lucide-react";
 import type { Invoice } from "@/lib/tauri/types";
+import { printInvoiceToHtml } from "@/lib/tauri/commands";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,9 +47,24 @@ function formatDate(dateStr: string): string {
 }
 
 export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardProps) {
+  const [isPrinting, setIsPrinting] = useState(false);
   const canSend = invoice.status === "pending" || invoice.status === "failed";
   const canDelete = invoice.status === "pending" || invoice.status === "failed";
   const isSending = invoice.status === "sending";
+
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    try {
+      const selectedPrinter = typeof window !== "undefined" ? localStorage.getItem("selectedPrinter") : null;
+      await printInvoiceToHtml(invoice.id, selectedPrinter || undefined);
+      toast.success("Factura s-a trimis la imprimantă!");
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error(`Eroare la imprimare: ${error}`);
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   return (
     <Card className="flex flex-col">
@@ -99,6 +117,20 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
         >
           <Eye className="h-5 w-5 mr-1.5" />
           Detalii
+        </Button>
+
+        <Button
+          variant="outline"
+          className="h-11 w-11 p-0"
+          onClick={handlePrint}
+          disabled={isPrinting}
+          title="Imprimare"
+        >
+          {isPrinting ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <Printer className="h-5 w-5" />
+          )}
         </Button>
 
         {canSend && (

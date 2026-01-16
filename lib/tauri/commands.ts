@@ -79,6 +79,10 @@ export async function deleteInvoice(invoiceId: string): Promise<void> {
 
 // ==================== PRINT COMMANDS ====================
 
-export async function printInvoiceToHtml(invoiceId: string): Promise<string> {
-  return invoke<string>("print_invoice_to_html", { invoiceId });
+export async function getAvailablePrinters(): Promise<string[]> {
+  return invoke<string[]>("get_available_printers");
+}
+
+export async function printInvoiceToHtml(invoiceId: string, printerName?: string): Promise<string> {
+  return invoke<string>("print_invoice_to_html", { invoiceId, printerName });
 }

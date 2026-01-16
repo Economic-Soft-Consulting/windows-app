@@ -107,7 +107,7 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-[1fr_1.5fr]">
         {/* Product Search */}
         <div className="space-y-4">
           <div className="relative">
@@ -130,17 +130,20 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
               <h3 className="text-lg font-medium">Nu s-au găsit produse</h3>
             </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-420px)] min-h-[200px] max-h-[400px] pr-4">
-              <div className="space-y-2">
+            <ScrollArea className="h-[calc(100vh-420px)] min-h-[200px] max-h-[400px]">
+              <div className="space-y-2 pr-4">
                 {products.map((product) => {
                   const inCart = getCartQuantity(product.id) > 0;
                   return (
                     <Card
                       key={product.id}
-                      className={inCart ? "border-primary/50 bg-primary/5" : ""}
+                      className={`cursor-pointer transition-all hover:border-primary/50 ${
+                        inCart ? "border-primary bg-primary/5" : ""
+                      }`}
+                      onClick={() => addToCart(product)}
                     >
                       <CardContent className="p-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="font-medium truncate">
@@ -161,13 +164,7 @@ export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
                               </span>
                             </div>
                           </div>
-                          <Button
-                            variant={inCart ? "secondary" : "default"}
-                            className="h-11 w-11 p-0"
-                            onClick={() => addToCart(product)}
-                          >
-                            <Plus className="h-5 w-5" />
-                          </Button>
+                          <Plus className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         </div>
                       </CardContent>
                     </Card>

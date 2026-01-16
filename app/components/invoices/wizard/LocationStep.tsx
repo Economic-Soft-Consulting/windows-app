@@ -18,6 +18,9 @@ export function LocationStep({
   selectedLocation,
   onSelect,
 }: LocationStepProps) {
+  console.log("LocationStep - partner locations:", partner.locations);
+  console.log("LocationStep - selectedLocation:", selectedLocation);
+  
   return (
     <div className="space-y-6">
       <div>
@@ -27,16 +30,26 @@ export function LocationStep({
         </p>
       </div>
 
-      <RadioGroup
-        value={selectedLocation?.id ?? ""}
-        onValueChange={(value) => {
-          const location = partner.locations.find((l) => l.id === value);
-          if (location) onSelect(location);
-        }}
-        className="grid gap-3 sm:grid-cols-2 md:grid-cols-2"
-      >
-        {partner.locations.map((location) => {
-          const isSelected = selectedLocation?.id === location.id;
+      {partner.locations.length === 0 ? (
+        <Card>
+          <CardContent className="p-6 text-center text-muted-foreground">
+            <MapPin className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>Acest partener nu are locații configurate.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <RadioGroup
+          value={selectedLocation?.id ?? ""}
+          onValueChange={(value) => {
+            console.log("RadioGroup onValueChange:", value);
+            const location = partner.locations.find((l) => l.id === value);
+            console.log("Found location:", location);
+            if (location) onSelect(location);
+          }}
+          className="grid gap-3 sm:grid-cols-2 md:grid-cols-2"
+        >
+          {partner.locations.map((location) => {
+            const isSelected = selectedLocation?.id === location.id;
           return (
             <Label
               key={location.id}
@@ -79,8 +92,9 @@ export function LocationStep({
               </Card>
             </Label>
           );
-        })}
-      </RadioGroup>
+          })}
+        </RadioGroup>
+      )}
     </div>
   );
 }

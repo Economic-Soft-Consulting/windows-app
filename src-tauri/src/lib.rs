@@ -6,6 +6,7 @@ mod database;
 mod mock_api;
 mod models;
 mod print_invoice;
+mod api_client;
 
 #[cfg(not(debug_assertions))]
 mod updater;
@@ -63,6 +64,10 @@ pub fn run() {
             commands::send_invoice,
             commands::delete_invoice,
             commands::print_invoice_to_html,
+            commands::get_available_printers,
+            // API test commands
+            commands::test_api_partners,
+            commands::test_api_articles,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

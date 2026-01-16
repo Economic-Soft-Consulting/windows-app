@@ -1,9 +1,20 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Partner {
     pub id: String,
     pub name: String,
+    pub cif: Option<String>,
+    pub reg_com: Option<String>,
+    pub cod: Option<String>,
+    pub blocat: Option<String>,
+    pub tva_la_incasare: Option<String>,
+    pub persoana_fizica: Option<String>,
+    pub cod_extern: Option<String>,
+    pub cod_intern: Option<String>,
+    pub observatii: Option<String>,
+    pub data_adaugarii: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -14,12 +25,32 @@ pub struct Location {
     pub partner_id: String,
     pub name: String,
     pub address: Option<String>,
+    pub cod_sediu: Option<String>,
+    pub localitate: Option<String>,
+    pub strada: Option<String>,
+    pub numar: Option<String>,
+    pub judet: Option<String>,
+    pub tara: Option<String>,
+    pub cod_postal: Option<String>,
+    pub telefon: Option<String>,
+    pub email: Option<String>,
+    pub inactiv: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartnerWithLocations {
     pub id: String,
     pub name: String,
+    pub cif: Option<String>,
+    pub reg_com: Option<String>,
+    pub cod: Option<String>,
+    pub blocat: Option<String>,
+    pub tva_la_incasare: Option<String>,
+    pub persoana_fizica: Option<String>,
+    pub cod_extern: Option<String>,
+    pub cod_intern: Option<String>,
+    pub observatii: Option<String>,
+    pub data_adaugarii: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub locations: Vec<Location>,
@@ -71,6 +102,8 @@ pub struct Invoice {
     pub id: String,
     pub partner_id: String,
     pub partner_name: String,
+    pub partner_cif: Option<String>,
+    pub partner_reg_com: Option<String>,
     pub location_id: String,
     pub location_name: String,
     pub status: InvoiceStatus,

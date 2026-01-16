@@ -18,6 +18,9 @@ impl Database {
 
         // Run migrations
         conn.execute_batch(SCHEMA)?;
+        
+        // Run migrations for new columns
+        run_migrations(&conn)?;
 
         info!("Database initialized successfully");
 
@@ -31,6 +34,16 @@ const SCHEMA: &str = r#"
     CREATE TABLE IF NOT EXISTS partners (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
+        cif TEXT,
+        reg_com TEXT,
+        cod TEXT,
+        blocat TEXT,
+        tva_la_incasare TEXT,
+        persoana_fizica TEXT,
+        cod_extern TEXT,
+        cod_intern TEXT,
+        observatii TEXT,
+        data_adaugarii TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     );
@@ -40,6 +53,16 @@ const SCHEMA: &str = r#"
         partner_id TEXT NOT NULL,
         name TEXT NOT NULL,
         address TEXT,
+        cod_sediu TEXT,
+        localitate TEXT,
+        strada TEXT,
+        numar TEXT,
+        judet TEXT,
+        tara TEXT,
+        cod_postal TEXT,
+        telefon TEXT,
+        email TEXT,
+        inactiv TEXT,
         FOREIGN KEY (partner_id) REFERENCES partners(id) ON DELETE CASCADE
     );
 
@@ -87,6 +110,46 @@ const SCHEMA: &str = r#"
     CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
     CREATE INDEX IF NOT EXISTS idx_locations_partner ON locations(partner_id);
 "#;
+
+fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
+    // Add missing columns to partners table
+    let partner_columns = vec![
+        "ALTER TABLE partners ADD COLUMN cif TEXT;",
+        "ALTER TABLE partners ADD COLUMN reg_com TEXT;",
+        "ALTER TABLE partners ADD COLUMN cod TEXT;",
+        "ALTER TABLE partners ADD COLUMN blocat TEXT;",
+        "ALTER TABLE partners ADD COLUMN tva_la_incasare TEXT;",
+        "ALTER TABLE partners ADD COLUMN persoana_fizica TEXT;",
+        "ALTER TABLE partners ADD COLUMN cod_extern TEXT;",
+        "ALTER TABLE partners ADD COLUMN cod_intern TEXT;",
+        "ALTER TABLE partners ADD COLUMN observatii TEXT;",
+        "ALTER TABLE partners ADD COLUMN data_adaugarii TEXT;",
+    ];
+    
+    for sql in partner_columns {
+        let _ = conn.execute(sql, []).ok();
+    }
+    
+    // Add missing columns to locations table
+    let location_columns = vec![
+        "ALTER TABLE locations ADD COLUMN cod_sediu TEXT;",
+        "ALTER TABLE locations ADD COLUMN localitate TEXT;",
+        "ALTER TABLE locations ADD COLUMN strada TEXT;",
+        "ALTER TABLE locations ADD COLUMN numar TEXT;",
+        "ALTER TABLE locations ADD COLUMN judet TEXT;",
+        "ALTER TABLE locations ADD COLUMN tara TEXT;",
+        "ALTER TABLE locations ADD COLUMN cod_postal TEXT;",
+        "ALTER TABLE locations ADD COLUMN telefon TEXT;",
+        "ALTER TABLE locations ADD COLUMN email TEXT;",
+        "ALTER TABLE locations ADD COLUMN inactiv TEXT;",
+    ];
+    
+    for sql in location_columns {
+        let _ = conn.execute(sql, []).ok();
+    }
+    
+    Ok(())
+}
 
 pub fn init_database(app: &AppHandle) -> Result<Database, Box<dyn std::error::Error>> {
     let app_data_dir = app

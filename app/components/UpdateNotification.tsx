@@ -11,7 +11,7 @@ export function UpdateNotification() {
 
   useEffect(() => {
     // Only setup Tauri listeners if running in Tauri context
-    if (typeof window === "undefined" || !window.__TAURI_INTERNALS__) {
+    if (typeof window === "undefined" || !(window as any).__TAURI_INTERNALS__) {
       return;
     }
 

@@ -8,7 +8,7 @@ import { PartnerStep } from "./PartnerStep";
 import { LocationStep } from "./LocationStep";
 import { ProductsStep } from "./ProductsStep";
 import { ReviewStep } from "./ReviewStep";
-import { createInvoice, sendInvoice } from "@/lib/tauri/commands";
+import { createInvoice, sendInvoice, printInvoiceToHtml } from "@/lib/tauri/commands";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -50,18 +50,30 @@ export function InvoiceWizard() {
   const [notes, setNotes] = useState("");
 
   const canGoNext = () => {
-    switch (currentStep) {
-      case 1:
-        return selectedPartner !== null;
-      case 2:
-        return selectedLocation !== null;
-      case 3:
-        return cartItems.length > 0;
-      case 4:
-        return true;
-      default:
-        return false;
-    }
+    const result = (() => {
+      switch (currentStep) {
+        case 1:
+          return selectedPartner !== null;
+        case 2:
+          return selectedLocation !== null;
+        case 3:
+          return cartItems.length > 0;
+        case 4:
+          return true;
+        default:
+          return false;
+      }
+    })();
+    
+    console.log("🔍 canGoNext:", {
+      currentStep,
+      result,
+      selectedPartner: selectedPartner?.name,
+      selectedLocation: selectedLocation?.name,
+      cartItemsCount: cartItems.length
+    });
+    
+    return result;
   };
 
   const handleNext = () => {
@@ -77,11 +89,23 @@ export function InvoiceWizard() {
   };
 
   const handlePartnerSelect = (partner: PartnerWithLocations) => {
+    console.log("handlePartnerSelect called with:", partner);
     setSelectedPartner(partner);
     // Reset location if partner changed
     if (selectedPartner?.id !== partner.id) {
+      console.log("Partner changed, resetting location");
       setSelectedLocation(null);
     }
+  };
+
+  const handleLocationSelect = (location: Location) => {
+    console.log("✅ handleLocationSelect called with:", {
+      id: location.id,
+      name: location.name,
+      partner_id: location.partner_id
+    });
+    setSelectedLocation(location);
+    console.log("✅ setSelectedLocation called");
   };
 
   const handleSubmit = async () => {
@@ -105,6 +129,16 @@ export function InvoiceWizard() {
       // Create the invoice
       const invoice = await createInvoice(request);
       toast.success("Factura a fost creată cu succes!");
+
+      // Print the invoice immediately after creation
+      try {
+        const selectedPrinter = localStorage.getItem("selectedPrinter");
+        await printInvoiceToHtml(invoice.id, selectedPrinter || undefined);
+        toast.success("Factura a fost printată!");
+      } catch (e) {
+        console.error("Print error:", e);
+        toast.error(`Eroare la printare: ${e}`);
+      }
 
       // Immediately try to send
       try {
@@ -183,7 +217,7 @@ export function InvoiceWizard() {
             <LocationStep
               partner={selectedPartner}
               selectedLocation={selectedLocation}
-              onSelect={setSelectedLocation}
+              onSelect={handleLocationSelect}
             />
           )}
           {currentStep === 3 && (

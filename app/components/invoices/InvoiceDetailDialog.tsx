@@ -89,24 +89,10 @@ export function InvoiceDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between gap-3">
-            <DialogTitle className="flex items-center gap-3">
-              <FileText className="h-5 w-5" />
-              Detalii factură
-            </DialogTitle>
-            {detail && detail.invoice.status === "sent" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrint}
-                disabled={isPrinting}
-                className="gap-2"
-              >
-                <Printer className="h-4 w-4" />
-                {isPrinting ? "Se imprimă..." : "Imprimare"}
-              </Button>
-            )}
-          </div>
+          <DialogTitle className="flex items-center gap-3">
+            <FileText className="h-5 w-5" />
+            Detalii factură
+          </DialogTitle>
         </DialogHeader>
 
         {isLoading ? (
