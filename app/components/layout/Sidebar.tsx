@@ -120,7 +120,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* Footer */}
         <div className="p-4 border-t border-border">
           <p className="text-xs text-muted-foreground text-center">
-            v0.1.0 • © 2026 eSoft
+            v0.3.0 • © 2026 eSoft
           </p>
         </div>
       </aside>

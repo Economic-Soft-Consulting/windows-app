@@ -259,7 +259,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Versiunea aplicației: 0.1.9</li>
+            <li>• Versiunea aplicației: 0.3.0</li>
             <li>• Fișierele facturilor sunt salvate în: %APPDATA%\facturi.softconsulting.com\invoices\</li>
             <li>• Suport pentru printare PDF pe imprimantă termală 80mm</li>
             <li>• Printarea se face prin SumatraPDF (instalat automat)</li>

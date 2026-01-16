@@ -36,6 +36,33 @@ fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
     })
 }
 
+fn wait_for_file_ready(path: &str, timeout_ms: u64, stable_ms: u64) -> bool {
+    let start = std::time::Instant::now();
+    let mut last_size: Option<u64> = None;
+    let mut stable_for = 0u64;
+
+    while start.elapsed().as_millis() as u64 <= timeout_ms {
+        if let Ok(metadata) = std::fs::metadata(path) {
+            let size = metadata.len();
+            if size > 0 {
+                if Some(size) == last_size {
+                    stable_for += 100;
+                    if stable_for >= stable_ms {
+                        return true;
+                    }
+                } else {
+                    last_size = Some(size);
+                    stable_for = 0;
+                }
+            }
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+
+    false
+}
+
 // ==================== SYNC COMMANDS ====================
 
 #[tauri::command]
@@ -212,7 +239,8 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
         // Save products
         for product in &products {
             conn.execute(
-                "INSERT OR IGNORE INTO products (id, name, unit_of_measure, price, class) VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT INTO products (id, name, unit_of_measure, price, class) VALUES (?1, ?2, ?3, ?4, ?5) \
+                 ON CONFLICT(id) DO UPDATE SET name = excluded.name, unit_of_measure = excluded.unit_of_measure, price = excluded.price, class = excluded.class",
                 (&product.id, &product.name, &product.unit_of_measure, product.price, &product.class),
             )
             .map_err(|e| format!("Failed to save product: {}", e))?;
@@ -444,10 +472,7 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
             };
             
             // Parse price from string
-            let price = api_article.pret_vanzare
-                .as_ref()
-                .and_then(|p| p.parse::<f64>().ok())
-                .unwrap_or(0.0);
+            let price = parse_price(&api_article.pret_vanzare).unwrap_or(0.0);
 
             Product {
                 id: product_id,
@@ -1298,10 +1323,10 @@ pub async fn print_invoice_to_html(
                             info!("Edge stderr: {}", stderr);
                         }
                         
-                        // Give Edge time to write the file (fast polling)
+                        // Give Edge time to write the file (poll until fully written)
                         let mut waited = 0;
-                        while waited < 600 {
-                            if std::path::Path::new(&pdf_path_str).exists() {
+                        while waited < 5000 {
+                            if wait_for_file_ready(&pdf_path_str, 1000, 300) {
                                 pdf_generated = true;
                                 print_file = pdf_path_str.clone();
                                 info!("PDF generated successfully at: {}", pdf_path_str);
