@@ -45,12 +45,12 @@ export async function searchPartners(
 
 // ==================== PRODUCT COMMANDS ====================
 
-export async function getProducts(): Promise<Product[]> {
-  return invoke<Product[]>("get_products");
+export async function getProducts(partnerId?: string): Promise<Product[]> {
+  return invoke<Product[]>("get_products", { partnerId });
 }
 
-export async function searchProducts(query: string): Promise<Product[]> {
-  return invoke<Product[]>("search_products", { query });
+export async function searchProducts(query: string, partnerId?: string): Promise<Product[]> {
+  return invoke<Product[]>("search_products", { query, partnerId });
 }
 
 // ==================== INVOICE COMMANDS ====================

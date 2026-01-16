@@ -238,6 +238,96 @@ pub struct ArticleInfo {
     pub descriere: Option<String>,
 }
 
+// ==================== OFFERS API STRUCTURES ====================
+
+#[derive(Debug, Serialize)]
+pub struct OfferFilter {
+    #[serde(rename = "DataReferinta", skip_serializing_if = "Option::is_none")]
+    pub data_referinta: Option<String>,
+    #[serde(rename = "DataAnaliza", skip_serializing_if = "Option::is_none")]
+    pub data_analiza: Option<String>,
+    #[serde(rename = "Furnizori", skip_serializing_if = "Option::is_none")]
+    pub furnizori: Option<String>,
+    #[serde(rename = "CodSubunit", skip_serializing_if = "Option::is_none")]
+    pub cod_subunit: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OfferResponse {
+    #[serde(rename = "result")]
+    pub result: Option<String>,
+    #[serde(rename = "InfoOferte")]
+    pub info_oferte: Vec<OfferInfo>,
+    #[serde(rename = "ErrorList")]
+    pub error_list: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OfferInfo {
+    #[serde(rename = "Numar")]
+    pub numar: Option<String>,
+    #[serde(rename = "DataInceput")]
+    pub data_inceput: Option<String>,
+    #[serde(rename = "DataSfarsit")]
+    pub data_sfarsit: Option<String>,
+    #[serde(rename = "Anulata")]
+    pub anulata: Option<String>,
+    #[serde(rename = "Client")]
+    pub client: Option<String>,
+    #[serde(rename = "TipOferta")]
+    pub tip_oferta: Option<String>,
+    #[serde(rename = "IDClient")]
+    pub id_client: Option<String>,
+    #[serde(rename = "Furnizor")]
+    pub furnizor: Option<String>,
+    #[serde(rename = "IDFurnizor")]
+    pub id_furnizor: Option<String>,
+    #[serde(rename = "CodFiscal")]
+    pub cod_fiscal: Option<String>,
+    #[serde(rename = "SimbolClasa")]
+    pub simbol_clasa: Option<String>,
+    #[serde(rename = "Moneda")]
+    pub moneda: Option<String>,
+    #[serde(rename = "Observatii")]
+    pub observatii: Option<String>,
+    #[serde(rename = "EXTENSIEDOCUMENT")]
+    pub extensie_document: Option<String>,
+    #[serde(rename = "Items")]
+    pub items: Vec<OfferItem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OfferItem {
+    #[serde(rename = "ID")]
+    pub id: Option<String>,
+    #[serde(rename = "Denumire")]
+    pub denumire: Option<String>,
+    #[serde(rename = "UM")]
+    pub um: Option<String>,
+    #[serde(rename = "CantMinima")]
+    pub cant_minima: Option<String>,
+    #[serde(rename = "CantMaxima")]
+    pub cant_maxima: Option<String>,
+    #[serde(rename = "CantOptima")]
+    pub cant_optima: Option<String>,
+    #[serde(rename = "Pret")]
+    pub pret: Option<String>,
+    #[serde(rename = "Discount")]
+    pub discount: Option<String>,
+    #[serde(rename = "ProcAdaos")]
+    pub proc_adaos: Option<String>,
+    #[serde(rename = "PretRef")]
+    pub pret_ref: Option<String>,
+    #[serde(rename = "PretCuProcAdaos")]
+    pub pret_cu_proc_adaos: Option<String>,
+    #[serde(rename = "Observatii")]
+    pub observatii: Option<String>,
+    #[serde(rename = "CodOferta1")]
+    pub cod_oferta1: Option<String>,
+    #[serde(rename = "EXTENSIELINIE")]
+    pub extensie_linie: Option<String>,
+}
+
 // ==================== API CLIENT ====================
 
 pub struct ApiClient {
@@ -449,6 +539,29 @@ impl ApiClient {
         }
 
         Ok(all_articles)
+    }
+
+    // Get offers (no pagination in docs)
+    pub async fn get_offers(&self, filter: OfferFilter) -> Result<OfferResponse, String> {
+        let url = format!("{}/\"GetInfoOferteClienti\"", self.config.base_url);
+
+        let response = self.client
+            .post(&url)
+            .json(&filter)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch offers: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("API returned error status: {}", response.status()));
+        }
+
+        let offer_response: OfferResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse offers response: {}", e))?;
+
+        Ok(offer_response)
     }
 }
 

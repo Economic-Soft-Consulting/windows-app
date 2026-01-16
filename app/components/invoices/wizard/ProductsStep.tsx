@@ -22,6 +22,7 @@ import type { Product, CartItem } from "@/lib/tauri/types";
 interface ProductsStepProps {
   cartItems: CartItem[];
   onUpdateCart: (items: CartItem[]) => void;
+  partnerId?: string;
 }
 
 function formatCurrency(amount: number): string {
@@ -34,9 +35,9 @@ function formatCurrency(amount: number): string {
   );
 }
 
-export function ProductsStep({ cartItems, onUpdateCart }: ProductsStepProps) {
+export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsStepProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { products, isLoading, search } = useProducts();
+  const { products, isLoading, search } = useProducts(partnerId);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {

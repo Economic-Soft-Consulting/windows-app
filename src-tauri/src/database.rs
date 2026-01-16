@@ -38,6 +38,8 @@ impl Database {
         conn.execute("PRAGMA foreign_keys = OFF", [])?;
         
         // Delete all sync data
+        conn.execute("DELETE FROM offer_items", [])?;
+        conn.execute("DELETE FROM offers", [])?;
         conn.execute("DELETE FROM locations", [])?;
         conn.execute("DELETE FROM partners", [])?;
         conn.execute("DELETE FROM products", [])?;
@@ -207,6 +209,45 @@ const SCHEMA: &str = r#"
         categorie_pret_implicita TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS offers (
+        id TEXT PRIMARY KEY,
+        id_client TEXT,
+        numar TEXT,
+        data_inceput TEXT,
+        data_sfarsit TEXT,
+        anulata TEXT,
+        client TEXT,
+        tip_oferta TEXT,
+        furnizor TEXT,
+        id_furnizor TEXT,
+        cod_fiscal TEXT,
+        simbol_clasa TEXT,
+        moneda TEXT,
+        observatii TEXT,
+        extensie_document TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS offer_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        offer_id TEXT NOT NULL,
+        id_client TEXT,
+        product_id TEXT,
+        denumire TEXT,
+        um TEXT,
+        cant_minima TEXT,
+        cant_maxima TEXT,
+        cant_optima TEXT,
+        pret REAL,
+        discount TEXT,
+        proc_adaos TEXT,
+        pret_ref TEXT,
+        pret_cu_proc_adaos TEXT,
+        observatii TEXT,
+        cod_oferta1 TEXT,
+        extensie_linie TEXT,
+        FOREIGN KEY (offer_id) REFERENCES offers(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS invoices (
         id TEXT PRIMARY KEY,
         invoice_number INTEGER UNIQUE,
@@ -242,6 +283,7 @@ const SCHEMA: &str = r#"
     CREATE INDEX IF NOT EXISTS idx_invoices_partner ON invoices(partner_id);
     CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
     CREATE INDEX IF NOT EXISTS idx_locations_partner ON locations(partner_id);
+    CREATE INDEX IF NOT EXISTS idx_offer_items_client_product ON offer_items(id_client, product_id);
 "#;
 
 fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {

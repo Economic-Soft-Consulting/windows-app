@@ -22,6 +22,20 @@ fn read_logo_to_base64() -> Option<String> {
     Some(format!("data:image/png;base64,{}", base64_string))
 }
 
+fn parse_price(value: &Option<String>) -> Option<f64> {
+    value.as_ref().and_then(|s| s.replace(',', ".").parse::<f64>().ok())
+}
+
+fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
+    Ok(Product {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        unit_of_measure: row.get(2)?,
+        price: row.get(3)?,
+        class: row.get(4)?,
+    })
+}
+
 // ==================== SYNC COMMANDS ====================
 
 #[tauri::command]
@@ -77,7 +91,7 @@ pub fn get_sync_status(db: State<'_, Database>) -> Result<SyncStatus, String> {
 #[tauri::command]
 pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String> {
     // Try real API first
-    let (partners, products) = match api_client::ApiClient::from_default() {
+    let (partners, products, offers) = match api_client::ApiClient::from_default() {
         Ok(api) => {
             // Try to get partners from API
             match api.get_all_partners().await {
@@ -86,25 +100,38 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                     // Try to get articles from API
                     match api.get_all_articles().await {
                         Ok(api_articles) => {
-                            
+                            // Try to get offers from API (active for today)
+                            let today = Utc::now().format("%d.%m.%Y").to_string();
+                            let offers = api
+                                .get_offers(api_client::OfferFilter {
+                                    data_referinta: None,
+                                    data_analiza: Some(today),
+                                    furnizori: None,
+                                    cod_subunit: None,
+                                })
+                                .await
+                                .ok()
+                                .map(|resp| resp.info_oferte)
+                                .unwrap_or_default();
+
                             // Convert API data to our models
                             let partners = convert_api_partners_to_model(api_partners);
                             let products = convert_api_articles_to_model(api_articles);
                             
-                            (partners, products)
+                            (partners, products, Some(offers))
                         }
                         Err(_) => {
-                            (mock_api::fetch_partners().await, mock_api::fetch_products().await)
+                            (mock_api::fetch_partners().await, mock_api::fetch_products().await, None)
                         }
                     }
                 }
                 Err(_) => {
-                    (mock_api::fetch_partners().await, mock_api::fetch_products().await)
+                    (mock_api::fetch_partners().await, mock_api::fetch_products().await, None)
                 }
             }
         }
         Err(_) => {
-            (mock_api::fetch_partners().await, mock_api::fetch_products().await)
+            (mock_api::fetch_partners().await, mock_api::fetch_products().await, None)
         }
     };
 
@@ -189,6 +216,68 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                 (&product.id, &product.name, &product.unit_of_measure, product.price, &product.class),
             )
             .map_err(|e| format!("Failed to save product: {}", e))?;
+        }
+
+        // Save offers (only if fetched)
+        if let Some(offers) = &offers {
+            conn.execute("DELETE FROM offer_items", [])
+                .map_err(|e| format!("Failed to clear offer items: {}", e))?;
+            conn.execute("DELETE FROM offers", [])
+                .map_err(|e| format!("Failed to clear offers: {}", e))?;
+
+            for offer in offers {
+                let id_client = offer.id_client.clone().unwrap_or_default();
+                let numar = offer.numar.clone().unwrap_or_default();
+                let offer_id = format!("{}-{}", id_client, numar);
+
+                conn.execute(
+                    "INSERT OR REPLACE INTO offers (id, id_client, numar, data_inceput, data_sfarsit, anulata, client, tip_oferta, furnizor, id_furnizor, cod_fiscal, simbol_clasa, moneda, observatii, extensie_document) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                    params![
+                        &offer_id,
+                        &id_client,
+                        &offer.numar,
+                        &offer.data_inceput,
+                        &offer.data_sfarsit,
+                        &offer.anulata,
+                        &offer.client,
+                        &offer.tip_oferta,
+                        &offer.furnizor,
+                        &offer.id_furnizor,
+                        &offer.cod_fiscal,
+                        &offer.simbol_clasa,
+                        &offer.moneda,
+                        &offer.observatii,
+                        &offer.extensie_document,
+                    ],
+                )
+                .map_err(|e| format!("Failed to save offer: {}", e))?;
+
+                for item in &offer.items {
+                    let price = parse_price(&item.pret);
+                    conn.execute(
+                        "INSERT INTO offer_items (offer_id, id_client, product_id, denumire, um, cant_minima, cant_maxima, cant_optima, pret, discount, proc_adaos, pret_ref, pret_cu_proc_adaos, observatii, cod_oferta1, extensie_linie) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                        params![
+                            &offer_id,
+                            &id_client,
+                            &item.id,
+                            &item.denumire,
+                            &item.um,
+                            &item.cant_minima,
+                            &item.cant_maxima,
+                            &item.cant_optima,
+                            price,
+                            &item.discount,
+                            &item.proc_adaos,
+                            &item.pret_ref,
+                            &item.pret_cu_proc_adaos,
+                            &item.observatii,
+                            &item.cod_oferta1,
+                            &item.extensie_linie,
+                        ],
+                    )
+                    .map_err(|e| format!("Failed to save offer item: {}", e))?;
+                }
+            }
         }
 
         // Update sync metadata
@@ -651,23 +740,27 @@ pub fn search_partners(
 // ==================== PRODUCT COMMANDS ====================
 
 #[tauri::command]
-pub fn get_products(db: State<'_, Database>) -> Result<Vec<Product>, String> {
+pub fn get_products(db: State<'_, Database>, partner_id: Option<String>) -> Result<Vec<Product>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    let mut stmt = conn
-        .prepare("SELECT id, name, unit_of_measure, price, class FROM products ORDER BY name")
-        .map_err(|e| e.to_string())?;
+    let mut stmt = if partner_id.is_some() {
+        conn.prepare(
+            "SELECT p.id, p.name, p.unit_of_measure, COALESCE(oi.pret, p.price) AS price, p.class \
+             FROM products p \
+             LEFT JOIN offer_items oi ON oi.product_id = p.id AND oi.id_client = ?1 \
+             ORDER BY p.name",
+        )
+        .map_err(|e| e.to_string())?
+    } else {
+        conn.prepare("SELECT id, name, unit_of_measure, price, class FROM products ORDER BY name")
+            .map_err(|e| e.to_string())?
+    };
 
-    let products: Vec<Product> = stmt
-        .query_map([], |row| {
-            Ok(Product {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                unit_of_measure: row.get(2)?,
-                price: row.get(3)?,
-                class: row.get(4)?,
-            })
-        })
+    let products: Vec<Product> = if let Some(pid) = &partner_id {
+        stmt.query_map([pid], map_product_row)
+    } else {
+        stmt.query_map([], map_product_row)
+    }
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -676,24 +769,29 @@ pub fn get_products(db: State<'_, Database>) -> Result<Vec<Product>, String> {
 }
 
 #[tauri::command]
-pub fn search_products(db: State<'_, Database>, query: String) -> Result<Vec<Product>, String> {
+pub fn search_products(db: State<'_, Database>, query: String, partner_id: Option<String>) -> Result<Vec<Product>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let search_query = format!("%{}%", query);
 
-    let mut stmt = conn
-        .prepare("SELECT id, name, unit_of_measure, price, class FROM products WHERE name LIKE ?1 OR class LIKE ?1 ORDER BY name")
-        .map_err(|e| e.to_string())?;
+    let mut stmt = if partner_id.is_some() {
+        conn.prepare(
+            "SELECT p.id, p.name, p.unit_of_measure, COALESCE(oi.pret, p.price) AS price, p.class \
+             FROM products p \
+             LEFT JOIN offer_items oi ON oi.product_id = p.id AND oi.id_client = ?2 \
+             WHERE p.name LIKE ?1 OR p.class LIKE ?1 \
+             ORDER BY p.name",
+        )
+        .map_err(|e| e.to_string())?
+    } else {
+        conn.prepare("SELECT id, name, unit_of_measure, price, class FROM products WHERE name LIKE ?1 OR class LIKE ?1 ORDER BY name")
+            .map_err(|e| e.to_string())?
+    };
 
-    let products: Vec<Product> = stmt
-        .query_map([&search_query], |row| {
-            Ok(Product {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                unit_of_measure: row.get(2)?,
-                price: row.get(3)?,
-                class: row.get(4)?,
-            })
-        })
+    let products: Vec<Product> = if let Some(pid) = &partner_id {
+        stmt.query_map([&search_query, pid], map_product_row)
+    } else {
+        stmt.query_map([&search_query], map_product_row)
+    }
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -737,8 +835,11 @@ pub fn create_invoice(
     for item in &request.items {
         let (product_name, price, um): (String, f64, String) = conn
             .query_row(
-                "SELECT name, price, unit_of_measure FROM products WHERE id = ?1",
-                [&item.product_id],
+                "SELECT p.name, COALESCE(oi.pret, p.price) AS price, p.unit_of_measure \
+                 FROM products p \
+                 LEFT JOIN offer_items oi ON oi.product_id = p.id AND oi.id_client = ?2 \
+                 WHERE p.id = ?1",
+                [&item.product_id, &request.partner_id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .map_err(|e| format!("Product not found: {}", e))?;

@@ -226,7 +226,11 @@ export function InvoiceWizard() {
             />
           )}
           {currentStep === 3 && (
-            <ProductsStep cartItems={cartItems} onUpdateCart={setCartItems} />
+            <ProductsStep
+              cartItems={cartItems}
+              onUpdateCart={setCartItems}
+              partnerId={selectedPartner?.id}
+            />
           )}
           {currentStep === 4 && selectedPartner && (
             <ReviewStep
