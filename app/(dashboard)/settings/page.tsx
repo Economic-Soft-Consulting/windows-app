@@ -31,8 +31,9 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    loadPrinters();
     loadSettings();
+    loadCachedPrinters();
+    loadPrinters();
   }, []);
 
   const loadSettings = () => {
@@ -47,11 +48,37 @@ export default function SettingsPage() {
     }
   };
 
+  const loadCachedPrinters = () => {
+    const cached = localStorage.getItem("printersCache");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPrinters(parsed);
+          // Use cached list to select saved printer quickly
+          const saved = localStorage.getItem("printSettings");
+          if (saved) {
+            const settingsParsed = JSON.parse(saved);
+            if (settingsParsed.printer && parsed.includes(settingsParsed.printer)) {
+              setSettings(prev => ({ ...prev, printer: settingsParsed.printer }));
+            }
+          }
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error("Failed to parse cached printers:", e);
+      }
+    }
+  };
+
   const loadPrinters = async () => {
-    setLoading(true);
+    if (printers.length === 0) {
+      setLoading(true);
+    }
     try {
       const list = await getAvailablePrinters();
       setPrinters(list);
+      localStorage.setItem("printersCache", JSON.stringify(list));
       
       // Get saved printer from settings
       const saved = localStorage.getItem("printSettings");
