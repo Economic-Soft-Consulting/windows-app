@@ -62,24 +62,12 @@ export function InvoiceDetailDialog({
     
     setIsPrinting(true);
     try {
-      const html = await printInvoiceToHtml(invoiceId);
-      
-      // Open print dialog with the HTML
-      const printWindow = window.open("", "_blank");
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        // Trigger print dialog after a brief delay to ensure content is rendered
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-      }
-      
-      toast.success("Factură pregătită pentru imprimare");
+      const selectedPrinter = typeof window !== "undefined" ? localStorage.getItem("selectedPrinter") : null;
+      await printInvoiceToHtml(invoiceId, selectedPrinter || undefined);
+      toast.success("Factura s-a trimis la imprimantă!");
     } catch (error) {
       console.error("Print error:", error);
-      toast.error("Eroare la generarea facturilor pentru imprimare");
+      toast.error("Eroare la imprimare");
     } finally {
       setIsPrinting(false);
     }

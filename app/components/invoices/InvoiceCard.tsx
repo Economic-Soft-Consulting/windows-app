@@ -109,8 +109,8 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
         </div>
       </CardContent>
 
-      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2 flex-wrap">
-        <div className="flex gap-2 flex-1 min-w-0">
+      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2 flex-col">
+        <div className="flex gap-2">
           <Button
             variant="outline"
             className="flex-1 h-9 text-xs"
@@ -133,7 +133,9 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
               <Printer className="h-3.5 w-3.5" />
             )}
           </Button>
+        </div>
 
+        <div className="flex gap-2">
           {canSend && (
             <Button
               variant={invoice.status === "failed" ? "outline" : "default"}
@@ -154,18 +156,17 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
               )}
             </Button>
           )}
-        </div>
 
-        {canDelete && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                className="h-9 w-9 p-0 flex-shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </AlertDialogTrigger>
+          {canDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="h-9 w-9 p-0 flex-shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Șterge factura?</AlertDialogTitle>
@@ -183,8 +184,9 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
-          </AlertDialog>
-        )}
+            </AlertDialog>
+          )}
+        </div>
       </CardFooter>
     </Card>
   );

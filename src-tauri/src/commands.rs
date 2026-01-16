@@ -469,7 +469,7 @@ pub fn get_partners(db: State<'_, Database>) -> Result<Vec<PartnerWithLocations>
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let mut stmt = conn
-        .prepare("SELECT id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, inactiv, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, credit_client, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol FROM partners ORDER BY name")
+        .prepare("SELECT id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, inactiv, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, credit_client, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol FROM partners WHERE simbol_clasa = 'AGENTI' OR clasa = 'AGENTI' ORDER BY name")
         .map_err(|e| e.to_string())?;
 
     let partners: Vec<(
@@ -563,7 +563,7 @@ pub fn search_partners(
     let search_query = format!("%{}%", query);
 
     let mut stmt = conn
-        .prepare("SELECT id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, inactiv, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, credit_client, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol FROM partners WHERE name LIKE ?1 ORDER BY name")
+        .prepare("SELECT id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, inactiv, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, credit_client, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol FROM partners WHERE (simbol_clasa = 'AGENTI' OR clasa = 'AGENTI') AND name LIKE ?1 ORDER BY name")
         .map_err(|e| e.to_string())?;
 
     let partners: Vec<(
