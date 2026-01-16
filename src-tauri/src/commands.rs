@@ -7,28 +7,19 @@ use chrono::Utc;
 use log::info;
 use tauri::State;
 use uuid::Uuid;
-use std::path::PathBuf;
-use std::fs;
 use rusqlite::params;
 
 // Helper function to read logo and convert to base64
 fn read_logo_to_base64() -> Option<String> {
-    // Try multiple possible locations for logo
-    let possible_paths = vec![
-        PathBuf::from("public/logo.png"),
-        PathBuf::from("../public/logo.png"),
-        PathBuf::from("../../public/logo.png"),
-    ];
-
-    for path in possible_paths {
-        if let Ok(logo_data) = fs::read(&path) {
-            use base64::{Engine as _, engine::general_purpose};
-            let base64_string = general_purpose::STANDARD.encode(&logo_data);
-            return Some(format!("data:image/png;base64,{}", base64_string));
-        }
+    // Embed logo at compile time so it works in packaged builds
+    let logo_data: &[u8] = include_bytes!("../../public/logo.png");
+    if logo_data.is_empty() {
+        return None;
     }
-    
-    None
+
+    use base64::{Engine as _, engine::general_purpose};
+    let base64_string = general_purpose::STANDARD.encode(logo_data);
+    Some(format!("data:image/png;base64,{}", base64_string))
 }
 
 // ==================== SYNC COMMANDS ====================
