@@ -40,7 +40,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVEMzk5QzJBRDMxQUUyMjYKUldRbTRoclRLcHc1N1hBS2ltZkw1d0sxTXRPaEIremlLQzg2RHhBSkRqZnRkTXdPNExmUjZOYkUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFDMTRGQzkwMjM1NjZFNzYKUldSMmJsWWprUHdVSE9iUE9LUndZd1IrMENKc0xlQXc2REV3SmIrVTV2MTZnU1FNQno2aUMydWsK",
       "endpoints": [
         "https://github.com/Economic-Soft-Consulting/windows-app/releases/latest/download/latest.json"
       ]
