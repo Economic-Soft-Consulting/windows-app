@@ -417,50 +417,38 @@ impl ApiClient {
                     let count = response.info_articole.len();
                     
                     if count == 0 {
-                        info!("No more articles to fetch on page {}", page);
                         break;
                     }
                     
                     all_articles.extend(response.info_articole);
 
-                    info!("Fetched page {} with {} articles (total so far: {})", page, count, all_articles.len());
-
                     // Check pagination info from response
                     let should_continue = if let Some(paginare) = &response.paginare {
-                        info!("Pagination info: {:?}", paginare);
-                        
                         if let Some(total_pages_str) = &paginare.total_pagini {
                             if let Ok(total_pages) = total_pages_str.parse::<i32>() {
-                                info!("Total pages from API: {}, current page: {}", total_pages, page);
                                 page < total_pages
                             } else {
-                                // Can't parse total_pages, continue if we got results
                                 count > 0
                             }
                         } else {
-                            // No total_pages info, continue if we got results
                             count > 0
                         }
                     } else {
-                        // No pagination info, continue if we got results
                         count > 0
                     };
 
                     if !should_continue {
-                        info!("Stopping pagination: reached last page or no pagination info");
                         break;
                     }
 
                     page += 1;
                 }
                 Err(e) => {
-                    error!("Failed to fetch articles page {}: {}", page, e);
                     return Err(e);
                 }
             }
         }
 
-        info!("✅ Total articles fetched: {}", all_articles.len());
         Ok(all_articles)
     }
 }
