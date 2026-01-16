@@ -17,18 +17,18 @@ export default function HomePage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Welcome Section */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Bine ai venit!</h1>
+          <h1 className="text-2xl font-bold">Bine ai venit!</h1>
           <p className="text-muted-foreground mt-1">
             Gestionează facturile către partenerii tăi
           </p>
         </div>
         <Link href="/invoices/new">
-          <Button size="lg" className="gap-2 h-12 px-6 text-base">
-            <Plus className="h-5 w-5" />
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
             Factură nouă
           </Button>
         </Link>
@@ -41,10 +41,10 @@ export default function HomePage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total facturi
             </CardTitle>
-            <FileText className="h-5 w-5 text-muted-foreground" />
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
 
@@ -53,10 +53,10 @@ export default function HomePage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               În așteptare
             </CardTitle>
-            <TrendingUp className="h-5 w-5 text-yellow-500" />
+            <TrendingUp className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-yellow-600">{stats.pending}</div>
+            <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
           </CardContent>
         </Card>
 
@@ -65,10 +65,10 @@ export default function HomePage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Trimise
             </CardTitle>
-            <TrendingUp className="h-5 w-5 text-green-500" />
+            <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{stats.sent}</div>
+            <div className="text-2xl font-bold text-green-600">{stats.sent}</div>
           </CardContent>
         </Card>
 
@@ -77,10 +77,10 @@ export default function HomePage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Eșuate
             </CardTitle>
-            <TrendingUp className="h-5 w-5 text-red-500" />
+            <TrendingUp className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-600">{stats.failed}</div>
+            <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
           </CardContent>
         </Card>
       </div>
@@ -91,7 +91,7 @@ export default function HomePage() {
           <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <FileText className="h-6 w-6 text-primary" />
+                <FileText className="h-5 w-5 text-primary" />
                 Facturi
               </CardTitle>
               <CardDescription>
@@ -105,7 +105,7 @@ export default function HomePage() {
           <Card className="hover:bg-accent transition-colors cursor-pointer h-full">
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
-                <Database className="h-6 w-6 text-primary" />
+                <Database className="h-5 w-5 text-primary" />
                 Date
               </CardTitle>
               <CardDescription>

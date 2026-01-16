@@ -69,15 +69,15 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
   return (
     <Card className="flex flex-col text-sm">
       <CardHeader className="pb-2 pt-3 px-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base truncate leading-tight">{invoice.partner_name}</h3>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+        <div className="space-y-2">
+          <h3 className="font-semibold text-base leading-tight">{invoice.partner_name}</h3>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 flex-1">
               <MapPin className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{invoice.location_name}</span>
             </div>
+            <InvoiceStatusBadge status={invoice.status} />
           </div>
-          <InvoiceStatusBadge status={invoice.status} />
         </div>
       </CardHeader>
 
@@ -109,57 +109,59 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
         </div>
       </CardContent>
 
-      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2">
-        <Button
-          variant="outline"
-          className="flex-1 h-9 text-xs"
-          onClick={() => onView(invoice.id)}
-        >
-          <Eye className="h-3.5 w-3.5 mr-1" />
-          Detalii
-        </Button>
-
-        <Button
-          variant="outline"
-          className="h-9 w-9 p-0"
-          onClick={handlePrint}
-          disabled={isPrinting}
-          title="Imprimare"
-        >
-          {isPrinting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Printer className="h-3.5 w-3.5" />
-          )}
-        </Button>
-
-        {canSend && (
+      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2 flex-wrap">
+        <div className="flex gap-2 flex-1 min-w-0">
           <Button
-            variant={invoice.status === "failed" ? "outline" : "default"}
+            variant="outline"
             className="flex-1 h-9 text-xs"
-            onClick={() => onSend(invoice.id)}
-            disabled={isSending}
+            onClick={() => onView(invoice.id)}
           >
-            {invoice.status === "failed" ? (
-              <>
-                <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                Reîncearcă
-              </>
+            <Eye className="h-3.5 w-3.5 mr-1" />
+            Detalii
+          </Button>
+
+          <Button
+            variant="outline"
+            className="h-9 w-9 p-0 flex-shrink-0"
+            onClick={handlePrint}
+            disabled={isPrinting}
+            title="Imprimare"
+          >
+            {isPrinting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <>
-                <Send className="h-3.5 w-3.5 mr-1" />
-                Trimite
-              </>
+              <Printer className="h-3.5 w-3.5" />
             )}
           </Button>
-        )}
+
+          {canSend && (
+            <Button
+              variant={invoice.status === "failed" ? "outline" : "default"}
+              className="flex-1 h-9 text-xs"
+              onClick={() => onSend(invoice.id)}
+              disabled={isSending}
+            >
+              {invoice.status === "failed" ? (
+                <>
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Reîncearcă
+                </>
+              ) : (
+                <>
+                  <Send className="h-3.5 w-3.5 mr-1" />
+                  Trimite
+                </>
+              )}
+            </Button>
+          )}
+        </div>
 
         {canDelete && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                className="h-9 w-9 p-0 flex-shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>

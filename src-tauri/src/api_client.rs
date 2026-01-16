@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use log::{info, error};
 
 // ==================== API CONFIGURATION ====================
 

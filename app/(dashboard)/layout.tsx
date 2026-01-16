@@ -14,7 +14,7 @@ export default function DashboardLayout({
   const { checkIsFirstRun } = useSyncStatus();
   const [showFirstRun, setShowFirstRun] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     checkIsFirstRun().then((result) => {

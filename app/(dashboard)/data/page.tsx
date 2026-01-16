@@ -76,26 +76,11 @@ export default function DataPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Date</h1>
-          <p className="text-muted-foreground">
-            Vizualizează partenerii și produsele disponibile
-          </p>
-        </div>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={handleClearDatabase}
-          disabled={isClearing}
-        >
-          {isClearing ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Trash2 className="h-4 w-4 mr-2" />
-          )}
-          Curăță baza de date
-        </Button>
+      <div>
+        <h1 className="text-2xl font-bold">Date</h1>
+        <p className="text-muted-foreground">
+          Vizualizează partenerii și produsele disponibile
+        </p>
       </div>
 
       <Tabs defaultValue="partners">

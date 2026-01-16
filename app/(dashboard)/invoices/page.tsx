@@ -45,23 +45,16 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Facturi</h1>
-          <p className="text-muted-foreground">
-            Gestionează și trimite facturile către parteneri
-          </p>
-        </div>
-        <Link href="/invoices/new">
-          <Button size="lg" className="gap-2 h-12 px-6">
-            <Plus className="h-5 w-5" />
-            Factură nouă
-          </Button>
-        </Link>
+      <div>
+        <h1 className="text-2xl font-bold">Facturi</h1>
+        <p className="text-muted-foreground">
+          Gestionează și trimite facturile către parteneri
+        </p>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
+      {/* Tabs with Button */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1">
         <TabsList className="h-14 flex-wrap sm:flex-nowrap">
           <TabsTrigger value="all" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
             Toate
@@ -96,6 +89,14 @@ export default function InvoicesPage() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+      
+      <Link href="/invoices/new">
+        <Button size="lg" className="gap-2 h-12 px-6 w-full sm:w-auto">
+          <Plus className="h-5 w-5" />
+          Factură nouă
+        </Button>
+      </Link>
+      </div>
 
       {/* Invoice Grid */}
       {isLoading ? (
