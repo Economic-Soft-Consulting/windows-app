@@ -131,11 +131,15 @@ export function InvoiceWizard() {
       const invoice = await createInvoice(request);
       toast.success("Factura a fost creată cu succes!");
 
-      // Print the invoice immediately after creation
+      // Print the invoice immediately after creation (non-blocking)
       try {
         const selectedPrinter = localStorage.getItem("selectedPrinter");
-        await printInvoiceToHtml(invoice.id, selectedPrinter || undefined);
-        toast.success("Factura a fost printată!");
+        void printInvoiceToHtml(invoice.id, selectedPrinter || undefined)
+          .then(() => toast.success("Factura a fost printată!"))
+          .catch((e) => {
+            console.error("Print error:", e);
+            toast.error(`Eroare la printare: ${e}`);
+          });
       } catch (e) {
         console.error("Print error:", e);
         toast.error(`Eroare la printare: ${e}`);

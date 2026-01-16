@@ -1197,14 +1197,19 @@ pub async fn print_invoice_to_html(
                             info!("Edge stderr: {}", stderr);
                         }
                         
-                        // Give Edge time to write the file (reduced for speed)
-                        std::thread::sleep(std::time::Duration::from_millis(800));
-                        
-                        // Check if PDF was created
-                        if std::path::Path::new(&pdf_path_str).exists() {
-                            pdf_generated = true;
-                            print_file = pdf_path_str.clone();
-                            info!("PDF generated successfully at: {}", pdf_path_str);
+                        // Give Edge time to write the file (fast polling)
+                        let mut waited = 0;
+                        while waited < 600 {
+                            if std::path::Path::new(&pdf_path_str).exists() {
+                                pdf_generated = true;
+                                print_file = pdf_path_str.clone();
+                                info!("PDF generated successfully at: {}", pdf_path_str);
+                                break;
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                            waited += 100;
+                        }
+                        if pdf_generated {
                             break;
                         }
                     }
