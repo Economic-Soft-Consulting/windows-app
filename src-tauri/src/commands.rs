@@ -1269,13 +1269,13 @@ pub async fn print_invoice_to_html(
         if let Some(sumatra_path) = sumatra_exe {
             info!("Printing to '{}' using SumatraPDF", printer);
             
-            // SumatraPDF with shrink - keeps original size but shrinks if too large
+            // SumatraPDF with no scaling to keep normal size
             let result = std::process::Command::new(&sumatra_path)
                 .args(&[
                     "-print-to",
                     &printer,
                     "-print-settings",
-                    "shrink",
+                    "noscale",
                     &print_file,
                     "-silent",
                     "-exit-when-done",
