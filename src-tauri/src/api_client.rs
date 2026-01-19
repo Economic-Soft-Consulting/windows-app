@@ -563,6 +563,35 @@ impl ApiClient {
 
         Ok(offer_response)
     }
+
+    // Send invoice to WME
+    pub async fn send_invoice_to_wme(&self, request: WmeInvoiceRequest) -> Result<WmeInvoiceResponse, String> {
+        let url = format!("{}/IesiriClienti", self.config.base_url);
+
+        let response = self.client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to send invoice to WME: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("WME API returned error status: {}", response.status()));
+        }
+
+        let wme_response: WmeInvoiceResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse WME invoice response: {}", e))?;
+
+        // Check if result is "ok" or "error"
+        if wme_response.result == "error" {
+            let errors = wme_response.error_list.join(", ");
+            return Err(format!("WME API error: {}", errors));
+        }
+
+        Ok(wme_response)
+    }
 }
 
 // Helper function to parse string boolean
@@ -579,4 +608,83 @@ pub fn parse_f64(s: &Option<String>) -> f64 {
     s.as_ref()
         .and_then(|val| val.parse::<f64>().ok())
         .unwrap_or(0.0)
+}
+
+// ==================== WME INVOICE SENDING STRUCTURES ====================
+
+#[derive(Debug, Serialize)]
+pub struct WmeInvoiceRequest {
+    #[serde(rename = "TipDocument")]
+    pub tip_document: String,
+    #[serde(rename = "AnLucru")]
+    pub an_lucru: i32,
+    #[serde(rename = "LunaLucru")]
+    pub luna_lucru: i32,
+    #[serde(rename = "CodSubunitate", skip_serializing_if = "Option::is_none")]
+    pub cod_subunitate: Option<i32>,
+    #[serde(rename = "Documente")]
+    pub documente: Vec<WmeDocument>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WmeDocument {
+    #[serde(rename = "SimbolCarnet")]
+    pub simbol_carnet: String,
+    #[serde(rename = "NumerotareAutomata")]
+    pub numerotare_automata: WmeNumerotareAutomata,
+    #[serde(rename = "Data")]
+    pub data: String,
+    #[serde(rename = "DataLivr")]
+    pub data_livr: String,
+    #[serde(rename = "CodClient")]
+    pub cod_client: String,
+    #[serde(rename = "IDSediu", skip_serializing_if = "Option::is_none")]
+    pub id_sediu: Option<String>,
+    #[serde(rename = "Agent")]
+    pub agent: String,
+    #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
+    pub observatii: Option<String>,
+    #[serde(rename = "Items")]
+    pub items: Vec<WmeInvoiceItem>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WmeNumerotareAutomata {
+    #[serde(rename = "CodCarnet")]
+    pub cod_carnet: i32,
+    #[serde(rename = "CodCarnetLivr")]
+    pub cod_carnet_livr: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WmeInvoiceItem {
+    #[serde(rename = "IDArticol")]
+    pub id_articol: String,
+    #[serde(rename = "Cant")]
+    pub cant: f64,
+    #[serde(rename = "Pret")]
+    pub pret: f64,
+    #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
+    pub observatii: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WmeInvoiceResponse {
+    pub result: String,
+    #[serde(rename = "ErrorList")]
+    pub error_list: Vec<String>,
+    #[serde(rename = "DocumenteImportate")]
+    pub documente_importate: Vec<WmeDocumentImportat>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WmeDocumentImportat {
+    #[serde(rename = "Numar")]
+    pub numar: String,
+    #[serde(rename = "Serie")]
+    pub serie: String,
+    #[serde(rename = "Operat")]
+    pub operat: String,
+    #[serde(rename = "CodIes")]
+    pub cod_ies: String,
 }

@@ -3,6 +3,7 @@ use rusqlite::{Connection, Result};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
+use chrono::Utc;
 
 pub struct Database {
     pub conn: Mutex<Connection>,
@@ -279,6 +280,20 @@ const SCHEMA: &str = r#"
         last_synced_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS agent_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        agent_name TEXT,
+        carnet_series TEXT,
+        cod_carnet INTEGER,
+        cod_carnet_livr INTEGER,
+        updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS db_migrations (
+        version INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
     CREATE INDEX IF NOT EXISTS idx_invoices_partner ON invoices(partner_id);
     CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
@@ -287,58 +302,103 @@ const SCHEMA: &str = r#"
 "#;
 
 fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
-    // Add missing columns to partners table
-    let partner_columns = vec![
-        "ALTER TABLE partners ADD COLUMN cif TEXT;",
-        "ALTER TABLE partners ADD COLUMN reg_com TEXT;",
-        "ALTER TABLE partners ADD COLUMN cod TEXT;",
-        "ALTER TABLE partners ADD COLUMN blocat TEXT;",
-        "ALTER TABLE partners ADD COLUMN tva_la_incasare TEXT;",
-        "ALTER TABLE partners ADD COLUMN persoana_fizica TEXT;",
-        "ALTER TABLE partners ADD COLUMN cod_extern TEXT;",
-        "ALTER TABLE partners ADD COLUMN cod_intern TEXT;",
-        "ALTER TABLE partners ADD COLUMN observatii TEXT;",
-        "ALTER TABLE partners ADD COLUMN data_adaugarii TEXT;",
-        "ALTER TABLE partners ADD COLUMN clasa TEXT;",
-        "ALTER TABLE partners ADD COLUMN simbol_clasa TEXT;",
-        "ALTER TABLE partners ADD COLUMN cod_clasa TEXT;",
-        "ALTER TABLE partners ADD COLUMN inactiv TEXT;",
-        "ALTER TABLE partners ADD COLUMN categorie_pret_implicita TEXT;",
-        "ALTER TABLE partners ADD COLUMN simbol_categorie_pret TEXT;",
-        "ALTER TABLE partners ADD COLUMN scadenta_la_vanzare TEXT;",
-        "ALTER TABLE partners ADD COLUMN scadenta_la_cumparare TEXT;",
-        "ALTER TABLE partners ADD COLUMN credit_client TEXT;",
-        "ALTER TABLE partners ADD COLUMN discount_fix TEXT;",
-        "ALTER TABLE partners ADD COLUMN tip_partener TEXT;",
-        "ALTER TABLE partners ADD COLUMN mod_aplicare_discount TEXT;",
-        "ALTER TABLE partners ADD COLUMN moneda TEXT;",
-        "ALTER TABLE partners ADD COLUMN data_nastere TEXT;",
-        "ALTER TABLE partners ADD COLUMN caracterizare_contabila_denumire TEXT;",
-        "ALTER TABLE partners ADD COLUMN caracterizare_contabila_simbol TEXT;",
-    ];
-    
-    for sql in partner_columns {
-        let _ = conn.execute(sql, []).ok();
+    // Check current migration version
+    let current_version: i32 = conn
+        .query_row("SELECT COALESCE(MAX(version), 0) FROM db_migrations", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    info!("Current database migration version: {}", current_version);
+
+    // Migration 1: Add partner columns (v0.1.0 - v0.2.0)
+    if current_version < 1 {
+        info!("Applying migration 1: Partner columns");
+        let partner_columns = vec![
+            "ALTER TABLE partners ADD COLUMN cif TEXT;",
+            "ALTER TABLE partners ADD COLUMN reg_com TEXT;",
+            "ALTER TABLE partners ADD COLUMN cod TEXT;",
+            "ALTER TABLE partners ADD COLUMN blocat TEXT;",
+            "ALTER TABLE partners ADD COLUMN tva_la_incasare TEXT;",
+            "ALTER TABLE partners ADD COLUMN persoana_fizica TEXT;",
+            "ALTER TABLE partners ADD COLUMN cod_extern TEXT;",
+            "ALTER TABLE partners ADD COLUMN cod_intern TEXT;",
+            "ALTER TABLE partners ADD COLUMN observatii TEXT;",
+            "ALTER TABLE partners ADD COLUMN data_adaugarii TEXT;",
+            "ALTER TABLE partners ADD COLUMN clasa TEXT;",
+            "ALTER TABLE partners ADD COLUMN simbol_clasa TEXT;",
+            "ALTER TABLE partners ADD COLUMN cod_clasa TEXT;",
+            "ALTER TABLE partners ADD COLUMN inactiv TEXT;",
+            "ALTER TABLE partners ADD COLUMN categorie_pret_implicita TEXT;",
+            "ALTER TABLE partners ADD COLUMN simbol_categorie_pret TEXT;",
+            "ALTER TABLE partners ADD COLUMN scadenta_la_vanzare TEXT;",
+            "ALTER TABLE partners ADD COLUMN scadenta_la_cumparare TEXT;",
+            "ALTER TABLE partners ADD COLUMN credit_client TEXT;",
+            "ALTER TABLE partners ADD COLUMN discount_fix TEXT;",
+            "ALTER TABLE partners ADD COLUMN tip_partener TEXT;",
+            "ALTER TABLE partners ADD COLUMN mod_aplicare_discount TEXT;",
+            "ALTER TABLE partners ADD COLUMN moneda TEXT;",
+            "ALTER TABLE partners ADD COLUMN data_nastere TEXT;",
+            "ALTER TABLE partners ADD COLUMN caracterizare_contabila_denumire TEXT;",
+            "ALTER TABLE partners ADD COLUMN caracterizare_contabila_simbol TEXT;",
+        ];
+        
+        for sql in partner_columns {
+            let _ = conn.execute(sql, []).ok();
+        }
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (1, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 1 completed");
     }
     
-    // Add missing columns to locations table
-    let location_columns = vec![
-        "ALTER TABLE locations ADD COLUMN cod_sediu TEXT;",
-        "ALTER TABLE locations ADD COLUMN localitate TEXT;",
-        "ALTER TABLE locations ADD COLUMN strada TEXT;",
-        "ALTER TABLE locations ADD COLUMN numar TEXT;",
-        "ALTER TABLE locations ADD COLUMN judet TEXT;",
-        "ALTER TABLE locations ADD COLUMN tara TEXT;",
-        "ALTER TABLE locations ADD COLUMN cod_postal TEXT;",
-        "ALTER TABLE locations ADD COLUMN telefon TEXT;",
-        "ALTER TABLE locations ADD COLUMN email TEXT;",
-        "ALTER TABLE locations ADD COLUMN inactiv TEXT;",
-    ];
-    
-    for sql in location_columns {
-        let _ = conn.execute(sql, []).ok();
+    // Migration 2: Add location columns (v0.2.0 - v0.3.0)
+    if current_version < 2 {
+        info!("Applying migration 2: Location columns");
+        let location_columns = vec![
+            "ALTER TABLE locations ADD COLUMN id_sediu TEXT;",
+            "ALTER TABLE locations ADD COLUMN cod_sediu TEXT;",
+            "ALTER TABLE locations ADD COLUMN localitate TEXT;",
+            "ALTER TABLE locations ADD COLUMN strada TEXT;",
+            "ALTER TABLE locations ADD COLUMN numar TEXT;",
+            "ALTER TABLE locations ADD COLUMN judet TEXT;",
+            "ALTER TABLE locations ADD COLUMN tara TEXT;",
+            "ALTER TABLE locations ADD COLUMN cod_postal TEXT;",
+            "ALTER TABLE locations ADD COLUMN telefon TEXT;",
+            "ALTER TABLE locations ADD COLUMN email TEXT;",
+            "ALTER TABLE locations ADD COLUMN inactiv TEXT;",
+        ];
+        
+        for sql in location_columns {
+            let _ = conn.execute(sql, []).ok();
+        }
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (2, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 2 completed");
     }
+
+    // Migration 3: Add agent settings columns (v0.3.0)
+    if current_version < 3 {
+        info!("Applying migration 3: Agent settings columns");
+        let agent_columns = vec![
+            "ALTER TABLE agent_settings ADD COLUMN cod_carnet INTEGER;",
+            "ALTER TABLE agent_settings ADD COLUMN cod_carnet_livr INTEGER;",
+        ];
+        
+        for sql in agent_columns {
+            let _ = conn.execute(sql, []).ok();
+        }
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (3, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 3 completed");
+    }
+
+    // Add more migrations here as needed
+    // Migration 4: Your next feature
+    // if current_version < 4 {
+    //     info!("Applying migration 4: Description");
+    //     conn.execute("ALTER TABLE table_name ADD COLUMN new_column TYPE;", [])?;
+    //     conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (4, ?1)", [&Utc::now().to_rfc3339()])?;
+    // }
     
+    info!("All migrations completed successfully");
     Ok(())
 }
 

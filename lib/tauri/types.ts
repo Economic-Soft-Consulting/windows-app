@@ -88,6 +88,13 @@ export interface SyncStatus {
   is_syncing: boolean;
 }
 
+export interface AgentSettings {
+  agent_name: string | null;
+  carnet_series: string | null;
+  cod_carnet: number | null;
+  cod_carnet_livr: number | null;
+}
+
 // Cart item for invoice creation wizard
 export interface CartItem {
   product: Product;

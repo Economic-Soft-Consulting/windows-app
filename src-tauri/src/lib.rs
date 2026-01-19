@@ -63,9 +63,13 @@ pub fn run() {
             commands::get_invoices,
             commands::get_invoice_detail,
             commands::send_invoice,
+            commands::send_all_pending_invoices,
             commands::delete_invoice,
             commands::print_invoice_to_html,
             commands::get_available_printers,
+            // Agent settings commands
+            commands::get_agent_settings,
+            commands::save_agent_settings,
             // API test commands
             commands::test_api_partners,
             commands::test_api_articles,

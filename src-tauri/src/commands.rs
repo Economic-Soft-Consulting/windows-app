@@ -3,7 +3,7 @@ use crate::mock_api;
 use crate::models::*;
 use crate::print_invoice;
 use crate::api_client;
-use chrono::Utc;
+use chrono::{Utc, Datelike};
 use log::info;
 use tauri::State;
 use uuid::Uuid;
@@ -393,13 +393,63 @@ fn convert_api_partners_to_model(api_partners: Vec<api_client::PartnerInfo>) -> 
                         sediu.id_sediu
                     };
                     
-                    let address = format!(
-                        "{} {}, {}, {}",
-                        sediu.strada.as_deref().unwrap_or(""),
-                        sediu.numar.as_deref().unwrap_or(""),
-                        sediu.localitate.as_deref().unwrap_or(""),
-                        sediu.judet.as_deref().unwrap_or("")
-                    ).trim().to_string();
+                    // Build address smartly: if we have street info, include it; otherwise just city and county
+                    let address = if sediu.strada.is_some() || sediu.numar.is_some() {
+                        // Has street info - build full address
+                        let mut parts = Vec::new();
+                        
+                        // Combine street and number
+                        let mut street_part = String::new();
+                        if let Some(strada) = &sediu.strada {
+                            if !strada.trim().is_empty() {
+                                street_part.push_str(strada.trim());
+                            }
+                        }
+                        if let Some(numar) = &sediu.numar {
+                            if !numar.trim().is_empty() {
+                                if !street_part.is_empty() {
+                                    street_part.push_str(" ");
+                                }
+                                street_part.push_str(numar.trim());
+                            }
+                        }
+                        if !street_part.is_empty() {
+                            parts.push(street_part);
+                        }
+                        
+                        // Add city
+                        if let Some(localitate) = &sediu.localitate {
+                            if !localitate.trim().is_empty() {
+                                parts.push(localitate.trim().to_string());
+                            }
+                        }
+                        
+                        // Add county
+                        if let Some(judet) = &sediu.judet {
+                            if !judet.trim().is_empty() {
+                                parts.push(judet.trim().to_string());
+                            }
+                        }
+                        
+                        parts.join(", ")
+                    } else {
+                        // No street info - just show city and county
+                        let mut parts = Vec::new();
+                        
+                        if let Some(localitate) = &sediu.localitate {
+                            if !localitate.trim().is_empty() {
+                                parts.push(localitate.trim().to_string());
+                            }
+                        }
+                        
+                        if let Some(judet) = &sediu.judet {
+                            if !judet.trim().is_empty() {
+                                parts.push(judet.trim().to_string());
+                            }
+                        }
+                        
+                        parts.join(", ")
+                    };
 
                     Location {
                         id: location_id,
@@ -1079,31 +1129,165 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         .map_err(|e| e.to_string())?;
     }
 
-    // Attempt to send (50% failure rate)
-    let result = mock_api::send_invoice_to_external().await;
+    // Get invoice details and items
+    let (invoice, items, partner_cod, location_id_sediu) = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        
+        // Get invoice with partner cod
+        let invoice: Invoice = conn
+            .query_row(
+                r#"
+                SELECT
+                    i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
+                    i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
+                    (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
+                    p.cod
+                FROM invoices i
+                JOIN partners p ON i.partner_id = p.id
+                JOIN locations l ON i.location_id = l.id
+                WHERE i.id = ?1
+                "#,
+                [&invoice_id],
+                |row| {
+                    Ok(Invoice {
+                        id: row.get(0)?,
+                        partner_id: row.get(1)?,
+                        partner_name: row.get(2)?,
+                        partner_cif: row.get(3)?,
+                        partner_reg_com: row.get(4)?,
+                        location_id: row.get(5)?,
+                        location_name: row.get(6)?,
+                        location_address: row.get(7)?,
+                        status: InvoiceStatus::from(row.get::<_, String>(8)?),
+                        total_amount: row.get(9)?,
+                        notes: row.get(10)?,
+                        created_at: row.get(11)?,
+                        sent_at: row.get(12)?,
+                        error_message: row.get(13)?,
+                        item_count: row.get(14)?,
+                    })
+                },
+            )
+            .map_err(|e| format!("Invoice not found: {}", e))?;
+
+        let partner_cod: Option<String> = conn
+            .query_row("SELECT cod FROM partners WHERE id = ?1", [&invoice.partner_id], |row| row.get(0))
+            .ok();
+
+        let location_id_sediu: Option<String> = conn
+            .query_row("SELECT id_sediu FROM locations WHERE id = ?1", [&invoice.location_id], |row| row.get(0))
+            .ok()
+            .flatten();
+
+        // Get invoice items
+        let mut stmt = conn
+            .prepare(
+                "SELECT product_id, quantity, unit_price FROM invoice_items WHERE invoice_id = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let items: Vec<(String, f64, f64)> = stmt
+            .query_map([&invoice_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        (invoice, items, partner_cod, location_id_sediu)
+    };
+
+    // Get agent settings
+    let agent_settings = get_agent_settings(db.clone())?;
+
+    // Validate required settings
+    if agent_settings.agent_name.is_none() || agent_settings.agent_name.as_ref().unwrap().is_empty() {
+        return Err("Agent name is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.carnet_series.is_none() || agent_settings.carnet_series.as_ref().unwrap().is_empty() {
+        return Err("Carnet series is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.cod_carnet.is_none() {
+        return Err("Cod Carnet is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.cod_carnet_livr.is_none() {
+        return Err("Cod Carnet Livrări is not configured. Please set it in Settings.".to_string());
+    }
+    if partner_cod.is_none() || partner_cod.as_ref().unwrap().is_empty() {
+        return Err(format!("Partner {} does not have a COD set in WME", invoice.partner_name));
+    }
+
+    // Parse invoice date
+    let invoice_date = chrono::DateTime::parse_from_rfc3339(&invoice.created_at)
+        .map_err(|e| format!("Failed to parse invoice date: {}", e))?;
+    
+    let an_lucru = invoice_date.year();
+    let luna_lucru = invoice_date.month() as i32;
+    let data_formatted = invoice_date.format("%d.%m.%Y").to_string();
+
+    // Build WME items
+    let wme_items: Vec<api_client::WmeInvoiceItem> = items
+        .into_iter()
+        .map(|(product_id, quantity, price)| api_client::WmeInvoiceItem {
+            id_articol: product_id,
+            cant: quantity,
+            pret: price,
+            observatii: None,
+        })
+        .collect();
+
+    // Build WME request
+    let wme_request = api_client::WmeInvoiceRequest {
+        tip_document: "FACTURA IESIRE".to_string(),
+        an_lucru,
+        luna_lucru,
+        cod_subunitate: None, // Empty for Central
+        documente: vec![api_client::WmeDocument {
+            simbol_carnet: agent_settings.carnet_series.unwrap(),
+            numerotare_automata: api_client::WmeNumerotareAutomata {
+                cod_carnet: agent_settings.cod_carnet.unwrap(),
+                cod_carnet_livr: agent_settings.cod_carnet_livr.unwrap(),
+            },
+            data: data_formatted.clone(),
+            data_livr: data_formatted,
+            cod_client: partner_cod.unwrap(),
+            id_sediu: location_id_sediu,
+            agent: agent_settings.agent_name.unwrap(),
+            observatii: invoice.notes.clone(),
+            items: wme_items,
+        }],
+    };
+
+    // Send to WME API
+    let result = match api_client::ApiClient::from_default() {
+        Ok(client) => client.send_invoice_to_wme(wme_request).await,
+        Err(e) => Err(format!("Failed to create API client: {}", e)),
+    };
+
     let now = Utc::now().to_rfc3339();
 
     // Update based on result and return the invoice
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     
-    let invoice_sent = match result {
-        Ok(()) => {
+    match result {
+        Ok(response) => {
+            // Success - store document number if available
+            let doc_info = response.documente_importate.first()
+                .map(|d| format!("WME: {} {}", d.serie, d.numar))
+                .unwrap_or_else(|| "Sent successfully".to_string());
+            
             conn.execute(
-                "UPDATE invoices SET status = 'sent', sent_at = ?1, error_message = NULL WHERE id = ?2",
-                [&now, &invoice_id],
+                "UPDATE invoices SET status = 'sent', sent_at = ?1, error_message = ?2 WHERE id = ?3",
+                [&now, &doc_info, &invoice_id],
             )
             .map_err(|e| e.to_string())?;
-            true
         }
-        Err(ref error) => {
+        Err(error) => {
             conn.execute(
                 "UPDATE invoices SET status = 'failed', error_message = ?1 WHERE id = ?2",
-                [error, &invoice_id],
+                [&error, &invoice_id],
             )
             .map_err(|e| e.to_string())?;
-            false
         }
-    };
+    }
 
     // Fetch the updated invoice
     let invoice: Invoice = conn
@@ -1144,14 +1328,51 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     // Drop the lock before async operation
     drop(conn);
 
-    // If invoice was sent successfully, trigger automatic printing
-    // Note: Printing will be triggered by frontend calling print_invoice_to_html
-    // We can't use await here with the db state due to Send trait requirements
-    if invoice_sent {
-        info!("Invoice {} ready for printing", invoice_id);
+    Ok(invoice)
+}
+
+#[tauri::command]
+pub async fn send_all_pending_invoices(db: State<'_, Database>) -> Result<Vec<String>, String> {
+    // Get all pending invoices
+    let pending_ids: Vec<String> = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id FROM invoices WHERE status = 'pending' OR status = 'failed' ORDER BY created_at ASC")
+            .map_err(|e| e.to_string())?;
+
+        let ids: Vec<String> = stmt.query_map([], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        
+        ids
+    };
+
+    if pending_ids.is_empty() {
+        return Ok(vec![]);
     }
 
-    Ok(invoice)
+    info!("Found {} pending/failed invoices to send", pending_ids.len());
+    let mut sent_ids = Vec::new();
+
+    // Try to send each pending invoice
+    for invoice_id in pending_ids {
+        match send_invoice(db.clone(), invoice_id.clone()).await {
+            Ok(invoice) => {
+                if invoice.status == InvoiceStatus::Sent {
+                    info!("Successfully sent invoice {}", invoice_id);
+                    sent_ids.push(invoice_id);
+                } else {
+                    info!("Invoice {} failed to send: {:?}", invoice_id, invoice.error_message);
+                }
+            }
+            Err(e) => {
+                info!("Error sending invoice {}: {}", invoice_id, e);
+            }
+        }
+    }
+
+    Ok(sent_ids)
 }
 
 #[tauri::command]
@@ -1489,6 +1710,62 @@ fn get_invoice_for_print(
     )
     .map_err(|e| format!("Invoice not found: {}", e))
 }
+
+// ==================== AGENT SETTINGS COMMANDS ====================
+
+#[tauri::command]
+pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    let result = conn.query_row(
+        "SELECT agent_name, carnet_series, cod_carnet, cod_carnet_livr FROM agent_settings WHERE id = 1",
+        [],
+        |row| Ok(AgentSettings {
+            agent_name: row.get(0)?,
+            carnet_series: row.get(1)?,
+            cod_carnet: row.get(2)?,
+            cod_carnet_livr: row.get(3)?,
+        }),
+    );
+
+    match result {
+        Ok(settings) => Ok(settings),
+        Err(_) => Ok(AgentSettings {
+            agent_name: None,
+            carnet_series: None,
+            cod_carnet: None,
+            cod_carnet_livr: None,
+        }),
+    }
+}
+
+#[tauri::command]
+pub fn save_agent_settings(
+    db: State<'_, Database>,
+    agent_name: Option<String>,
+    carnet_series: Option<String>,
+    cod_carnet: Option<i32>,
+    cod_carnet_livr: Option<i32>,
+) -> Result<AgentSettings, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+
+    conn.execute(
+        "INSERT INTO agent_settings (id, agent_name, carnet_series, cod_carnet, cod_carnet_livr, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5) \
+         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, updated_at = excluded.updated_at",
+        (&agent_name, &carnet_series, &cod_carnet, &cod_carnet_livr, &now),
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(AgentSettings {
+        agent_name,
+        carnet_series,
+        cod_carnet,
+        cod_carnet_livr,
+    })
+}
+
+// ==================== DEBUG COMMANDS ====================
 
 #[tauri::command]
 pub fn debug_db_counts(db: State<'_, Database>) -> Result<String, String> {

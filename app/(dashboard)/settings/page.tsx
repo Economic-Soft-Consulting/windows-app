@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, Loader2, Printer, FileText } from "lucide-react";
+import { Settings, Loader2, Printer, FileText, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { getAvailablePrinters } from "@/lib/tauri/commands";
+import { getAvailablePrinters, getAgentSettings, saveAgentSettings } from "@/lib/tauri/commands";
+import type { AgentSettings } from "@/lib/tauri/types";
 import { toast } from "sonner";
 
 interface PrintSettings {
@@ -29,12 +30,47 @@ export default function SettingsPage() {
     showPreview: false,
     paperWidth: "80mm",
   });
+  const [agentSettings, setAgentSettings] = useState<AgentSettings>({
+    agent_name: null,
+    carnet_series: null,
+    cod_carnet: null,
+    cod_carnet_livr: null,
+  });
+  const [savingAgent, setSavingAgent] = useState(false);
 
   useEffect(() => {
     loadSettings();
     loadCachedPrinters();
     loadPrinters();
+    loadAgentSettings();
   }, []);
+
+  const loadAgentSettings = async () => {
+    try {
+      const settings = await getAgentSettings();
+      setAgentSettings(settings);
+    } catch (error) {
+      console.error("Failed to load agent settings:", error);
+    }
+  };
+
+  const handleSaveAgentSettings = async () => {
+    setSavingAgent(true);
+    try {
+      await saveAgentSettings(
+        agentSettings.agent_name || null,
+        agentSettings.carnet_series || null,
+        agentSettings.cod_carnet || null,
+        agentSettings.cod_carnet_livr || null
+      );
+      toast.success("Setările agentului au fost salvate!");
+    } catch (error) {
+      console.error("Failed to save agent settings:", error);
+      toast.error("Eroare la salvarea setărilor agentului");
+    } finally {
+      setSavingAgent(false);
+    }
+  };
 
   const loadSettings = () => {
     const saved = localStorage.getItem("printSettings");
@@ -124,6 +160,111 @@ export default function SettingsPage() {
           </p>
         </div>
       </div>
+
+      {/* Agent Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Date Agent
+          </CardTitle>
+          <CardDescription>
+            Configurează informațiile agentului care va fi folosit la trimiterea facturilor
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="agentName">Nume Agent</Label>
+            <Input
+              id="agentName"
+              type="text"
+              placeholder="Ex: Ion Popescu"
+              value={agentSettings.agent_name || ""}
+              onChange={(e) =>
+                setAgentSettings((prev) => ({
+                  ...prev,
+                  agent_name: e.target.value,
+                }))
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              Numele agentului care va apărea pe documente
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="carnetSeries">Serie Carnet (SimbolCarnet)</Label>
+            <Input
+              id="carnetSeries"
+              type="text"
+              placeholder="Ex: RS, FAC"
+              value={agentSettings.carnet_series || ""}
+              onChange={(e) =>
+                setAgentSettings((prev) => ({
+                  ...prev,
+                  carnet_series: e.target.value,
+                }))
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              Seria carnetului pentru facturi (ex: RS, FAC, etc.)
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="codCarnet">Cod Carnet Facturi (CodCarnet)</Label>
+            <Input
+              id="codCarnet"
+              type="number"
+              placeholder="Ex: 1"
+              value={agentSettings.cod_carnet || ""}
+              onChange={(e) =>
+                setAgentSettings((prev) => ({
+                  ...prev,
+                  cod_carnet: e.target.value ? parseInt(e.target.value) : null,
+                }))
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              Codul numeric al carnetului de facturi din WME pentru numerotare automată
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="codCarnetLivr">Cod Carnet Livrări (CodCarnetLivr)</Label>
+            <Input
+              id="codCarnetLivr"
+              type="number"
+              placeholder="Ex: 2"
+              value={agentSettings.cod_carnet_livr || ""}
+              onChange={(e) =>
+                setAgentSettings((prev) => ({
+                  ...prev,
+                  cod_carnet_livr: e.target.value ? parseInt(e.target.value) : null,
+                }))
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              Codul numeric al carnetului de livrări din WME pentru numerotare automată
+            </p>
+          </div>
+
+          <Button
+            onClick={handleSaveAgentSettings}
+            disabled={savingAgent}
+            className="w-full"
+          >
+            {savingAgent ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Se salvează...
+              </>
+            ) : (
+              "Salvează date agent"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Printer Settings */}
       <Card>
@@ -259,7 +400,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Versiunea aplicației: 0.3.0</li>
+            <li>• Versiunea aplicației: 0.4.0</li>
             <li>• Fișierele facturilor sunt salvate în: %APPDATA%\facturi.softconsulting.com\invoices\</li>
             <li>• Suport pentru printare PDF pe imprimantă termală 80mm</li>
             <li>• Printarea se face prin SumatraPDF (instalat automat)</li>

@@ -7,6 +7,7 @@ import type {
   CreateInvoiceRequest,
   SyncStatus,
   InvoiceStatus,
+  AgentSettings,
 } from "./types";
 
 // ==================== SYNC COMMANDS ====================
@@ -77,6 +78,10 @@ export async function sendInvoice(invoiceId: string): Promise<Invoice> {
   return invoke<Invoice>("send_invoice", { invoiceId });
 }
 
+export async function sendAllPendingInvoices(): Promise<string[]> {
+  return invoke<string[]>("send_all_pending_invoices");
+}
+
 export async function deleteInvoice(invoiceId: string): Promise<void> {
   return invoke<void>("delete_invoice", { invoiceId });
 }
@@ -89,6 +94,26 @@ export async function getAvailablePrinters(): Promise<string[]> {
 
 export async function printInvoiceToHtml(invoiceId: string, printerName?: string): Promise<string> {
   return invoke<string>("print_invoice_to_html", { invoiceId, printerName });
+}
+
+// ==================== AGENT SETTINGS COMMANDS ====================
+
+export async function getAgentSettings(): Promise<AgentSettings> {
+  return invoke<AgentSettings>("get_agent_settings");
+}
+
+export async function saveAgentSettings(
+  agentName: string | null,
+  carnetSeries: string | null,
+  codCarnet: number | null,
+  codCarnetLivr: number | null
+): Promise<AgentSettings> {
+  return invoke<AgentSettings>("save_agent_settings", {
+    agentName,
+    carnetSeries,
+    codCarnet,
+    codCarnetLivr,
+  });
 }
 
 // ==================== DEBUG COMMANDS ====================

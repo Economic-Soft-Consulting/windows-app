@@ -187,3 +187,11 @@ pub struct SyncStatus {
     pub products_synced_at: Option<String>,
     pub is_syncing: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSettings {
+    pub agent_name: Option<String>,
+    pub carnet_series: Option<String>,
+    pub cod_carnet: Option<i32>,
+    pub cod_carnet_livr: Option<i32>,
+}

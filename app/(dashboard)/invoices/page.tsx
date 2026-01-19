@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,17 @@ export default function InvoicesPage() {
 
   const statusFilter = activeTab === "all" ? undefined : activeTab;
   const { invoices, isLoading, send, remove } = useInvoices(statusFilter);
+
+  // Listen for auto-send updates
+  useEffect(() => {
+    const handleInvoicesUpdated = () => {
+      // Refresh will happen automatically via useInvoices hook
+      window.location.reload();
+    };
+
+    window.addEventListener('invoices-updated', handleInvoicesUpdated);
+    return () => window.removeEventListener('invoices-updated', handleInvoicesUpdated);
+  }, []);
 
   const handleView = (id: string) => {
     setSelectedInvoiceId(id);

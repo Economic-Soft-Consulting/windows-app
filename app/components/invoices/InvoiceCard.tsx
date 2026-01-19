@@ -109,64 +109,62 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
         </div>
       </CardContent>
 
-      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2 flex-col">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="flex-1 h-9 text-xs"
-            onClick={() => onView(invoice.id)}
-          >
-            <Eye className="h-3.5 w-3.5 mr-1" />
-            Detalii
-          </Button>
+      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2">
+        <Button
+          variant="outline"
+          className="flex-1 h-9 text-xs"
+          onClick={() => onView(invoice.id)}
+        >
+          <Eye className="h-3.5 w-3.5 mr-1" />
+          Detalii
+        </Button>
 
+        <Button
+          variant="outline"
+          className="h-9 w-9 p-0 flex-shrink-0"
+          onClick={handlePrint}
+          disabled={isPrinting}
+          title="Imprimare"
+        >
+          {isPrinting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Printer className="h-3.5 w-3.5" />
+          )}
+        </Button>
+
+        {canSend && (
           <Button
-            variant="outline"
-            className="h-9 w-9 p-0 flex-shrink-0"
-            onClick={handlePrint}
-            disabled={isPrinting}
-            title="Imprimare"
+            variant={invoice.status === "failed" ? "outline" : "default"}
+            className="h-9 px-3 text-xs"
+            onClick={() => onSend(invoice.id)}
+            disabled={isSending}
           >
-            {isPrinting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {invoice.status === "failed" ? (
+              <>
+                <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                Reîncearcă
+              </>
             ) : (
-              <Printer className="h-3.5 w-3.5" />
+              <>
+                <Send className="h-3.5 w-3.5 mr-1" />
+                Trimite
+              </>
             )}
           </Button>
-        </div>
+        )}
 
-        <div className="flex gap-2">
-          {canSend && (
-            <Button
-              variant={invoice.status === "failed" ? "outline" : "default"}
-              className="flex-1 h-9 text-xs"
-              onClick={() => onSend(invoice.id)}
-              disabled={isSending}
-            >
-              {invoice.status === "failed" ? (
-                <>
-                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                  Reîncearcă
-                </>
-              ) : (
-                <>
-                  <Send className="h-3.5 w-3.5 mr-1" />
-                  Trimite
-                </>
-              )}
-            </Button>
-          )}
-
-          {canDelete && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="h-9 w-9 p-0 flex-shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </AlertDialogTrigger>
+        {canDelete && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-9 w-9 p-0 flex-shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                title="Șterge factura"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Șterge factura?</AlertDialogTitle>
@@ -184,9 +182,8 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
+          </AlertDialog>
+        )}
       </CardFooter>
     </Card>
   );

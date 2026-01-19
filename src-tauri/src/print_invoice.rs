@@ -91,14 +91,11 @@ pub fn generate_invoice_html(
             width: 68mm;
             margin: 0 auto;
             padding: 2mm;
-            padding-bottom: 50px; 
             font-size: 10.5px;
             font-weight: bold;
             color: #000000;
             line-height: 1.15;
             background: white;
-            position: relative;
-            min-height: 290mm;
             box-sizing: border-box;
         }}
 
@@ -210,9 +207,6 @@ pub fn generate_invoice_html(
         }}
 
         .footer-branding {{
-            position: absolute;
-            bottom: 5mm;
-            left: 0;
             width: 100%;
             text-align: center;
             font-size: 20px;
@@ -221,6 +215,7 @@ pub fn generate_invoice_html(
             font-style: italic;
             border-top: 1px solid #000;
             padding-top: 5px;
+            margin-top: 15px;
             background-color: white;
         }}
 

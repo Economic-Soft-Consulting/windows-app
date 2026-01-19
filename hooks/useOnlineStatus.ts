@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { sendAllPendingInvoices } from "@/lib/tauri/commands";
+import { toast } from "sonner";
 
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(true);
+  const [wasOffline, setWasOffline] = useState(false);
 
   // Actively check connectivity by trying to fetch a small resource
   const checkConnectivity = useCallback(async () => {
@@ -21,11 +24,33 @@ export function useOnlineStatus() {
       });
 
       clearTimeout(timeoutId);
-      setIsOnline(true);
+      
+      // Connection restored - try to send pending invoices
+      if (!isOnline || wasOffline) {
+        setIsOnline(true);
+        setWasOffline(false);
+        
+        // Auto-send pending invoices in background
+        try {
+          const sentIds = await sendAllPendingInvoices();
+          if (sentIds.length > 0) {
+            toast.success(`Conexiune restabilită! ${sentIds.length} facturi trimise automat.`);
+            // Trigger refresh event for invoice list
+            window.dispatchEvent(new Event('invoices-updated'));
+          }
+        } catch (error) {
+          console.error("Failed to auto-send pending invoices:", error);
+        }
+      } else {
+        setIsOnline(true);
+      }
     } catch {
+      if (isOnline) {
+        setWasOffline(true);
+      }
       setIsOnline(false);
     }
-  }, []);
+  }, [isOnline, wasOffline]);
 
   useEffect(() => {
     // Initial check
