@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use log::{info, error};
 
 // ==================== API CONFIGURATION ====================
 
@@ -197,6 +198,7 @@ pub struct ArticleInfo {
     #[serde(rename = "ID")]
     pub id: String,
     #[serde(rename = "CodObiect")]
+    #[allow(dead_code)]
     pub cod_obiect: Option<String>,
     #[serde(rename = "Denumire")]
     pub denumire: String,
@@ -238,96 +240,6 @@ pub struct ArticleInfo {
     pub descriere: Option<String>,
 }
 
-// ==================== OFFERS API STRUCTURES ====================
-
-#[derive(Debug, Serialize)]
-pub struct OfferFilter {
-    #[serde(rename = "DataReferinta", skip_serializing_if = "Option::is_none")]
-    pub data_referinta: Option<String>,
-    #[serde(rename = "DataAnaliza", skip_serializing_if = "Option::is_none")]
-    pub data_analiza: Option<String>,
-    #[serde(rename = "Furnizori", skip_serializing_if = "Option::is_none")]
-    pub furnizori: Option<String>,
-    #[serde(rename = "CodSubunit", skip_serializing_if = "Option::is_none")]
-    pub cod_subunit: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OfferResponse {
-    #[serde(rename = "result")]
-    pub result: Option<String>,
-    #[serde(rename = "InfoOferte")]
-    pub info_oferte: Vec<OfferInfo>,
-    #[serde(rename = "ErrorList")]
-    pub error_list: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OfferInfo {
-    #[serde(rename = "Numar")]
-    pub numar: Option<String>,
-    #[serde(rename = "DataInceput")]
-    pub data_inceput: Option<String>,
-    #[serde(rename = "DataSfarsit")]
-    pub data_sfarsit: Option<String>,
-    #[serde(rename = "Anulata")]
-    pub anulata: Option<String>,
-    #[serde(rename = "Client")]
-    pub client: Option<String>,
-    #[serde(rename = "TipOferta")]
-    pub tip_oferta: Option<String>,
-    #[serde(rename = "IDClient")]
-    pub id_client: Option<String>,
-    #[serde(rename = "Furnizor")]
-    pub furnizor: Option<String>,
-    #[serde(rename = "IDFurnizor")]
-    pub id_furnizor: Option<String>,
-    #[serde(rename = "CodFiscal")]
-    pub cod_fiscal: Option<String>,
-    #[serde(rename = "SimbolClasa")]
-    pub simbol_clasa: Option<String>,
-    #[serde(rename = "Moneda")]
-    pub moneda: Option<String>,
-    #[serde(rename = "Observatii")]
-    pub observatii: Option<String>,
-    #[serde(rename = "EXTENSIEDOCUMENT")]
-    pub extensie_document: Option<String>,
-    #[serde(rename = "Items")]
-    pub items: Vec<OfferItem>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct OfferItem {
-    #[serde(rename = "ID")]
-    pub id: Option<String>,
-    #[serde(rename = "Denumire")]
-    pub denumire: Option<String>,
-    #[serde(rename = "UM")]
-    pub um: Option<String>,
-    #[serde(rename = "CantMinima")]
-    pub cant_minima: Option<String>,
-    #[serde(rename = "CantMaxima")]
-    pub cant_maxima: Option<String>,
-    #[serde(rename = "CantOptima")]
-    pub cant_optima: Option<String>,
-    #[serde(rename = "Pret")]
-    pub pret: Option<String>,
-    #[serde(rename = "Discount")]
-    pub discount: Option<String>,
-    #[serde(rename = "ProcAdaos")]
-    pub proc_adaos: Option<String>,
-    #[serde(rename = "PretRef")]
-    pub pret_ref: Option<String>,
-    #[serde(rename = "PretCuProcAdaos")]
-    pub pret_cu_proc_adaos: Option<String>,
-    #[serde(rename = "Observatii")]
-    pub observatii: Option<String>,
-    #[serde(rename = "CodOferta1")]
-    pub cod_oferta1: Option<String>,
-    #[serde(rename = "EXTENSIELINIE")]
-    pub extensie_linie: Option<String>,
-}
-
 // ==================== API CLIENT ====================
 
 pub struct ApiClient {
@@ -337,11 +249,8 @@ pub struct ApiClient {
 
 impl ApiClient {
     pub fn new(config: ApiConfig) -> Result<Self, String> {
-        log::info!("Creating API client for: {}", config.base_url);
-        
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(60))
-            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(30))
             .build()
             .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
@@ -355,6 +264,8 @@ impl ApiClient {
     // Get all partners (with pagination)
     pub async fn get_partners(&self, filter: Option<PartnerFilter>) -> Result<PartnerResponse, String> {
         let url = format!("{}/\"GetInfoParteneri\"", self.config.base_url);
+        
+        info!("Fetching partners from API: {}", url);
 
         let filter = filter.unwrap_or(PartnerFilter {
             data_referinta: None,
@@ -383,12 +294,16 @@ impl ApiClient {
             .await
             .map_err(|e| format!("Failed to parse partner response: {}", e))?;
 
+        info!("Successfully fetched {} partners", partner_response.info_parteneri.len());
+
         Ok(partner_response)
     }
 
     // Get all articles (with pagination)
     pub async fn get_articles(&self, filter: Option<ArticleFilter>) -> Result<ArticleResponse, String> {
         let url = format!("{}/\"GetInfoArticole\"", self.config.base_url);
+        
+        info!("Fetching articles from API: {}", url);
 
         let filter = filter.unwrap_or(ArticleFilter {
             data_referinta: None,
@@ -416,6 +331,8 @@ impl ApiClient {
             .json()
             .await
             .map_err(|e| format!("Failed to parse article response: {}", e))?;
+
+        info!("Successfully fetched {} articles", article_response.info_articole.len());
 
         Ok(article_response)
     }
@@ -447,38 +364,50 @@ impl ApiClient {
                     let count = response.info_parteneri.len();
                     
                     if count == 0 {
+                        info!("No more partners to fetch on page {}", page);
                         break;
                     }
                     
                     all_partners.extend(response.info_parteneri);
 
+                    info!("Fetched page {} with {} partners (total so far: {})", page, count, all_partners.len());
+
                     // Check pagination info from response
                     let should_continue = if let Some(paginare) = &response.paginare {
+                        info!("Pagination info: {:?}", paginare);
+                        
                         if let Some(total_pages_str) = &paginare.total_pagini {
                             if let Ok(total_pages) = total_pages_str.parse::<i32>() {
+                                info!("Total pages from API: {}, current page: {}", total_pages, page);
                                 page < total_pages
                             } else {
+                                // Can't parse total_pages, continue if we got results
                                 count > 0
                             }
                         } else {
+                            // No total_pages info, continue if we got results
                             count > 0
                         }
                     } else {
+                        // No pagination info, continue if we got results
                         count > 0
                     };
 
                     if !should_continue {
+                        info!("Stopping pagination: reached last page or no pagination info");
                         break;
                     }
 
                     page += 1;
                 }
                 Err(e) => {
+                    error!("Failed to fetch partners page {}: {}", page, e);
                     return Err(e);
                 }
             }
         }
 
+        info!("✅ Total partners fetched: {}", all_partners.len());
         Ok(all_partners)
     }
 
@@ -509,106 +438,51 @@ impl ApiClient {
                     let count = response.info_articole.len();
                     
                     if count == 0 {
+                        info!("No more articles to fetch on page {}", page);
                         break;
                     }
                     
                     all_articles.extend(response.info_articole);
 
+                    info!("Fetched page {} with {} articles (total so far: {})", page, count, all_articles.len());
+
                     // Check pagination info from response
                     let should_continue = if let Some(paginare) = &response.paginare {
+                        info!("Pagination info: {:?}", paginare);
+                        
                         if let Some(total_pages_str) = &paginare.total_pagini {
                             if let Ok(total_pages) = total_pages_str.parse::<i32>() {
+                                info!("Total pages from API: {}, current page: {}", total_pages, page);
                                 page < total_pages
                             } else {
+                                // Can't parse total_pages, continue if we got results
                                 count > 0
                             }
                         } else {
+                            // No total_pages info, continue if we got results
                             count > 0
                         }
                     } else {
+                        // No pagination info, continue if we got results
                         count > 0
                     };
 
                     if !should_continue {
+                        info!("Stopping pagination: reached last page or no pagination info");
                         break;
                     }
 
                     page += 1;
                 }
                 Err(e) => {
+                    error!("Failed to fetch articles page {}: {}", page, e);
                     return Err(e);
                 }
             }
         }
 
+        info!("✅ Total articles fetched: {}", all_articles.len());
         Ok(all_articles)
-    }
-
-    // Get offers (no pagination in docs)
-    pub async fn get_offers(&self, filter: OfferFilter) -> Result<OfferResponse, String> {
-        let url = format!("{}/\"GetInfoOferteClienti\"", self.config.base_url);
-
-        let response = self.client
-            .post(&url)
-            .json(&filter)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to fetch offers: {}", e))?;
-
-        if !response.status().is_success() {
-            return Err(format!("API returned error status: {}", response.status()));
-        }
-
-        let offer_response: OfferResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse offers response: {}", e))?;
-
-        Ok(offer_response)
-    }
-
-    // Send invoice to WME
-    pub async fn send_invoice_to_wme(&self, request: WmeInvoiceRequest) -> Result<WmeInvoiceResponse, String> {
-        let url = format!("{}/IesiriClienti", self.config.base_url);
-        
-        log::info!("Sending invoice to WME API at: {}", url);
-
-        let response = self.client
-            .post(&url)
-            .json(&request)
-            .send()
-            .await
-            .map_err(|e| {
-                log::error!("Failed to send invoice to WME: {}", e);
-                format!("Failed to send invoice to WME: {}", e)
-            })?;
-
-        log::info!("WME API response status: {}", response.status());
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_else(|_| "Could not read response body".to_string());
-            log::error!("WME API error - Status: {}, Body: {}", status, body);
-            return Err(format!("WME API returned error status {}: {}", status, body));
-        }
-
-        let response_text = response.text().await
-            .map_err(|e| format!("Failed to read WME response: {}", e))?;
-        
-        log::info!("WME API response body: {}", response_text);
-
-        let wme_response: WmeInvoiceResponse = serde_json::from_str(&response_text)
-            .map_err(|e| format!("Failed to parse WME invoice response: {} - Body: {}", e, response_text))?;
-
-        // Check if result is "ok" or "error"
-        if wme_response.result == "error" {
-            let errors = wme_response.error_list.join(", ");
-            log::error!("WME API returned error: {}", errors);
-            return Err(format!("WME API error: {}", errors));
-        }
-
-        log::info!("Invoice sent successfully to WME");
-        Ok(wme_response)
     }
 }
 
@@ -626,89 +500,4 @@ pub fn parse_f64(s: &Option<String>) -> f64 {
     s.as_ref()
         .and_then(|val| val.parse::<f64>().ok())
         .unwrap_or(0.0)
-}
-
-// ==================== WME INVOICE SENDING STRUCTURES ====================
-
-#[derive(Debug, Serialize)]
-pub struct WmeInvoiceRequest {
-    #[serde(rename = "TipDocument")]
-    pub tip_document: String,
-    #[serde(rename = "AnLucru")]
-    pub an_lucru: i32,
-    #[serde(rename = "LunaLucru")]
-    pub luna_lucru: i32,
-    #[serde(rename = "CodSubunitate", skip_serializing_if = "Option::is_none")]
-    pub cod_subunitate: Option<i32>,
-    #[serde(rename = "Documente")]
-    pub documente: Vec<WmeDocument>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct WmeDocument {
-    #[serde(rename = "SimbolCarnet")]
-    pub simbol_carnet: String,
-    #[serde(rename = "SimbolCarnetLivr")]
-    pub simbol_carnet_livr: String,
-    #[serde(rename = "SimbolGestiuneLivrare")]
-    pub simbol_gestiune_livrare: String,
-    #[serde(rename = "NumerotareAutomata")]
-    pub numerotare_automata: WmeNumerotareAutomata,
-    #[serde(rename = "Data")]
-    pub data: String,
-    #[serde(rename = "DataLivr")]
-    pub data_livr: String,
-    #[serde(rename = "CodClient")]
-    pub cod_client: String,
-    #[serde(rename = "IDSediu", skip_serializing_if = "Option::is_none")]
-    pub id_sediu: Option<String>,
-    #[serde(rename = "Agent")]
-    pub agent: String,
-    #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
-    pub observatii: Option<String>,
-    #[serde(rename = "Items")]
-    pub items: Vec<WmeInvoiceItem>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct WmeNumerotareAutomata {
-    #[serde(rename = "CodCarnet")]
-    pub cod_carnet: String,
-    #[serde(rename = "CodCarnetLivr")]
-    pub cod_carnet_livr: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct WmeInvoiceItem {
-    #[serde(rename = "IDArticol")]
-    pub id_articol: String,
-    #[serde(rename = "Cant")]
-    pub cant: f64,
-    #[serde(rename = "Pret")]
-    pub pret: f64,
-    #[serde(rename = "Gestiune")]
-    pub gestiune: String,
-    #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
-    pub observatii: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct WmeInvoiceResponse {
-    pub result: String,
-    #[serde(rename = "ErrorList")]
-    pub error_list: Vec<String>,
-    #[serde(rename = "DocumenteImportate")]
-    pub documente_importate: Vec<WmeDocumentImportat>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct WmeDocumentImportat {
-    #[serde(rename = "Numar")]
-    pub numar: String,
-    #[serde(rename = "Serie")]
-    pub serie: String,
-    #[serde(rename = "Operat")]
-    pub operat: String,
-    #[serde(rename = "CodIes")]
-    pub cod_ies: String,
 }

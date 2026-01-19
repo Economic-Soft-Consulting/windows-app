@@ -184,7 +184,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
         // Save partners
         for partner in &partners {
             conn.execute(
-                "INSERT OR IGNORE INTO partners (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
+                "INSERT OR REPLACE INTO partners (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
                 params![
                     &partner.id, 
                     &partner.name, 
@@ -221,7 +221,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
             // Save locations
             for location in &partner.locations {
                 conn.execute(
-                    "INSERT OR IGNORE INTO locations (id, partner_id, name, address, cod_sediu, localitate, strada, numar, judet, tara, cod_postal, telefon, email, inactiv) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                    "INSERT OR REPLACE INTO locations (id, partner_id, name, address, cod_sediu, localitate, strada, numar, judet, tara, cod_postal, telefon, email, inactiv) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                     (
                         &location.id, 
                         &location.partner_id, 
