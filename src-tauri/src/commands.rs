@@ -881,18 +881,22 @@ pub fn create_invoice(
     db: State<'_, Database>,
     request: CreateInvoiceRequest,
 ) -> Result<Invoice, String> {
+    info!("Creating invoice - Partner ID received: {}", request.partner_id);
+    
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = Utc::now().to_rfc3339();
     let invoice_id = Uuid::new_v4().to_string();
 
-    // Get partner name
-    let partner_name: String = conn
+    // Get partner name and cod
+    let (partner_name, partner_cod): (String, Option<String>) = conn
         .query_row(
-            "SELECT name FROM partners WHERE id = ?1",
+            "SELECT name, cod FROM partners WHERE id = ?1",
             [&request.partner_id],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| format!("Partner not found: {}", e))?;
+
+    info!("Partner found in DB - Name: {}, COD: {:?}", partner_name, partner_cod);
 
     // Get location name and address
     let (location_name, location_address): (String, Option<String>) = conn
@@ -1171,8 +1175,10 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             .map_err(|e| format!("Invoice not found: {}", e))?;
 
         let partner_cod: Option<String> = conn
-            .query_row("SELECT cod FROM partners WHERE id = ?1", [&invoice.partner_id], |row| row.get(0))
+            .query_row("SELECT cod_intern FROM partners WHERE id = ?1", [&invoice.partner_id], |row| row.get(0))
             .ok();
+
+        info!("Partner info - Name: {}, ID: {}, CodIntern: {:?}", invoice.partner_name, invoice.partner_id, partner_cod);
 
         let location_id_sediu: Option<String> = conn
             .query_row("SELECT id_sediu FROM locations WHERE id = ?1", [&invoice.location_id], |row| row.get(0))
@@ -1205,11 +1211,17 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     if agent_settings.carnet_series.is_none() || agent_settings.carnet_series.as_ref().unwrap().is_empty() {
         return Err("Carnet series is not configured. Please set it in Settings.".to_string());
     }
+    if agent_settings.simbol_carnet_livr.is_none() || agent_settings.simbol_carnet_livr.as_ref().unwrap().is_empty() {
+        return Err("Simbol Carnet Livrări is not configured. Please set it in Settings.".to_string());
+    }
     if agent_settings.cod_carnet.is_none() {
         return Err("Cod Carnet is not configured. Please set it in Settings.".to_string());
     }
     if agent_settings.cod_carnet_livr.is_none() {
         return Err("Cod Carnet Livrări is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.simbol_gestiune_livrare.is_none() || agent_settings.simbol_gestiune_livrare.as_ref().unwrap().is_empty() {
+        return Err("Simbol Gestiune Livrare is not configured. Please set it in Settings.".to_string());
     }
     if partner_cod.is_none() || partner_cod.as_ref().unwrap().is_empty() {
         return Err(format!("Partner {} does not have a COD set in WME", invoice.partner_name));
@@ -1224,12 +1236,14 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     let data_formatted = invoice_date.format("%d.%m.%Y").to_string();
 
     // Build WME items
+    let gestiune = agent_settings.simbol_gestiune_livrare.clone().unwrap();
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
         .map(|(product_id, quantity, price)| api_client::WmeInvoiceItem {
             id_articol: product_id,
             cant: quantity,
             pret: price,
+            gestiune: gestiune.clone(),
             observatii: None,
         })
         .collect();
@@ -1241,7 +1255,9 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         luna_lucru,
         cod_subunitate: None, // Empty for Central
         documente: vec![api_client::WmeDocument {
-            simbol_carnet: agent_settings.carnet_series.unwrap(),
+            simbol_carnet: agent_settings.carnet_series.clone().unwrap(),
+            simbol_carnet_livr: agent_settings.simbol_carnet_livr.clone().unwrap(),
+            simbol_gestiune_livrare: agent_settings.simbol_gestiune_livrare.clone().unwrap(),
             numerotare_automata: api_client::WmeNumerotareAutomata {
                 cod_carnet: agent_settings.cod_carnet.unwrap(),
                 cod_carnet_livr: agent_settings.cod_carnet_livr.unwrap(),
@@ -1255,6 +1271,14 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             items: wme_items,
         }],
     };
+
+    // Log the JSON payload for debugging
+    info!("=== WME API REQUEST PAYLOAD ===");
+    match serde_json::to_string_pretty(&wme_request) {
+        Ok(json) => info!("{}", json),
+        Err(e) => info!("Failed to serialize request: {}", e),
+    }
+    info!("===============================");
 
     // Send to WME API
     let result = match api_client::ApiClient::from_default() {
@@ -1332,6 +1356,124 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
 }
 
 #[tauri::command]
+pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -> Result<String, String> {
+    info!("Previewing JSON for invoice: {}", invoice_id);
+
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    // Fetch invoice basic info
+    let (partner_name, notes, created_at): (String, Option<String>, String) = conn
+        .query_row(
+            "SELECT p.name, i.notes, i.created_at FROM invoices i JOIN partners p ON i.partner_id = p.id WHERE i.id = ?1",
+            [&invoice_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|e| format!("Invoice not found: {}", e))?;
+
+    // Get agent settings
+    let agent_settings = get_agent_settings(db.clone()).map_err(|e| e.to_string())?;
+
+    // Get partner CodIntern and location ID
+    let (partner_cod, location_id_sediu): (Option<String>, Option<String>) = conn
+        .query_row(
+            "SELECT p.cod_intern, l.id_sediu FROM invoices i JOIN partners p ON i.partner_id = p.id JOIN locations l ON i.location_id = l.id WHERE i.id = ?1",
+            [&invoice_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("Failed to get partner info: {}", e))?;
+
+    // Get invoice items
+    let mut stmt = conn
+        .prepare(
+            "SELECT ii.product_id, ii.quantity, ii.unit_price FROM invoice_items ii WHERE ii.invoice_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let items: Vec<(String, f64, f64)> = stmt
+        .query_map([&invoice_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    drop(stmt);
+    drop(conn);
+
+    // Validate required settings
+    if agent_settings.agent_name.is_none() || agent_settings.agent_name.as_ref().unwrap().is_empty() {
+        return Err("Agent name is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.carnet_series.is_none() || agent_settings.carnet_series.as_ref().unwrap().is_empty() {
+        return Err("Carnet series is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.simbol_carnet_livr.is_none() || agent_settings.simbol_carnet_livr.as_ref().unwrap().is_empty() {
+        return Err("Simbol Carnet Livrări is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.simbol_gestiune_livrare.is_none() || agent_settings.simbol_gestiune_livrare.as_ref().unwrap().is_empty() {
+        return Err("Simbol Gestiune Livrare is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.cod_carnet.is_none() {
+        return Err("Cod Carnet is not configured. Please set it in Settings.".to_string());
+    }
+    if agent_settings.cod_carnet_livr.is_none() {
+        return Err("Cod Carnet Livrări is not configured. Please set it in Settings.".to_string());
+    }
+    if partner_cod.is_none() || partner_cod.as_ref().unwrap().is_empty() {
+        return Err(format!("Partner {} does not have a COD set in WME", partner_name));
+    }
+
+    // Parse invoice date
+    let invoice_date = chrono::DateTime::parse_from_rfc3339(&created_at)
+        .map_err(|e| format!("Failed to parse invoice date: {}", e))?;
+    
+    let an_lucru = invoice_date.year();
+    let luna_lucru = invoice_date.month() as i32;
+    let data_formatted = invoice_date.format("%d.%m.%Y").to_string();
+
+    // Build WME items
+    let gestiune = agent_settings.simbol_gestiune_livrare.clone().unwrap();
+    let wme_items: Vec<api_client::WmeInvoiceItem> = items
+        .into_iter()
+        .map(|(product_id, quantity, price)| api_client::WmeInvoiceItem {
+            id_articol: product_id,
+            cant: quantity,
+            pret: price,
+            gestiune: gestiune.clone(),
+            observatii: None,
+        })
+        .collect();
+
+    // Build WME request
+    let wme_request = api_client::WmeInvoiceRequest {
+        tip_document: "FACTURA IESIRE".to_string(),
+        an_lucru,
+        luna_lucru,
+        cod_subunitate: None,
+        documente: vec![api_client::WmeDocument {
+            simbol_carnet: agent_settings.carnet_series.clone().unwrap(),
+            simbol_carnet_livr: agent_settings.simbol_carnet_livr.clone().unwrap(),
+            simbol_gestiune_livrare: agent_settings.simbol_gestiune_livrare.clone().unwrap(),
+            numerotare_automata: api_client::WmeNumerotareAutomata {
+                cod_carnet: agent_settings.cod_carnet.unwrap(),
+                cod_carnet_livr: agent_settings.cod_carnet_livr.unwrap(),
+            },
+            data: data_formatted.clone(),
+            data_livr: data_formatted,
+            cod_client: partner_cod.unwrap(),
+            id_sediu: location_id_sediu,
+            agent: agent_settings.agent_name.unwrap(),
+            observatii: notes.clone(),
+            items: wme_items,
+        }],
+    };
+
+    // Return pretty JSON
+    serde_json::to_string_pretty(&wme_request)
+        .map_err(|e| format!("Failed to serialize request: {}", e))
+}
+
+#[tauri::command]
 pub async fn send_all_pending_invoices(db: State<'_, Database>) -> Result<Vec<String>, String> {
     // Get all pending invoices
     let pending_ids: Vec<String> = {
@@ -1373,6 +1515,58 @@ pub async fn send_all_pending_invoices(db: State<'_, Database>) -> Result<Vec<St
     }
 
     Ok(sent_ids)
+}
+
+#[tauri::command]
+pub fn cancel_invoice_sending(db: State<'_, Database>, invoice_id: String) -> Result<Invoice, String> {
+    info!("Canceling invoice send: {}", invoice_id);
+
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    // Update invoice status to pending
+    conn.execute(
+        "UPDATE invoices SET status = 'pending', error_message = 'Trimitere anulată de utilizator' WHERE id = ?1",
+        [&invoice_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Fetch the updated invoice
+    let invoice: Invoice = conn
+        .query_row(
+            r#"
+            SELECT
+                i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
+                i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
+                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
+            FROM invoices i
+            JOIN partners p ON i.partner_id = p.id
+            JOIN locations l ON i.location_id = l.id
+            WHERE i.id = ?1
+            "#,
+            [&invoice_id],
+            |row| {
+                Ok(Invoice {
+                    id: row.get(0)?,
+                    partner_id: row.get(1)?,
+                    partner_name: row.get(2)?,
+                    partner_cif: row.get(3)?,
+                    partner_reg_com: row.get(4)?,
+                    location_id: row.get(5)?,
+                    location_name: row.get(6)?,
+                    location_address: row.get(7)?,
+                    status: InvoiceStatus::from(row.get::<_, String>(8)?),
+                    total_amount: row.get(9)?,
+                    notes: row.get(10)?,
+                    created_at: row.get(11)?,
+                    sent_at: row.get(12)?,
+                    error_message: row.get(13)?,
+                    item_count: row.get(14)?,
+                })
+            },
+        )
+        .map_err(|e| format!("Invoice not found: {}", e))?;
+
+    Ok(invoice)
 }
 
 #[tauri::command]
@@ -1718,13 +1912,15 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let result = conn.query_row(
-        "SELECT agent_name, carnet_series, cod_carnet, cod_carnet_livr FROM agent_settings WHERE id = 1",
+        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr FROM agent_settings WHERE id = 1",
         [],
         |row| Ok(AgentSettings {
             agent_name: row.get(0)?,
             carnet_series: row.get(1)?,
-            cod_carnet: row.get(2)?,
-            cod_carnet_livr: row.get(3)?,
+            simbol_carnet_livr: row.get(2)?,
+            simbol_gestiune_livrare: row.get(3)?,
+            cod_carnet: row.get(4)?,
+            cod_carnet_livr: row.get(5)?,
         }),
     );
 
@@ -1733,6 +1929,8 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
         Err(_) => Ok(AgentSettings {
             agent_name: None,
             carnet_series: None,
+            simbol_carnet_livr: None,
+            simbol_gestiune_livrare: None,
             cod_carnet: None,
             cod_carnet_livr: None,
         }),
@@ -1744,22 +1942,26 @@ pub fn save_agent_settings(
     db: State<'_, Database>,
     agent_name: Option<String>,
     carnet_series: Option<String>,
-    cod_carnet: Option<i32>,
-    cod_carnet_livr: Option<i32>,
+    simbol_carnet_livr: Option<String>,
+    simbol_gestiune_livrare: Option<String>,
+    cod_carnet: Option<String>,
+    cod_carnet_livr: Option<String>,
 ) -> Result<AgentSettings, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO agent_settings (id, agent_name, carnet_series, cod_carnet, cod_carnet_livr, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5) \
-         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, updated_at = excluded.updated_at",
-        (&agent_name, &carnet_series, &cod_carnet, &cod_carnet_livr, &now),
+        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7) \
+         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, updated_at = excluded.updated_at",
+        (&agent_name, &carnet_series, &simbol_carnet_livr, &simbol_gestiune_livrare, &cod_carnet, &cod_carnet_livr, &now),
     )
     .map_err(|e| e.to_string())?;
 
     Ok(AgentSettings {
         agent_name,
         carnet_series,
+        simbol_carnet_livr,
+        simbol_gestiune_livrare,
         cod_carnet,
         cod_carnet_livr,
     })
