@@ -337,8 +337,11 @@ pub struct ApiClient {
 
 impl ApiClient {
     pub fn new(config: ApiConfig) -> Result<Self, String> {
+        log::info!("Creating API client for: {}", config.base_url);
+        
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(60))
+            .connect_timeout(std::time::Duration::from_secs(10))
             .build()
             .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
@@ -567,29 +570,44 @@ impl ApiClient {
     // Send invoice to WME
     pub async fn send_invoice_to_wme(&self, request: WmeInvoiceRequest) -> Result<WmeInvoiceResponse, String> {
         let url = format!("{}/IesiriClienti", self.config.base_url);
+        
+        log::info!("Sending invoice to WME API at: {}", url);
 
         let response = self.client
             .post(&url)
             .json(&request)
             .send()
             .await
-            .map_err(|e| format!("Failed to send invoice to WME: {}", e))?;
+            .map_err(|e| {
+                log::error!("Failed to send invoice to WME: {}", e);
+                format!("Failed to send invoice to WME: {}", e)
+            })?;
+
+        log::info!("WME API response status: {}", response.status());
 
         if !response.status().is_success() {
-            return Err(format!("WME API returned error status: {}", response.status()));
+            let status = response.status();
+            let body = response.text().await.unwrap_or_else(|_| "Could not read response body".to_string());
+            log::error!("WME API error - Status: {}, Body: {}", status, body);
+            return Err(format!("WME API returned error status {}: {}", status, body));
         }
 
-        let wme_response: WmeInvoiceResponse = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse WME invoice response: {}", e))?;
+        let response_text = response.text().await
+            .map_err(|e| format!("Failed to read WME response: {}", e))?;
+        
+        log::info!("WME API response body: {}", response_text);
+
+        let wme_response: WmeInvoiceResponse = serde_json::from_str(&response_text)
+            .map_err(|e| format!("Failed to parse WME invoice response: {} - Body: {}", e, response_text))?;
 
         // Check if result is "ok" or "error"
         if wme_response.result == "error" {
             let errors = wme_response.error_list.join(", ");
+            log::error!("WME API returned error: {}", errors);
             return Err(format!("WME API error: {}", errors));
         }
 
+        log::info!("Invoice sent successfully to WME");
         Ok(wme_response)
     }
 }
@@ -630,6 +648,10 @@ pub struct WmeInvoiceRequest {
 pub struct WmeDocument {
     #[serde(rename = "SimbolCarnet")]
     pub simbol_carnet: String,
+    #[serde(rename = "SimbolCarnetLivr")]
+    pub simbol_carnet_livr: String,
+    #[serde(rename = "SimbolGestiuneLivrare")]
+    pub simbol_gestiune_livrare: String,
     #[serde(rename = "NumerotareAutomata")]
     pub numerotare_automata: WmeNumerotareAutomata,
     #[serde(rename = "Data")]
@@ -651,9 +673,9 @@ pub struct WmeDocument {
 #[derive(Debug, Serialize)]
 pub struct WmeNumerotareAutomata {
     #[serde(rename = "CodCarnet")]
-    pub cod_carnet: i32,
+    pub cod_carnet: String,
     #[serde(rename = "CodCarnetLivr")]
-    pub cod_carnet_livr: i32,
+    pub cod_carnet_livr: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -664,6 +686,8 @@ pub struct WmeInvoiceItem {
     pub cant: f64,
     #[serde(rename = "Pret")]
     pub pret: f64,
+    #[serde(rename = "Gestiune")]
+    pub gestiune: String,
     #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
     pub observatii: Option<String>,
 }

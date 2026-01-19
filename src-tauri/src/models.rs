@@ -192,6 +192,8 @@ pub struct SyncStatus {
 pub struct AgentSettings {
     pub agent_name: Option<String>,
     pub carnet_series: Option<String>,
-    pub cod_carnet: Option<i32>,
-    pub cod_carnet_livr: Option<i32>,
+    pub simbol_carnet_livr: Option<String>,
+    pub simbol_gestiune_livrare: Option<String>,
+    pub cod_carnet: Option<String>,
+    pub cod_carnet_livr: Option<String>,
 }

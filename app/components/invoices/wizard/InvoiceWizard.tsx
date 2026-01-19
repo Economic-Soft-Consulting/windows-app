@@ -90,7 +90,10 @@ export function InvoiceWizard() {
   };
 
   const handlePartnerSelect = (partner: PartnerWithLocations) => {
-    console.log("handlePartnerSelect called with:", partner);
+    console.log("🔵 Partner selected:", {
+      id: partner.id,
+      name: partner.name
+    });
     setSelectedPartner(partner);
     // Reset location if partner changed
     if (selectedPartner?.id !== partner.id) {
@@ -131,33 +134,30 @@ export function InvoiceWizard() {
       const invoice = await createInvoice(request);
       toast.success("Factura a fost creată cu succes!");
 
-      // Print the invoice immediately after creation (non-blocking)
-      try {
-        const selectedPrinter = localStorage.getItem("selectedPrinter");
-        void printInvoiceToHtml(invoice.id, selectedPrinter || undefined)
-          .then(() => toast.success("Factura a fost printată!"))
-          .catch((e) => {
-            console.error("Print error:", e);
-            toast.error(`Eroare la printare: ${e}`);
-          });
-      } catch (e) {
-        console.error("Print error:", e);
-        toast.error(`Eroare la printare: ${e}`);
-      }
+      // Print the invoice (non-blocking, don't wait)
+      const selectedPrinter = localStorage.getItem("selectedPrinter");
+      printInvoiceToHtml(invoice.id, selectedPrinter || undefined)
+        .then(() => toast.success("Factura a fost printată!"))
+        .catch((e) => {
+          console.error("Print error:", e);
+          toast.error(`Eroare la printare: ${e}`);
+        });
 
-      // Immediately try to send
-      try {
-        const sentInvoice = await sendInvoice(invoice.id);
-        if (sentInvoice.status === "sent") {
-          toast.success("Factura a fost trimisă cu succes!");
-        } else if (sentInvoice.status === "failed") {
-          toast.error(`Eroare la trimitere: ${sentInvoice.error_message}`);
-        }
-      } catch (e) {
-        toast.error("Eroare la trimiterea facturii");
-      }
+      // Send invoice (non-blocking, don't wait)
+      sendInvoice(invoice.id)
+        .then((sentInvoice) => {
+          if (sentInvoice.status === "sent") {
+            toast.success("Factura a fost trimisă cu succes!");
+          } else if (sentInvoice.status === "failed") {
+            toast.error(`Eroare la trimitere: ${sentInvoice.error_message}`);
+          }
+        })
+        .catch((e) => {
+          console.error("Send error:", e);
+          toast.error(`Eroare la trimitere: ${e}`);
+        });
 
-      // Navigate to invoices list
+      // Navigate immediately without waiting for print/send
       router.push("/invoices");
     } catch (e) {
       toast.error(`Eroare la crearea facturii: ${e}`);

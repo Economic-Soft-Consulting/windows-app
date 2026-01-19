@@ -284,8 +284,10 @@ const SCHEMA: &str = r#"
         id INTEGER PRIMARY KEY CHECK (id = 1),
         agent_name TEXT,
         carnet_series TEXT,
-        cod_carnet INTEGER,
-        cod_carnet_livr INTEGER,
+        simbol_carnet_livr TEXT,
+        simbol_gestiune_livrare TEXT,
+        cod_carnet TEXT,
+        cod_carnet_livr TEXT,
         updated_at TEXT
     );
 
@@ -378,8 +380,8 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
     if current_version < 3 {
         info!("Applying migration 3: Agent settings columns");
         let agent_columns = vec![
-            "ALTER TABLE agent_settings ADD COLUMN cod_carnet INTEGER;",
-            "ALTER TABLE agent_settings ADD COLUMN cod_carnet_livr INTEGER;",
+            "ALTER TABLE agent_settings ADD COLUMN cod_carnet TEXT;",
+            "ALTER TABLE agent_settings ADD COLUMN cod_carnet_livr TEXT;",
         ];
         
         for sql in agent_columns {
@@ -390,13 +392,53 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         info!("Migration 3 completed");
     }
 
-    // Add more migrations here as needed
-    // Migration 4: Your next feature
-    // if current_version < 4 {
-    //     info!("Applying migration 4: Description");
-    //     conn.execute("ALTER TABLE table_name ADD COLUMN new_column TYPE;", [])?;
-    //     conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (4, ?1)", [&Utc::now().to_rfc3339()])?;
-    // }
+    // Migration 4: Change agent settings cod_carnet columns from INTEGER to TEXT (v0.4.0)
+    if current_version < 4 {
+        info!("Applying migration 4: Change agent settings cod_carnet columns to TEXT");
+        
+        // SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+        let _ = conn.execute_batch(r#"
+            -- Create new table with TEXT columns
+            CREATE TABLE IF NOT EXISTS agent_settings_new (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                agent_name TEXT,
+                carnet_series TEXT,
+                cod_carnet TEXT,
+                cod_carnet_livr TEXT,
+                updated_at TEXT
+            );
+            
+            -- Copy data, converting INTEGER to TEXT
+            INSERT INTO agent_settings_new (id, agent_name, carnet_series, cod_carnet, cod_carnet_livr, updated_at)
+            SELECT id, agent_name, carnet_series, CAST(cod_carnet AS TEXT), CAST(cod_carnet_livr AS TEXT), updated_at
+            FROM agent_settings;
+            
+            -- Drop old table
+            DROP TABLE agent_settings;
+            
+            -- Rename new table
+            ALTER TABLE agent_settings_new RENAME TO agent_settings;
+        "#).ok();
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (4, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 4 completed");
+    }
+
+    // Migration 5: Add simbol_carnet_livr column (v0.4.0)
+    if current_version < 5 {
+        info!("Applying migration 5: Add simbol_carnet_livr column");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN simbol_carnet_livr TEXT;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (5, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 5 completed");
+    }
+
+    // Migration 6: Add simbol_gestiune_livrare column (v0.5.0)
+    if current_version < 6 {
+        info!("Applying migration 6: Add simbol_gestiune_livrare column");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN simbol_gestiune_livrare TEXT;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (6, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 6 completed");
+    }
     
     info!("All migrations completed successfully");
     Ok(())

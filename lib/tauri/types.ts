@@ -91,8 +91,10 @@ export interface SyncStatus {
 export interface AgentSettings {
   agent_name: string | null;
   carnet_series: string | null;
-  cod_carnet: number | null;
-  cod_carnet_livr: number | null;
+  simbol_carnet_livr: string | null;
+  simbol_gestiune_livrare: string | null;
+  cod_carnet: string | null;
+  cod_carnet_livr: string | null;
 }
 
 // Cart item for invoice creation wizard

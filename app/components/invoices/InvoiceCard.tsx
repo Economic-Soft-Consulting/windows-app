@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
-import { Send, Trash2, Eye, RotateCcw, MapPin, Package, Printer, Loader2 } from "lucide-react";
+import { Send, Trash2, Eye, RotateCcw, MapPin, Package, Printer, Loader2, XCircle } from "lucide-react";
 import type { Invoice } from "@/lib/tauri/types";
-import { printInvoiceToHtml } from "@/lib/tauri/commands";
+import { printInvoiceToHtml, cancelInvoiceSending } from "@/lib/tauri/commands";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -25,6 +25,7 @@ interface InvoiceCardProps {
   onSend: (id: string) => void;
   onDelete: (id: string) => void;
   onView: (id: string) => void;
+  onCancel?: (id: string) => void;
 }
 
 function formatCurrency(amount: number): string {
@@ -46,11 +47,27 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardProps) {
+export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel }: InvoiceCardProps) {
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const canSend = invoice.status === "pending" || invoice.status === "failed";
   const canDelete = invoice.status === "pending" || invoice.status === "failed";
   const isSending = invoice.status === "sending";
+
+  const handleCancel = async () => {
+    if (!onCancel) return;
+    setIsCancelling(true);
+    try {
+      await cancelInvoiceSending(invoice.id);
+      onCancel(invoice.id);
+      toast.success("Trimitere anulată!");
+    } catch (error) {
+      console.error("Cancel error:", error);
+      toast.error(`Eroare la anulare: ${error}`);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const handlePrint = async () => {
     setIsPrinting(true);
@@ -151,6 +168,22 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView }: InvoiceCardPr
                 Trimite
               </>
             )}
+          </Button>
+        )}
+
+        {isSending && onCancel && (
+          <Button
+            variant="outline"
+            className="h-9 px-3 text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
+            onClick={handleCancel}
+            disabled={isCancelling}
+          >
+            {isCancelling ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+            ) : (
+              <XCircle className="h-3.5 w-3.5 mr-1" />
+            )}
+            Anulează
           </Button>
         )}
 

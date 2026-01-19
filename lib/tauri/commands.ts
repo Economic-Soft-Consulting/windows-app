@@ -78,8 +78,16 @@ export async function sendInvoice(invoiceId: string): Promise<Invoice> {
   return invoke<Invoice>("send_invoice", { invoiceId });
 }
 
+export async function previewInvoiceJson(invoiceId: string): Promise<string> {
+  return invoke<string>("preview_invoice_json", { invoiceId });
+}
+
 export async function sendAllPendingInvoices(): Promise<string[]> {
   return invoke<string[]>("send_all_pending_invoices");
+}
+
+export async function cancelInvoiceSending(invoiceId: string): Promise<Invoice> {
+  return invoke<Invoice>("cancel_invoice_sending", { invoiceId });
 }
 
 export async function deleteInvoice(invoiceId: string): Promise<void> {
@@ -105,12 +113,16 @@ export async function getAgentSettings(): Promise<AgentSettings> {
 export async function saveAgentSettings(
   agentName: string | null,
   carnetSeries: string | null,
-  codCarnet: number | null,
-  codCarnetLivr: number | null
+  simbolCarnetLivr: string | null,
+  simbolGestiuneLivrare: string | null,
+  codCarnet: string | null,
+  codCarnetLivr: string | null
 ): Promise<AgentSettings> {
   return invoke<AgentSettings>("save_agent_settings", {
     agentName,
     carnetSeries,
+    simbolCarnetLivr,
+    simbolGestiuneLivrare,
     codCarnet,
     codCarnetLivr,
   });

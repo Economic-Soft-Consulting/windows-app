@@ -33,6 +33,8 @@ export default function SettingsPage() {
   const [agentSettings, setAgentSettings] = useState<AgentSettings>({
     agent_name: null,
     carnet_series: null,
+    simbol_carnet_livr: null,
+    simbol_gestiune_livrare: null,
     cod_carnet: null,
     cod_carnet_livr: null,
   });
@@ -60,6 +62,8 @@ export default function SettingsPage() {
       await saveAgentSettings(
         agentSettings.agent_name || null,
         agentSettings.carnet_series || null,
+        agentSettings.simbol_carnet_livr || null,
+        agentSettings.simbol_gestiune_livrare || null,
         agentSettings.cod_carnet || null,
         agentSettings.cod_carnet_livr || null
       );
@@ -174,7 +178,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="agentName">Nume Agent</Label>
+            <Label htmlFor="agentName">Marca Agent</Label>
             <Input
               id="agentName"
               type="text"
@@ -212,16 +216,54 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="simbolCarnetLivr">Serie Carnet Livrări (SimbolCarnetLivr)</Label>
+            <Input
+              id="simbolCarnetLivr"
+              type="text"
+              placeholder="Ex: BL, LIV"
+              value={agentSettings.simbol_carnet_livr || ""}
+              onChange={(e) =>
+                setAgentSettings((prev) => ({
+                  ...prev,
+                  simbol_carnet_livr: e.target.value,
+                }))
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              Seria carnetului pentru livrări (ex: BL, LIV, etc.)
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="simbolGestiuneLivrare">Simbol Gestiune Livrare</Label>
+            <Input
+              id="simbolGestiuneLivrare"
+              type="text"
+              placeholder="Ex: MAGAZIN, DEPOZIT"
+              value={agentSettings.simbol_gestiune_livrare || ""}
+              onChange={(e) =>
+                setAgentSettings((prev) => ({
+                  ...prev,
+                  simbol_gestiune_livrare: e.target.value,
+                }))
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              Simbolul gestiunii de livrare din WME
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="codCarnet">Cod Carnet Facturi (CodCarnet)</Label>
             <Input
               id="codCarnet"
-              type="number"
+              type="text"
               placeholder="Ex: 1"
               value={agentSettings.cod_carnet || ""}
               onChange={(e) =>
                 setAgentSettings((prev) => ({
                   ...prev,
-                  cod_carnet: e.target.value ? parseInt(e.target.value) : null,
+                  cod_carnet: e.target.value || null,
                 }))
               }
             />
@@ -234,13 +276,13 @@ export default function SettingsPage() {
             <Label htmlFor="codCarnetLivr">Cod Carnet Livrări (CodCarnetLivr)</Label>
             <Input
               id="codCarnetLivr"
-              type="number"
+              type="text"
               placeholder="Ex: 2"
               value={agentSettings.cod_carnet_livr || ""}
               onChange={(e) =>
                 setAgentSettings((prev) => ({
                   ...prev,
-                  cod_carnet_livr: e.target.value ? parseInt(e.target.value) : null,
+                  cod_carnet_livr: e.target.value || null,
                 }))
               }
             />
