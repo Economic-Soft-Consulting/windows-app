@@ -1,3 +1,5 @@
+# Release v0.5.2
+
 # Release v0.5.1 - Invoice Numbering & Enhanced Details
 
 ## 🎯 Major Features
