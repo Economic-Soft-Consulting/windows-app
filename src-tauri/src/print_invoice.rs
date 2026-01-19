@@ -26,18 +26,39 @@ pub fn generate_invoice_html(
     items: &[InvoiceItem],
     invoice_number: i64,
     logo_base64: Option<&str>,
+    payment_term_days: i64,
+    delegate_name: Option<&str>,
+    delegate_act: Option<&str>,
+    carnet_series: &str,
 ) -> String {
-    let vat_rate = 0.21;
-    let total_without_vat = invoice.total_amount / (1.0 + vat_rate);
-    let total_vat = invoice.total_amount - total_without_vat;
+    log::info!("📄 Generating invoice HTML with payment_term_days: {} for partner: '{}'", 
+        payment_term_days, invoice.partner_name);
     
-    let due_date = calculate_due_date(&invoice.created_at, 10); // 10 days payment term
-
+    let due_date = calculate_due_date(&invoice.created_at, payment_term_days);
+    log::info!("📄 Calculated due date: {} (created: {}, +{} days)", 
+        due_date, invoice.created_at, payment_term_days);
+    
+    // Calculate total TVA by summing individual product TVAs
+    let mut total_without_vat = 0.0;
+    let mut total_vat = 0.0;
+    
     let products_html = items
         .iter()
         .enumerate()
         .map(|(idx, item)| {
-            let item_vat = item.total_price * vat_rate;
+            // Use product's TVA or default to 19%
+            let vat_rate = item.tva_percent.unwrap_or(19.0) / 100.0;
+            
+            // Calculate TVA as percentage of price (prices are without VAT)
+            let item_vat = (item.total_price * vat_rate * 100.0).round() / 100.0;
+            
+            total_without_vat += item.total_price;
+            total_vat += item_vat;
+            
+            let tva_display = item.tva_percent
+                .map(|t| format!("TVA: {:.0}%", t))
+                .unwrap_or_else(|| "TVA: 19%".to_string());
+            
             format!(
                 r#"        <div class="product-item">
             <span class="prod-name">{}. {}</span>
@@ -45,7 +66,10 @@ pub fn generate_invoice_html(
                 <span>{} {} x {:.2}</span>
                 <span>= {:.2}</span>
             </div>
-            <div class="prod-vat">Valoare TVA: {:.2}</div>
+            <div class="prod-vat-row">
+                <span class="tva-percent">{}</span>
+                <span class="tva-value">Valoare TVA: {:.2} RON</span>
+            </div>
         </div>"#,
                 idx + 1,
                 item.product_name,
@@ -53,13 +77,12 @@ pub fn generate_invoice_html(
                 item.unit_of_measure,
                 item.unit_price,
                 item.total_price,
+                tva_display,
                 item_vat
             )
         })
         .collect::<Vec<_>>()
         .join("\n");
-
-    let invoice_series = format!("KARIN-F-{:06}", invoice_number);
 
     format!(
         r#"<!DOCTYPE html>
@@ -95,7 +118,7 @@ pub fn generate_invoice_html(
             font-weight: bold;
             color: #000000;
             line-height: 1.15;
-            background: white;
+           background: white;
             box-sizing: border-box;
         }}
 
@@ -160,12 +183,23 @@ pub fn generate_invoice_html(
             justify-content: space-between;
             font-size: 13px;
         }}
-
-        .prod-vat {{
-            text-align: right;
+        
+        .prod-vat-row {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-size: 12px;
-            font-weight: normal;
+            font-weight: bold;
             color: #000;
+            margin-top: 2px;
+        }}
+        
+        .tva-percent {{
+            font-weight: bold;
+        }}
+        
+        .tva-value {{
+            font-weight: bold;
         }}
 
         .totals-section {{
@@ -263,10 +297,6 @@ pub fn generate_invoice_html(
         {}
     </div>
 
-    <div style="font-size: 12px; margin-bottom: 5px;">
-        Cota TVA: 21% (TVA la incasare)
-    </div>
-
     <div class="products-container">
         {}
     </div>
@@ -302,8 +332,8 @@ pub fn generate_invoice_html(
         </div>
 
         <div class="sig-block">
-            Numele Delegatului: ........................<br>
-            Act Delegat: .....................................<br>
+            Numele Delegatului: {}<br>
+            Act Delegat: {}<br>
             Semnatura: <span class="dots" style="width: 50%;"></span>
         </div>
 
@@ -341,7 +371,7 @@ pub fn generate_invoice_html(
     </script>
 </body>
 </html>"#,
-        invoice_series,
+        carnet_series,
         invoice_number,
         format_date(&invoice.created_at),
         due_date.clone(),
@@ -360,8 +390,10 @@ pub fn generate_invoice_html(
         products_html,
         total_without_vat,
         total_vat,
-        invoice.total_amount,
+        total_without_vat + total_vat,  // Total General = Subtotal + TVA
         due_date,
+        delegate_name.unwrap_or("........................"),
+        delegate_act.unwrap_or("....................................."),
         if let Some(logo) = logo_base64 {
             format!(r#"<img src="{}" class="footer-logo" alt="Logo" />"#, logo)
         } else {

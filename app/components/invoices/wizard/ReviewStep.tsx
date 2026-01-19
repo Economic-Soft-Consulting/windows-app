@@ -139,6 +139,11 @@ export function ReviewStep({
                   <TableRow key={item.product.id}>
                     <TableCell className="font-medium min-w-0">
                       <span className="line-clamp-2">{item.product.name}</span>
+                      {item.product.tva_percent != null && (
+                        <span className="text-xs text-muted-foreground block mt-1">
+                          TVA: {item.product.tva_percent}%
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       {item.quantity} {item.product.unit_of_measure}

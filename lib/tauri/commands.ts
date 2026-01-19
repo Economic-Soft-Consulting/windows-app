@@ -116,7 +116,12 @@ export async function saveAgentSettings(
   simbolCarnetLivr: string | null,
   simbolGestiuneLivrare: string | null,
   codCarnet: string | null,
-  codCarnetLivr: string | null
+  codCarnetLivr: string | null,
+  delegateName: string | null,
+  delegateAct: string | null,
+  invoiceNumberStart: number | null,
+  invoiceNumberEnd: number | null,
+  invoiceNumberCurrent: number | null
 ): Promise<AgentSettings> {
   return invoke<AgentSettings>("save_agent_settings", {
     agentName,
@@ -125,6 +130,11 @@ export async function saveAgentSettings(
     simbolGestiuneLivrare,
     codCarnet,
     codCarnetLivr,
+    delegateName,
+    delegateAct,
+    invoiceNumberStart,
+    invoiceNumberEnd,
+    invoiceNumberCurrent,
   });
 }
 

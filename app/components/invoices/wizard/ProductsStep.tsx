@@ -138,9 +138,8 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                   return (
                     <Card
                       key={product.id}
-                      className={`cursor-pointer transition-all hover:border-primary/50 ${
-                        inCart ? "border-primary bg-primary/5" : ""
-                      }`}
+                      className={`cursor-pointer transition-all hover:border-primary/50 ${inCart ? "border-primary bg-primary/5" : ""
+                        }`}
                       onClick={() => addToCart(product)}
                     >
                       <CardContent className="p-3">
@@ -163,6 +162,11 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                               <span className="text-sm font-medium">
                                 {formatCurrency(product.price)}
                               </span>
+                              {product.tva_percent != null && (
+                                <Badge variant="outline" className="text-xs">
+                                  TVA {product.tva_percent}%
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <Plus className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -208,6 +212,11 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                               {formatCurrency(item.product.price)} /{" "}
                               {item.product.unit_of_measure}
                             </p>
+                            {item.product.tva_percent != null && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                TVA: {item.product.tva_percent}%
+                              </p>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Button

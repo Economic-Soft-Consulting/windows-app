@@ -288,6 +288,8 @@ const SCHEMA: &str = r#"
         simbol_gestiune_livrare TEXT,
         cod_carnet TEXT,
         cod_carnet_livr TEXT,
+        delegate_name TEXT,
+        delegate_act TEXT,
         updated_at TEXT
     );
 
@@ -438,6 +440,25 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN simbol_gestiune_livrare TEXT;", []).ok();
         conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (6, ?1)", [&Utc::now().to_rfc3339()])?;
         info!("Migration 6 completed");
+    }
+
+    // Migration 7: Add delegate_name and delegate_act columns (v0.5.0)
+    if current_version < 7 {
+        info!("Applying migration 7: Add delegate_name and delegate_act columns");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN delegate_name TEXT;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN delegate_act TEXT;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (7, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 7 completed");
+    }
+
+    // Migration 8: Add invoice numbering fields (v0.5.0)
+    if current_version < 8 {
+        info!("Applying migration 8: Add invoice numbering fields");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN invoice_number_start INTEGER DEFAULT 1;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN invoice_number_end INTEGER DEFAULT 99999;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN invoice_number_current INTEGER DEFAULT 1;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (8, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 8 completed");
     }
     
     info!("All migrations completed successfully");

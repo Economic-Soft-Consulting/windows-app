@@ -21,6 +21,7 @@ export interface PartnerWithLocations {
   name: string;
   cif?: string;
   reg_com?: string;
+  scadenta_la_vanzare?: string;
   created_at: string;
   updated_at: string;
   locations: Location[];
@@ -32,6 +33,7 @@ export interface Product {
   unit_of_measure: string;
   price: number;
   class: string | null;
+  tva_percent: number | null;
 }
 
 export type InvoiceStatus = "pending" | "sending" | "sent" | "failed";
@@ -51,6 +53,7 @@ export interface Invoice {
   created_at: string;
   sent_at: string | null;
   error_message: string | null;
+  partner_payment_term: string | null;
 }
 
 export interface InvoiceItem {
@@ -62,6 +65,7 @@ export interface InvoiceItem {
   unit_price: number;
   unit_of_measure: string;
   total_price: number;
+  tva_percent: number | null;
 }
 
 export interface CreateInvoiceRequest {
@@ -95,6 +99,11 @@ export interface AgentSettings {
   simbol_gestiune_livrare: string | null;
   cod_carnet: string | null;
   cod_carnet_livr: string | null;
+  delegate_name: string | null;
+  delegate_act: string | null;
+  invoice_number_start: number | null;
+  invoice_number_end: number | null;
+  invoice_number_current: number | null;
 }
 
 // Cart item for invoice creation wizard

@@ -18,7 +18,7 @@ export default function InvoicesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const statusFilter = activeTab === "all" ? undefined : activeTab;
-  const { invoices, isLoading, send, remove } = useInvoices(statusFilter);
+  const { invoices, isLoading, send, remove, refresh } = useInvoices(statusFilter);
 
   // Listen for auto-send updates
   useEffect(() => {
@@ -42,6 +42,11 @@ export default function InvoicesPage() {
 
   const handleDelete = async (id: string) => {
     await remove(id);
+  };
+
+  const handleCancel = async (id: string) => {
+    // Refresh after cancel to show updated status
+    await refresh();
   };
 
   // Count invoices by status (for badge numbers)
@@ -141,6 +146,7 @@ export default function InvoicesPage() {
               onSend={handleSend}
               onDelete={handleDelete}
               onView={handleView}
+              onCancel={handleCancel}
             />
           ))}
         </div>

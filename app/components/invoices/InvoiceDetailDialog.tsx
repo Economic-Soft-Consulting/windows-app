@@ -49,6 +49,21 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function formatDateShort(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("ro-RO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function calculateDueDate(createdAt: string, paymentTermDays: number = 7): string {
+  const date = new Date(createdAt);
+  date.setDate(date.getDate() + paymentTermDays);
+  return formatDateShort(date.toISOString());
+}
+
 export function InvoiceDetailDialog({
   invoiceId,
   open,
@@ -59,7 +74,7 @@ export function InvoiceDetailDialog({
 
   const handlePrint = async () => {
     if (!invoiceId) return;
-    
+
     setIsPrinting(true);
     try {
       const selectedPrinter = typeof window !== "undefined" ? localStorage.getItem("selectedPrinter") : null;
@@ -91,17 +106,30 @@ export function InvoiceDetailDialog({
           </div>
         ) : detail ? (
           <div className="space-y-6">
-            {/* Invoice Header */}
             <div className="flex items-start justify-between">
-              <div>
+              <div className="space-y-2">
                 <h3 className="text-lg font-semibold">{detail.invoice.partner_name}</h3>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <MapPin className="h-3.5 w-3.5" />
                   {detail.invoice.location_name}
                 </div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {formatDate(detail.invoice.created_at)}
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div className="bg-muted/50 p-2 rounded">
+                    <p className="text-xs text-muted-foreground">Data emitere</p>
+                    <p className="text-sm font-medium">{formatDateShort(detail.invoice.created_at)}</p>
+                  </div>
+                  <div className="bg-muted/50 p-2 rounded">
+                    <p className="text-xs text-muted-foreground">Data scadență</p>
+                    <p className="text-sm font-medium">
+                      {(() => {
+                        // Parse payment term from partner, default to 7
+                        const paymentTerm = detail.invoice.partner_payment_term
+                          ? parseInt(detail.invoice.partner_payment_term) || 7
+                          : 7;
+                        return calculateDueDate(detail.invoice.created_at, paymentTerm);
+                      })()}
+                    </p>
+                  </div>
                 </div>
               </div>
               <InvoiceStatusBadge status={detail.invoice.status} />
@@ -131,38 +159,65 @@ export function InvoiceDetailDialog({
                   <TableRow>
                     <TableHead className="min-w-0">Produs</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Cantitate</TableHead>
-                    <TableHead className="text-right whitespace-nowrap hidden sm:table-cell">Preț unitar</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Total</TableHead>
+                    <TableHead className="text-center whitespace-nowrap hidden sm:table-cell">Preț</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {detail.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium min-w-0">
-                        <span className="line-clamp-2">{item.product_name}</span>
-                      </TableCell>
-                      <TableCell className="text-right whitespace-nowrap">
-                        {item.quantity} {item.unit_of_measure}
-                      </TableCell>
-                      <TableCell className="text-right whitespace-nowrap hidden sm:table-cell">
-                        {formatCurrency(item.unit_price)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium whitespace-nowrap">
-                        {formatCurrency(item.total_price)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {detail.items.map((item) => {
+                    // Use actual TVA from database, default to 19% if not available
+                    const vatPercent = item.tva_percent || 19;
+                    const vatAmount = item.total_price * (vatPercent / 100);
+                    const totalWithVAT = item.total_price + vatAmount;
+
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium min-w-0">
+                          <span className="line-clamp-2">{item.product_name}</span>
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {item.quantity} {item.unit_of_measure}
+                        </TableCell>
+                        <TableCell className="text-center whitespace-nowrap hidden sm:table-cell">
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-xs text-muted-foreground">{formatCurrency(item.total_price)}</span>
+                              <span className="text-[10px] text-muted-foreground">Preț fără TVA</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-medium text-primary">{formatCurrency(vatAmount)}</span>
+                              <span className="text-[10px] font-medium text-primary">TVA {vatPercent}%</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 border-t pt-1">
+                              <span className="text-sm font-semibold">{formatCurrency(totalWithVAT)}</span>
+                              <span className="text-[10px] font-medium">Preț cu TVA</span>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={2} className="text-right font-semibold sm:hidden">
-                      Total
-                    </TableCell>
-                    <TableCell colSpan={3} className="text-right font-semibold hidden sm:table-cell">
-                      Total
+                    <TableCell colSpan={2} className="text-right font-semibold">
+                      Total general cu TVA
                     </TableCell>
                     <TableCell className="text-right font-bold text-lg whitespace-nowrap">
-                      {formatCurrency(detail.invoice.total_amount)}
+                      {(() => {
+                        // Calculate total VAT across all items
+                        const totalVAT = detail.items.reduce((sum, item) => {
+                          const vatPercent = item.tva_percent || 19;
+                          return sum + (item.total_price * vatPercent / 100);
+                        }, 0);
+                        const grandTotal = detail.invoice.total_amount + totalVAT;
+
+                        return (
+                          <>
+                            <div className="text-xs text-muted-foreground font-normal">{formatCurrency(detail.invoice.total_amount)}</div>
+                            <div>{formatCurrency(grandTotal)}</div>
+                          </>
+                        );
+                      })()}
                     </TableCell>
                   </TableRow>
                 </TableFooter>

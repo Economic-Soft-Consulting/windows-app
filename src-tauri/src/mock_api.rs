@@ -338,6 +338,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 5500.0,
             class: Some("Electronice".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr2".to_string(),
@@ -345,6 +346,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 1200.0,
             class: Some("Electronice".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr3".to_string(),
@@ -352,6 +354,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 35.0,
             class: Some("Accesorii".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr4".to_string(),
@@ -359,6 +362,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "top".to_string(),
             price: 25.0,
             class: Some("Birou".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr5".to_string(),
@@ -366,6 +370,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 350.0,
             class: Some("Birou".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr6".to_string(),
@@ -373,6 +378,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 450.0,
             class: Some("Periferice".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr7".to_string(),
@@ -380,6 +386,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 380.0,
             class: Some("Periferice".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr8".to_string(),
@@ -387,6 +394,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 420.0,
             class: Some("Componente".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr9".to_string(),
@@ -394,6 +402,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 320.0,
             class: Some("Periferice".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr10".to_string(),
@@ -401,6 +410,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 650.0,
             class: Some("Audio".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr11".to_string(),
@@ -408,6 +418,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 180.0,
             class: Some("Accesorii".to_string()),
+            tva_percent: Some(19.0),
         },
         Product {
             id: "pr12".to_string(),
@@ -415,6 +426,7 @@ pub async fn fetch_products() -> Vec<Product> {
             unit_of_measure: "buc".to_string(),
             price: 150.0,
             class: Some("Accesorii".to_string()),
+            tva_percent: Some(19.0),
         },
     ]
 }

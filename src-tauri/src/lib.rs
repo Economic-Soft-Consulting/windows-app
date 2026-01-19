@@ -77,6 +77,7 @@ pub fn run() {
             commands::test_api_articles,
             // Debug commands
             commands::debug_db_counts,
+            commands::debug_partner_payment_terms,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

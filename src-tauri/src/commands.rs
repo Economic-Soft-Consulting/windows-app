@@ -27,12 +27,19 @@ fn parse_price(value: &Option<String>) -> Option<f64> {
 }
 
 fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
+    // Parse TVA percentage from TEXT to f64
+    let tva_percent: Option<f64> = match row.get::<_, Option<String>>(5)? {
+        Some(s) => s.parse::<f64>().ok(),
+        None => None,
+    };
+    
     Ok(Product {
         id: row.get(0)?,
         name: row.get(1)?,
         unit_of_measure: row.get(2)?,
         price: row.get(3)?,
         class: row.get(4)?,
+        tva_percent,
     })
 }
 
@@ -238,10 +245,13 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
 
         // Save products
         for product in &products {
+            // Convert Option<f64> to Option<String> for database storage
+            let tva_str = product.tva_percent.map(|t| t.to_string());
+            
             conn.execute(
-                "INSERT INTO products (id, name, unit_of_measure, price, class) VALUES (?1, ?2, ?3, ?4, ?5) \
-                 ON CONFLICT(id) DO UPDATE SET name = excluded.name, unit_of_measure = excluded.unit_of_measure, price = excluded.price, class = excluded.class",
-                (&product.id, &product.name, &product.unit_of_measure, product.price, &product.class),
+                "INSERT INTO products (id, name, unit_of_measure, price, class, procent_tva) VALUES (?1, ?2, ?3, ?4, ?5, ?6) \
+                 ON CONFLICT(id) DO UPDATE SET name = excluded.name, unit_of_measure = excluded.unit_of_measure, price = excluded.price, class = excluded.class, procent_tva = excluded.procent_tva",
+                (&product.id, &product.name, &product.unit_of_measure, product.price, &product.class, &tva_str),
             )
             .map_err(|e| format!("Failed to save product: {}", e))?;
         }
@@ -523,6 +533,12 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
             
             // Parse price from string
             let price = parse_price(&api_article.pret_vanzare).unwrap_or(0.0);
+            
+            // Parse TVA percentage from string
+            let tva_percent = match &api_article.procent_tva {
+                Some(tva_str) => tva_str.parse::<f64>().ok(),
+                None => None,
+            };
 
             Product {
                 id: product_id,
@@ -530,6 +546,7 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
                 unit_of_measure: api_article.um,
                 price,
                 class: api_article.clasa,
+                tva_percent,
             }
         })
         .collect()
@@ -820,14 +837,14 @@ pub fn get_products(db: State<'_, Database>, partner_id: Option<String>) -> Resu
 
     let mut stmt = if partner_id.is_some() {
         conn.prepare(
-            "SELECT p.id, p.name, p.unit_of_measure, COALESCE(oi.pret, p.price) AS price, p.class \
+            "SELECT p.id, p.name, p.unit_of_measure, COALESCE(oi.pret, p.price) AS price, p.class, p.procent_tva \
              FROM products p \
              LEFT JOIN offer_items oi ON oi.product_id = p.id AND oi.id_client = ?1 \
              ORDER BY p.name",
         )
         .map_err(|e| e.to_string())?
     } else {
-        conn.prepare("SELECT id, name, unit_of_measure, price, class FROM products ORDER BY name")
+        conn.prepare("SELECT id, name, unit_of_measure, price, class, procent_tva FROM products ORDER BY name")
             .map_err(|e| e.to_string())?
     };
 
@@ -850,7 +867,7 @@ pub fn search_products(db: State<'_, Database>, query: String, partner_id: Optio
 
     let mut stmt = if partner_id.is_some() {
         conn.prepare(
-            "SELECT p.id, p.name, p.unit_of_measure, COALESCE(oi.pret, p.price) AS price, p.class \
+            "SELECT p.id, p.name, p.unit_of_measure, COALESCE(oi.pret, p.price) AS price, p.class, p.procent_tva \
              FROM products p \
              LEFT JOIN offer_items oi ON oi.product_id = p.id AND oi.id_client = ?2 \
              WHERE p.name LIKE ?1 OR p.class LIKE ?1 \
@@ -858,7 +875,7 @@ pub fn search_products(db: State<'_, Database>, query: String, partner_id: Optio
         )
         .map_err(|e| e.to_string())?
     } else {
-        conn.prepare("SELECT id, name, unit_of_measure, price, class FROM products WHERE name LIKE ?1 OR class LIKE ?1 ORDER BY name")
+        conn.prepare("SELECT id, name, unit_of_measure, price, class, procent_tva FROM products WHERE name LIKE ?1 OR class LIKE ?1 ORDER BY name")
             .map_err(|e| e.to_string())?
     };
 
@@ -937,21 +954,40 @@ pub fn create_invoice(
         ));
     }
 
-    // Get next invoice number
-    let invoice_number: i64 = conn
+    // Get invoice number from agent settings (settings-based numbering)
+    let (invoice_number, invoice_end): (i64, i64) = conn
         .query_row(
-            "SELECT COALESCE(MAX(invoice_number), 0) + 1 FROM invoices",
+            "SELECT COALESCE(invoice_number_current, 1), COALESCE(invoice_number_end, 99999) FROM agent_settings WHERE id = 1",
             [],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .unwrap_or(1);
+        .unwrap_or((1, 99999));
 
-    // Insert invoice with auto-generated number
+    // Validate we haven't exceeded the end number
+    if invoice_number > invoice_end {
+        return Err(format!(
+            "Invoice number {} exceeds maximum configured number {}. Please update the number range in settings.",
+            invoice_number, invoice_end
+        ));
+    }
+
+    info!("Using invoice number {} from settings (max: {})", invoice_number, invoice_end);
+
+    // Insert invoice with number from settings
     conn.execute(
         "INSERT INTO invoices (id, invoice_number, partner_id, location_id, status, total_amount, notes, created_at) VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?6, ?7)",
         (&invoice_id, invoice_number, &request.partner_id, &request.location_id, total_amount, &request.notes, &now),
     )
     .map_err(|e| e.to_string())?;
+
+    // Increment the current invoice number in settings for next invoice
+    conn.execute(
+        "UPDATE agent_settings SET invoice_number_current = invoice_number_current + 1 WHERE id = 1",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    info!("Invoice created successfully. Next invoice number will be: {}", invoice_number + 1);
 
     // Insert invoice items
     for (item_id, product_id, _, quantity, unit_price, _, total_price) in &items_to_insert {
@@ -978,6 +1014,7 @@ pub fn create_invoice(
         created_at: now,
         sent_at: None,
         error_message: None,
+        partner_payment_term: None,
     })
 }
 
@@ -994,7 +1031,8 @@ pub fn get_invoices(
             SELECT
                 i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
-                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
+                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
+                p.scadenta_la_vanzare
             FROM invoices i
             JOIN partners p ON i.partner_id = p.id
             JOIN locations l ON i.location_id = l.id
@@ -1007,7 +1045,8 @@ pub fn get_invoices(
             SELECT
                 i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
-                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
+                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
+                p.scadenta_la_vanzare
             FROM invoices i
             JOIN partners p ON i.partner_id = p.id
             JOIN locations l ON i.location_id = l.id
@@ -1036,6 +1075,7 @@ pub fn get_invoices(
                 sent_at: row.get(12)?,
                 error_message: row.get(13)?,
                 item_count: row.get(14)?,
+                partner_payment_term: row.get(15)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -1059,7 +1099,8 @@ pub fn get_invoice_detail(
             SELECT
                 i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
-                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
+                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
+                p.scadenta_la_vanzare
             FROM invoices i
             JOIN partners p ON i.partner_id = p.id
             JOIN locations l ON i.location_id = l.id
@@ -1083,6 +1124,7 @@ pub fn get_invoice_detail(
                     sent_at: row.get(12)?,
                     error_message: row.get(13)?,
                     item_count: row.get(14)?,
+                    partner_payment_term: row.get(15)?,
                 })
             },
         )
@@ -1093,7 +1135,7 @@ pub fn get_invoice_detail(
         .prepare(
             r#"
             SELECT
-                ii.id, ii.invoice_id, ii.product_id, pr.name, ii.quantity, ii.unit_price, pr.unit_of_measure, ii.total_price
+                ii.id, ii.invoice_id, ii.product_id, pr.name, ii.quantity, ii.unit_price, pr.unit_of_measure, ii.total_price, pr.procent_tva
             FROM invoice_items ii
             JOIN products pr ON ii.product_id = pr.id
             WHERE ii.invoice_id = ?1
@@ -1103,6 +1145,12 @@ pub fn get_invoice_detail(
 
     let items: Vec<InvoiceItem> = stmt
         .query_map([&invoice_id], |row| {
+            // Parse TVA percentage from TEXT to f64
+            let tva_percent: Option<f64> = match row.get::<_, Option<String>>(8)? {
+                Some(s) => s.parse::<f64>().ok(),
+                None => None,
+            };
+            
             Ok(InvoiceItem {
                 id: row.get(0)?,
                 invoice_id: row.get(1)?,
@@ -1112,6 +1160,7 @@ pub fn get_invoice_detail(
                 unit_price: row.get(5)?,
                 unit_of_measure: row.get(6)?,
                 total_price: row.get(7)?,
+                tva_percent,
             })
         })
         .map_err(|e| e.to_string())?
@@ -1169,6 +1218,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                         sent_at: row.get(12)?,
                         error_message: row.get(13)?,
                         item_count: row.get(14)?,
+                        partner_payment_term: None,
                     })
                 },
             )
@@ -1344,6 +1394,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                     sent_at: row.get(12)?,
                     error_message: row.get(13)?,
                     item_count: row.get(14)?,
+                    partner_payment_term: None,
                 })
             },
         )
@@ -1523,6 +1574,20 @@ pub fn cancel_invoice_sending(db: State<'_, Database>, invoice_id: String) -> Re
 
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
+    // Check current status first
+    let current_status: String = conn
+        .query_row(
+            "SELECT status FROM invoices WHERE id = ?1",
+            [&invoice_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Invoice not found: {}", e))?;
+
+    // Only allow canceling if status is "sending"
+    if current_status != "sending" {
+        return Err(format!("Cannot cancel invoice with status '{}'. Only 'sending' invoices can be cancelled.", current_status));
+    }
+
     // Update invoice status to pending
     conn.execute(
         "UPDATE invoices SET status = 'pending', error_message = 'Trimitere anulată de utilizator' WHERE id = ?1",
@@ -1561,6 +1626,7 @@ pub fn cancel_invoice_sending(db: State<'_, Database>, invoice_id: String) -> Re
                     sent_at: row.get(12)?,
                     error_message: row.get(13)?,
                     item_count: row.get(14)?,
+                    partner_payment_term: None,
                 })
             },
         )
@@ -1644,14 +1710,25 @@ pub async fn print_invoice_to_html(
         )
         .map_err(|e| format!("Invoice not found: {}", e))?;
 
-    // Fetch invoice details
-    let invoice = get_invoice_for_print(&conn, &invoice_id)?;
+    // Fetch invoice details and payment term
+    let (invoice, payment_term_days) = get_invoice_for_print(&conn, &invoice_id)?;
+    
+    info!("📅 Payment term retrieved from database for partner '{}': {:?}", invoice.partner_name, payment_term_days);
+    
+    // Get agent settings for delegate info
+    let agent_settings_result = conn.query_row(
+        "SELECT delegate_name, delegate_act FROM agent_settings WHERE id = 1",
+        [],
+        |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
+    );
+    
+    let (delegate_name, delegate_act) = agent_settings_result.unwrap_or((None, None));
 
     // Fetch invoice items
     let mut stmt = conn
         .prepare(
             r#"
-            SELECT ii.id, ii.product_id, p.name, ii.quantity, ii.unit_price, p.unit_of_measure, ii.total_price
+            SELECT ii.id, ii.product_id, p.name, ii.quantity, ii.unit_price, p.unit_of_measure, ii.total_price, p.procent_tva
             FROM invoice_items ii
             JOIN products p ON ii.product_id = p.id
             WHERE ii.invoice_id = ?1
@@ -1661,6 +1738,12 @@ pub async fn print_invoice_to_html(
 
     let items: Vec<InvoiceItem> = stmt
         .query_map([&invoice_id], |row| {
+            // Parse TVA percentage from TEXT to f64
+            let tva_percent: Option<f64> = match row.get::<_, Option<String>>(7)? {
+                Some(s) => s.parse::<f64>().ok(),
+                None => None,
+            };
+            
             Ok(InvoiceItem {
                 id: row.get(0)?,
                 invoice_id: invoice_id.clone(),
@@ -1670,6 +1753,7 @@ pub async fn print_invoice_to_html(
                 unit_price: row.get(4)?,
                 unit_of_measure: row.get(5)?,
                 total_price: row.get(6)?,
+                tva_percent,
             })
         })
         .map_err(|e| e.to_string())?
@@ -1678,9 +1762,31 @@ pub async fn print_invoice_to_html(
 
     // Read logo and convert to base64
     let logo_base64 = read_logo_to_base64();
+    
+    // Use partner's payment term or default to 10 days
+    let payment_days = payment_term_days.unwrap_or(10);
+    
+    info!("📅 Using payment term: {} days (partner: '{}', retrieved: {:?}, final: {})", 
+        payment_days, invoice.partner_name, payment_term_days, payment_days);
+
+    // Get carnet series from agent settings
+    let carnet_series = conn.query_row(
+        "SELECT carnet_series FROM agent_settings WHERE id = 1",
+        [],
+        |row| row.get::<_, Option<String>>(0)
+    ).ok().flatten().unwrap_or_else(|| "FACTURA".to_string());
 
     // Generate HTML
-    let html = print_invoice::generate_invoice_html(&invoice, &items, invoice_number, logo_base64.as_deref());
+    let html = print_invoice::generate_invoice_html(
+        &invoice, 
+        &items, 
+        invoice_number, 
+        logo_base64.as_deref(),
+        payment_days,
+        delegate_name.as_deref(),
+        delegate_act.as_deref(),
+        &carnet_series
+    );
 
     // Save to invoices folder in AppData
     let app_data_dir = dirs::config_dir()
@@ -1869,13 +1975,14 @@ pub async fn print_invoice_to_html(
 fn get_invoice_for_print(
     conn: &rusqlite::Connection,
     invoice_id: &str,
-) -> Result<Invoice, String> {
+) -> Result<(Invoice, Option<i64>), String> {
     conn.query_row(
         r#"
         SELECT
             i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
             i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
-            (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
+            (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
+            p.scadenta_la_vanzare
         FROM invoices i
         JOIN partners p ON i.partner_id = p.id
         JOIN locations l ON i.location_id = l.id
@@ -1883,7 +1990,7 @@ fn get_invoice_for_print(
         "#,
         [invoice_id],
         |row| {
-            Ok(Invoice {
+            let invoice = Invoice {
                 id: row.get(0)?,
                 partner_id: row.get(1)?,
                 partner_name: row.get(2)?,
@@ -1899,7 +2006,21 @@ fn get_invoice_for_print(
                 sent_at: row.get(12)?,
                 error_message: row.get(13)?,
                 item_count: row.get(14)?,
-            })
+                partner_payment_term: None,
+            };
+            
+            // Parse scadenta_la_vanzare to i64 (days)
+            let scadenta_str: Option<String> = row.get(15)?;
+            info!("🔍 Raw scadenta_la_vanzare from DB for partner '{}': {:?}", invoice.partner_name, scadenta_str);
+            
+            let scadenta: Option<i64> = scadenta_str
+                .and_then(|s| {
+                    let parsed = s.trim().parse::<i64>().ok();
+                    info!("🔍 Parsed scadenta_la_vanzare: '{}' -> {:?}", s.trim(), parsed);
+                    parsed
+                });
+            
+            Ok((invoice, scadenta))
         },
     )
     .map_err(|e| format!("Invoice not found: {}", e))
@@ -1912,7 +2033,7 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let result = conn.query_row(
-        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr FROM agent_settings WHERE id = 1",
+        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr, delegate_name, delegate_act, invoice_number_start, invoice_number_end, invoice_number_current FROM agent_settings WHERE id = 1",
         [],
         |row| Ok(AgentSettings {
             agent_name: row.get(0)?,
@@ -1921,6 +2042,11 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
             simbol_gestiune_livrare: row.get(3)?,
             cod_carnet: row.get(4)?,
             cod_carnet_livr: row.get(5)?,
+            delegate_name: row.get(6)?,
+            delegate_act: row.get(7)?,
+            invoice_number_start: row.get(8)?,
+            invoice_number_end: row.get(9)?,
+            invoice_number_current: row.get(10)?,
         }),
     );
 
@@ -1933,6 +2059,11 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
             simbol_gestiune_livrare: None,
             cod_carnet: None,
             cod_carnet_livr: None,
+            delegate_name: None,
+            delegate_act: None,
+            invoice_number_start: Some(1),
+            invoice_number_end: Some(99999),
+            invoice_number_current: Some(1),
         }),
     }
 }
@@ -1946,14 +2077,33 @@ pub fn save_agent_settings(
     simbol_gestiune_livrare: Option<String>,
     cod_carnet: Option<String>,
     cod_carnet_livr: Option<String>,
+    delegate_name: Option<String>,
+    delegate_act: Option<String>,
+    invoice_number_start: Option<i64>,
+    invoice_number_end: Option<i64>,
+    invoice_number_current: Option<i64>,
 ) -> Result<AgentSettings, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
 
+    // Smart logic for invoice numbering:
+    // If invoice_number_start is provided and current is less than start, set current = start
+    let final_current = match (invoice_number_start, invoice_number_current) {
+        (Some(start), Some(current)) if current < start => {
+            info!("Auto-adjusting invoice_number_current from {} to {} (matching start)", current, start);
+            Some(start)
+        },
+        (Some(start), None) => {
+            info!("Initializing invoice_number_current to {} (start value)", start);
+            Some(start)
+        },
+        _ => invoice_number_current,
+    };
+
     conn.execute(
-        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7) \
-         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, updated_at = excluded.updated_at",
-        (&agent_name, &carnet_series, &simbol_carnet_livr, &simbol_gestiune_livrare, &cod_carnet, &cod_carnet_livr, &now),
+        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr, delegate_name, delegate_act, invoice_number_start, invoice_number_end, invoice_number_current, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
+         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, updated_at = excluded.updated_at",
+        (&agent_name, &carnet_series, &simbol_carnet_livr, &simbol_gestiune_livrare, &cod_carnet, &cod_carnet_livr, &delegate_name, &delegate_act, &invoice_number_start, &invoice_number_end, &final_current, &now),
     )
     .map_err(|e| e.to_string())?;
 
@@ -1964,6 +2114,11 @@ pub fn save_agent_settings(
         simbol_gestiune_livrare,
         cod_carnet,
         cod_carnet_livr,
+        delegate_name,
+        delegate_act,
+        invoice_number_start,
+        invoice_number_end,
+        invoice_number_current: final_current,
     })
 }
 
@@ -2008,4 +2163,39 @@ pub fn debug_db_counts(db: State<'_, Database>) -> Result<String, String> {
     }
     
     Ok(result)
+}
+
+#[tauri::command]
+pub fn debug_partner_payment_terms(db: State<'_, Database>, partner_id: String) -> Result<String, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    
+    let result: Result<(String, Option<String>, Option<String>, Option<String>), _> = conn.query_row(
+        "SELECT name, cif, reg_com, scadenta_la_vanzare FROM partners WHERE id = ?1",
+        [&partner_id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+    );
+    
+    match result {
+        Ok((name, cif, reg_com, scadenta)) => {
+            let mut output = format!("🔍 Partner Debug Info\n\n");
+            output.push_str(&format!("ID: {}\n", partner_id));
+            output.push_str(&format!("Name: {}\n", name));
+            output.push_str(&format!("CIF: {}\n", cif.unwrap_or("N/A".to_string())));
+            output.push_str(&format!("Reg.Com: {}\n", reg_com.unwrap_or("N/A".to_string())));
+            output.push_str(&format!("\n📅 Payment Terms (scadenta_la_vanzare):\n"));
+            output.push_str(&format!("  Raw value: {:?}\n", scadenta));
+            
+            if let Some(s) = &scadenta {
+                match s.trim().parse::<i64>() {
+                    Ok(days) => output.push_str(&format!("  Parsed: {} days ✅\n", days)),
+                    Err(e) => output.push_str(&format!("  Parse ERROR: {} ❌\n  String: '{}'\n", e, s)),
+                }
+            } else {
+                output.push_str("  Value: NULL (will use default 10 days) ⚠️\n");
+            }
+            
+            Ok(output)
+        }
+        Err(e) => Err(format!("Partner not found: {}", e))
+    }
 }

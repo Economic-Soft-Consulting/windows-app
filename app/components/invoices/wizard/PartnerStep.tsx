@@ -81,9 +81,17 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {partner.locations.length} locații
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {partner.locations.length} locații
+                      </div>
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <span className="text-muted-foreground">Scadență:</span>
+                        <span className="font-medium text-primary">
+                          {partner.scadenta_la_vanzare || '7'} zile
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

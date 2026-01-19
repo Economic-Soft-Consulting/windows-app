@@ -37,6 +37,11 @@ export default function SettingsPage() {
     simbol_gestiune_livrare: null,
     cod_carnet: null,
     cod_carnet_livr: null,
+    delegate_name: null,
+    delegate_act: null,
+    invoice_number_start: null,
+    invoice_number_end: null,
+    invoice_number_current: null,
   });
   const [savingAgent, setSavingAgent] = useState(false);
 
@@ -65,7 +70,12 @@ export default function SettingsPage() {
         agentSettings.simbol_carnet_livr || null,
         agentSettings.simbol_gestiune_livrare || null,
         agentSettings.cod_carnet || null,
-        agentSettings.cod_carnet_livr || null
+        agentSettings.cod_carnet_livr || null,
+        agentSettings.delegate_name || null,
+        agentSettings.delegate_act || null,
+        agentSettings.invoice_number_start,
+        agentSettings.invoice_number_end,
+        agentSettings.invoice_number_current
       );
       toast.success("Setările agentului au fost salvate!");
     } catch (error) {
@@ -119,7 +129,7 @@ export default function SettingsPage() {
       const list = await getAvailablePrinters();
       setPrinters(list);
       localStorage.setItem("printersCache", JSON.stringify(list));
-      
+
       // Get saved printer from settings
       const saved = localStorage.getItem("printSettings");
       if (saved) {
@@ -288,6 +298,99 @@ export default function SettingsPage() {
             />
             <p className="text-sm text-muted-foreground">
               Codul numeric al carnetului de livrări din WME pentru numerotare automată
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="delegateName">Numele Delegatului</Label>
+            <Input
+              id="delegateName"
+              type="text"
+              placeholder="Ex: Ion Popescu"
+              value={agentSettings.delegate_name || ""}
+              onChange={(e) =>
+                setAgentSettings((prev) => ({
+                  ...prev,
+                  delegate_name: e.target.value || null,
+                }))
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              Numele delegatului care apare pe factură
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="delegateAct">Act Delegat</Label>
+            <Input
+              id="delegateAct"
+              type="text"
+              placeholder="Ex: CI nr. AA123456"
+              value={agentSettings.delegate_act || ""}
+              onChange={(e) =>
+                setAgentSettings((prev) => ({
+                  ...prev,
+                  delegate_act: e.target.value || null,
+                }))
+              }
+            />
+            <p className="text-sm text-muted-foreground">
+              Actul de identitate al delegatului (ex: CI, BI, Pașaport)
+            </p>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t">
+            <h3 className="font-semibold">Numerotare Facturi</h3>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="invoiceStart">Număr Start</Label>
+                <Input
+                  id="invoiceStart"
+                  type="number"
+                  min="1"
+                  placeholder="1"
+                  value={agentSettings.invoice_number_start || ''}
+                  onChange={(e) =>
+                    setAgentSettings((prev) => ({
+                      ...prev,
+                      invoice_number_start: parseInt(e.target.value) || null,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invoiceEnd">Număr Final</Label>
+                <Input
+                  id="invoiceEnd"
+                  type="number"
+                  min="1"
+                  placeholder="99999"
+                  value={agentSettings.invoice_number_end || ''}
+                  onChange={(e) =>
+                    setAgentSettings((prev) => ({
+                      ...prev,
+                      invoice_number_end: parseInt(e.target.value) || null,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="invoiceCurrent">Număr Curent</Label>
+                <Input
+                  id="invoiceCurrent"
+                  type="number"
+                  value={agentSettings.invoice_number_current || 1}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Setează intervalul de numerotare pentru facturi. Numărul curent se actualizează automat la fiecare factură creată.
             </p>
           </div>
 
