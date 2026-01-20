@@ -2,20 +2,65 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, FileText, Loader2 } from "lucide-react";
+import { Plus, FileText, Loader2, LayoutGrid, Table as TableIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvoiceCard } from "@/app/components/invoices/InvoiceCard";
 import { InvoiceDetailDialog } from "@/app/components/invoices/InvoiceDetailDialog";
 import { useInvoices } from "@/hooks/useInvoices";
 import type { InvoiceStatus } from "@/lib/tauri/types";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { InvoiceStatusBadge } from "@/app/components/invoices/InvoiceStatusBadge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Eye, Send, MoreHorizontal, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type TabValue = "all" | InvoiceStatus;
+type ViewMode = "grid" | "table";
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("ro-RO", {
+    style: "decimal",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount) + " RON";
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("ro-RO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString("ro-RO", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function InvoicesPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("all");
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
 
   const statusFilter = activeTab === "all" ? undefined : activeTab;
   const { invoices, isLoading, send, remove, refresh } = useInvoices(statusFilter);
@@ -68,7 +113,7 @@ export default function InvoicesPage() {
         </p>
       </div>
 
-      {/* Tabs with Button */}
+      {/* Tabs with Button and View Toggle */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1">
         <TabsList className="h-14 flex-wrap sm:flex-nowrap">
@@ -105,16 +150,37 @@ export default function InvoicesPage() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
-      
-      <Link href="/invoices/new">
-        <Button size="lg" className="gap-2 h-12 px-6 w-full sm:w-auto">
-          <Plus className="h-5 w-5" />
-          Factură nouă
-        </Button>
-      </Link>
+
+      <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex border rounded-lg p-1">
+          <Button
+            variant={viewMode === "table" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("table")}
+            className="h-9 px-3"
+          >
+            <TableIcon className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === "grid" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("grid")}
+            className="h-9 px-3"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <Link href="/invoices/new" className="flex-1 sm:flex-none">
+          <Button size="lg" className="gap-2 h-12 px-6 w-full sm:w-auto">
+            <Plus className="h-5 w-5" />
+            Factură nouă
+          </Button>
+        </Link>
+      </div>
       </div>
 
-      {/* Invoice Grid */}
+      {/* Invoice Display */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -136,6 +202,67 @@ export default function InvoicesPage() {
               </Button>
             </Link>
           )}
+        </div>
+      ) : viewMode === "table" ? (
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[180px]">Partener</TableHead>
+                <TableHead className="w-[150px]">Locație</TableHead>
+                <TableHead className="w-[100px]">Data</TableHead>
+                <TableHead className="w-[70px]">Ora</TableHead>
+                <TableHead className="text-right w-[120px]">Valoare</TableHead>
+                <TableHead className="w-[100px]">Status</TableHead>
+                <TableHead className="text-right w-[80px]">Acțiuni</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {invoices.map((invoice) => (
+                <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableCell className="font-medium">{invoice.partner_name}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">
+                    {invoice.location_name}
+                  </TableCell>
+                  <TableCell className="text-sm">{formatDate(invoice.created_at)}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatTime(invoice.created_at)}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(invoice.total_amount)}</TableCell>
+                  <TableCell>
+                    <InvoiceStatusBadge status={invoice.status} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleView(invoice.id)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Detalii
+                        </DropdownMenuItem>
+                        {(invoice.status === "pending" || invoice.status === "failed") && (
+                          <DropdownMenuItem onClick={() => handleSend(invoice.id)}>
+                            <Send className="mr-2 h-4 w-4" />
+                            Trimite
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleDelete(invoice.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Șterge
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">

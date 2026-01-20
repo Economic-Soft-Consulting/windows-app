@@ -501,3 +501,272 @@ pub fn parse_f64(s: &Option<String>) -> f64 {
         .and_then(|val| val.parse::<f64>().ok())
         .unwrap_or(0.0)
 }
+
+// ==================== WME INVOICE STRUCTURES ====================
+
+#[derive(Debug, Serialize)]
+pub struct OfferFilter {
+    #[serde(rename = "DataReferinta", skip_serializing_if = "Option::is_none")]
+    pub data_referinta: Option<String>,
+    #[serde(rename = "DataAnaliza", skip_serializing_if = "Option::is_none")]
+    pub data_analiza: Option<String>,
+    #[serde(rename = "CodPartener", skip_serializing_if = "Option::is_none")]
+    pub cod_partener: Option<String>,
+    #[serde(rename = "Furnizori", skip_serializing_if = "Option::is_none")]
+    pub furnizori: Option<Vec<String>>,
+    #[serde(rename = "CodSubunit", skip_serializing_if = "Option::is_none")]
+    pub cod_subunit: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OfferResponse {
+    #[serde(rename = "InfoOferte")]
+    #[serde(default)]
+    pub info_oferte: Vec<OfferInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OfferInfo {
+    #[serde(rename = "ID")]
+    pub id: Option<String>,
+    #[serde(rename = "IDClient")]
+    pub id_client: Option<String>,
+    #[serde(rename = "Numar")]
+    pub numar: Option<String>,
+    #[serde(rename = "DataInceput")]
+    pub data_inceput: Option<String>,
+    #[serde(rename = "DataSfarsit")]
+    pub data_sfarsit: Option<String>,
+    #[serde(rename = "Anulata")]
+    pub anulata: Option<String>,
+    #[serde(rename = "Client")]
+    pub client: Option<String>,
+    #[serde(rename = "TipOferta")]
+    pub tip_oferta: Option<String>,
+    #[serde(rename = "Furnizor")]
+    pub furnizor: Option<String>,
+    #[serde(rename = "IDFurnizor")]
+    pub id_furnizor: Option<String>,
+    #[serde(rename = "CodFiscal")]
+    pub cod_fiscal: Option<String>,
+    #[serde(rename = "SimbolClasa")]
+    pub simbol_clasa: Option<String>,
+    #[serde(rename = "Moneda")]
+    pub moneda: Option<String>,
+    #[serde(rename = "Observatii")]
+    pub observatii: Option<String>,
+    #[serde(rename = "ExtensieDocument")]
+    pub extensie_document: Option<String>,
+    #[serde(rename = "Items")]
+    pub items: Option<Vec<OfferItem>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OfferItem {
+    #[serde(rename = "ID")]
+    pub id: Option<String>,
+    #[serde(rename = "Denumire")]
+    pub denumire: Option<String>,
+    #[serde(rename = "UM")]
+    pub um: Option<String>,
+    #[serde(rename = "CantMinima")]
+    pub cant_minima: Option<String>,
+    #[serde(rename = "CantMaxima")]
+    pub cant_maxima: Option<String>,
+    #[serde(rename = "CantOptima")]
+    pub cant_optima: Option<String>,
+    #[serde(rename = "Cantitate")]
+    pub cantitate: Option<f64>,
+    #[serde(rename = "Pret")]
+    pub pret: Option<String>,
+    #[serde(rename = "Discount")]
+    pub discount: Option<String>,
+    #[serde(rename = "ProcAdaos")]
+    pub proc_adaos: Option<String>,
+    #[serde(rename = "PretRef")]
+    pub pret_ref: Option<String>,
+    #[serde(rename = "PretCuProcAdaos")]
+    pub pret_cu_proc_adaos: Option<String>,
+    #[serde(rename = "Observatii")]
+    pub observatii: Option<String>,
+    #[serde(rename = "CodOferta1")]
+    pub cod_oferta1: Option<String>,
+    #[serde(rename = "EXTENSIELINIE")]
+    pub extensie_linie: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WmeInvoiceItem {
+    #[serde(rename = "IDArticol")]
+    pub id_articol: String,
+    #[serde(rename = "Cant")]
+    pub cant: f64,
+    #[serde(rename = "Pret")]
+    pub pret: f64,
+    #[serde(rename = "UM", skip_serializing_if = "Option::is_none")]
+    pub um: Option<String>,
+    #[serde(rename = "Gestiune", skip_serializing_if = "Option::is_none")]
+    pub gestiune: Option<String>,
+    #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
+    pub observatii: Option<String>,
+    #[serde(rename = "TVA", skip_serializing_if = "Option::is_none")]
+    pub tva: Option<f64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WmeDocument {
+    #[serde(rename = "TipDocument")]
+    pub tip_document: String,
+    #[serde(rename = "SimbolGestiune")]
+    pub simbol_gestiune: String,
+    #[serde(rename = "NumeGestiune")]
+    pub nume_gestiune: String,
+    #[serde(rename = "NumerotareAutomata", skip_serializing_if = "Option::is_none")]
+    pub numerotare_automata: Option<WmeNumerotareAutomata>,
+    #[serde(rename = "SerieDocument", skip_serializing_if = "Option::is_none")]
+    pub serie_document: Option<String>,
+    #[serde(rename = "NrDoc", skip_serializing_if = "Option::is_none")]
+    pub numar_document: Option<String>,
+    #[serde(rename = "SimbolCarnet", skip_serializing_if = "Option::is_none")]
+    pub simbol_carnet: Option<String>,
+    #[serde(rename = "SimbolCarnetLivr", skip_serializing_if = "Option::is_none")]
+    pub simbol_carnet_livr: Option<String>,
+    #[serde(rename = "SimbolGestiuneLivrare", skip_serializing_if = "Option::is_none")]
+    pub simbol_gestiune_livrare: Option<String>,
+    #[serde(rename = "Data", skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
+    #[serde(rename = "DataLivr", skip_serializing_if = "Option::is_none")]
+    pub data_livr: Option<String>,
+    #[serde(rename = "CodClient", skip_serializing_if = "Option::is_none")]
+    pub cod_client: Option<String>,
+    #[serde(rename = "IDSediu", skip_serializing_if = "Option::is_none")]
+    pub id_sediu: Option<String>,
+    #[serde(rename = "Agent", skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
+    #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
+    pub observatii: Option<String>,
+    #[serde(rename = "Items", skip_serializing_if = "Option::is_none")]
+    pub items: Option<Vec<WmeInvoiceItem>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WmeNumerotareAutomata {
+    #[serde(rename = "SimbolCarnet")]
+    pub simbol_carnet: String,
+    #[serde(rename = "CodCarnet")]
+    pub cod_carnet: String,
+    #[serde(rename = "CodCarnetLivr", skip_serializing_if = "Option::is_none")]
+    pub cod_carnet_livr: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WmeInvoiceRequest {
+    #[serde(rename = "CodPartener")]
+    pub cod_partener: String,
+    #[serde(rename = "CodSediu", skip_serializing_if = "Option::is_none")]
+    pub cod_sediu: Option<String>,
+    #[serde(rename = "NumeDelegate")]
+    pub nume_delegate: String,
+    #[serde(rename = "ActDelegate")]
+    pub act_delegate: String,
+    #[serde(rename = "TipDocument", skip_serializing_if = "Option::is_none")]
+    pub tip_document: Option<String>,
+    #[serde(rename = "AnLucru", skip_serializing_if = "Option::is_none")]
+    pub an_lucru: Option<String>,
+    #[serde(rename = "LunaLucru", skip_serializing_if = "Option::is_none")]
+    pub luna_lucru: Option<String>,
+    #[serde(rename = "CodSubunitate", skip_serializing_if = "Option::is_none")]
+    pub cod_subunitate: Option<String>,
+    #[serde(rename = "Documente")]
+    pub documente: Vec<WmeDocument>,
+    #[serde(rename = "Articole")]
+    pub articole: Vec<WmeInvoiceItem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WmeInvoiceResponse {
+    #[serde(rename = "Result")]
+    pub result: Option<String>,
+    #[serde(rename = "NumarDocumente")]
+    pub numar_documente: Option<String>,
+    #[serde(rename = "DocumenteImportate")]
+    #[serde(default)]
+    pub documente_importate: Vec<WmeDocumentImport>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WmeDocumentImport {
+    #[serde(rename = "Numar")]
+    pub numar: Option<String>,
+    #[serde(rename = "Serie")]
+    pub serie: Option<String>,
+    #[serde(rename = "Operat")]
+    pub operat: Option<String>,
+    #[serde(rename = "CodIes")]
+    pub cod_ies: Option<String>,
+}
+
+impl ApiClient {
+    // Get offers for a partner
+    pub async fn get_offers(&self, filter: OfferFilter) -> Result<OfferResponse, String> {
+        let url = format!("{}/\"GetInfoOferteClienti\"", self.config.base_url);
+        
+        info!("Fetching offers from API: {}", url);
+
+        let response = self.client
+            .post(&url)
+            .json(&filter)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch offers: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("API returned error status: {}", response.status()));
+        }
+
+        let offer_response: OfferResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse offer response: {}", e))?;
+
+        info!("Successfully fetched {} offers", offer_response.info_oferte.len());
+
+        Ok(offer_response)
+    }
+
+    // Send invoice to WME
+    pub async fn send_invoice_to_wme(&self, request: WmeInvoiceRequest) -> Result<WmeInvoiceResponse, String> {
+        let url = format!("{}/IesiriClienti", self.config.base_url);
+        
+        info!("Sending invoice to WME API: {}", url);
+
+        // Serialize request to JSON for debugging
+        if let Ok(json_body) = serde_json::to_string_pretty(&request) {
+             info!("Request Payload:\n{}", json_body);
+        }
+
+        let response = self.client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to send invoice: {}", e))?;
+
+        let status = response.status();
+        let body = response.text().await.map_err(|e| format!("Failed to read response body: {}", e))?;
+
+        info!("Response Status: {}", status);
+        info!("Response Body: {}", body);
+
+        if !status.is_success() {
+             return Err(format!("API returned error status: {}. Body: {}", status, body));
+        }
+
+        let wme_response: WmeInvoiceResponse = serde_json::from_str(&body)
+            .map_err(|e| format!("Failed to parse invoice response: {}", e))?;
+
+        info!("Successfully sent invoice to WME");
+
+        Ok(wme_response)
+    }
+}

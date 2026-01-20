@@ -95,6 +95,7 @@ pub struct Product {
     pub unit_of_measure: String,
     pub price: f64,
     pub class: Option<String>,
+    pub tva_percent: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -138,6 +139,7 @@ pub struct Invoice {
     pub partner_reg_com: Option<String>,
     pub location_id: String,
     pub location_name: String,
+    pub location_address: Option<String>,
     pub status: InvoiceStatus,
     pub total_amount: f64,
     pub item_count: i32,
@@ -145,6 +147,7 @@ pub struct Invoice {
     pub created_at: String,
     pub sent_at: Option<String>,
     pub error_message: Option<String>,
+    pub partner_payment_term: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,6 +160,7 @@ pub struct InvoiceItem {
     pub unit_price: f64,
     pub unit_of_measure: String,
     pub total_price: f64,
+    pub tva_percent: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -185,4 +189,19 @@ pub struct SyncStatus {
     pub partners_synced_at: Option<String>,
     pub products_synced_at: Option<String>,
     pub is_syncing: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentSettings {
+    pub agent_name: Option<String>,
+    pub carnet_series: Option<String>,
+    pub simbol_carnet_livr: Option<String>,
+    pub simbol_gestiune_livrare: Option<String>,
+    pub cod_carnet: Option<String>,
+    pub cod_carnet_livr: Option<String>,
+    pub delegate_name: Option<String>,
+    pub delegate_act: Option<String>,
+    pub invoice_number_start: Option<i32>,
+    pub invoice_number_end: Option<i32>,
+    pub invoice_number_current: Option<i32>,
 }

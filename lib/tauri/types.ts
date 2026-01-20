@@ -5,6 +5,28 @@ export interface Partner {
   name: string;
   cif?: string;
   reg_com?: string;
+  cod?: string;
+  blocat?: string;
+  tva_la_incasare?: string;
+  persoana_fizica?: string;
+  cod_extern?: string;
+  cod_intern?: string;
+  observatii?: string;
+  data_adaugarii?: string;
+  clasa?: string;
+  simbol_clasa?: string;
+  cod_clasa?: string;
+  inactiv?: string;
+  categorie_pret_implicita?: string;
+  simbol_categorie_pret?: string;
+  scadenta_la_vanzare?: string;
+  scadenta_la_cumparare?: string;
+  credit_client?: string;
+  discount_fix?: string;
+  tip_partener?: string;
+  mod_aplicare_discount?: string;
+  moneda?: string;
+  data_nastere?: string;
   created_at: string;
   updated_at: string;
 }
@@ -14,16 +36,20 @@ export interface Location {
   partner_id: string;
   name: string;
   address: string | null;
+  cod_sediu?: string;
+  localitate?: string;
+  strada?: string;
+  numar?: string;
+  bloc?: string; // Not in backend explicitly but handled in UI
+  judet?: string;
+  tara?: string;
+  cod_postal?: string;
+  telefon?: string;
+  email?: string;
+  inactiv?: string;
 }
 
-export interface PartnerWithLocations {
-  id: string;
-  name: string;
-  cif?: string;
-  reg_com?: string;
-  scadenta_la_vanzare?: string;
-  created_at: string;
-  updated_at: string;
+export interface PartnerWithLocations extends Partner {
   locations: Location[];
 }
 
@@ -46,6 +72,7 @@ export interface Invoice {
   partner_reg_com?: string;
   location_id: string;
   location_name: string;
+  location_address?: string | null;
   status: InvoiceStatus;
   total_amount: number;
   item_count: number;

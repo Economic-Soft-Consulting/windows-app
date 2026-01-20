@@ -39,6 +39,12 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
   const [searchQuery, setSearchQuery] = useState("");
   const { products, isLoading, search } = useProducts(partnerId);
 
+  // Filter products to show only eggs (ouă) class
+  const filteredProducts = products.filter(product => {
+    const productClass = product.class?.toLowerCase() || "";
+    return productClass.includes("ou") || productClass.includes("oua");
+  });
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       search(searchQuery);
@@ -49,15 +55,11 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
   const addToCart = (product: Product) => {
     const existingItem = cartItems.find((item) => item.product.id === product.id);
     if (existingItem) {
-      onUpdateCart(
-        cartItems.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      );
+      // Don't auto-increment, just focus on the input
+      return;
     } else {
-      onUpdateCart([...cartItems, { product, quantity: 1 }]);
+      // Add with quantity 0 as requested
+      onUpdateCart([...cartItems, { product, quantity: 0 }]);
     }
   };
 
@@ -100,10 +102,10 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold">Adaugă produse</h2>
-        <p className="text-muted-foreground mt-1">
+        <h2 className="text-lg font-semibold">Adaugă produse</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
           Selectează produsele și cantitățile dorite
         </p>
       </div>
@@ -125,15 +127,16 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : products.length === 0 ? (
+          ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Package className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium">Nu s-au găsit produse</h3>
+              <h3 className="text-lg font-medium">Nu s-au găsit produse din clasa ouă</h3>
+              <p className="text-xs text-muted-foreground mt-1">Numai produsele din clasa ouă sunt afișate</p>
             </div>
           ) : (
             <ScrollArea className="h-[calc(100vh-420px)] min-h-[200px] max-h-[400px]">
               <div className="space-y-2 pr-4">
-                {products.map((product) => {
+                {filteredProducts.map((product) => {
                   const inCart = getCartQuantity(product.id) > 0;
                   return (
                     <Card
@@ -228,6 +231,7 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                             </Button>
                             <Input
                               type="number"
+                              inputMode="numeric"
                               value={item.quantity}
                               onChange={(e) =>
                                 setQuantity(
@@ -235,8 +239,9 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                                   parseInt(e.target.value) || 0
                                 )
                               }
+                              onFocus={(e) => e.target.select()}
                               className="w-16 h-11 text-center"
-                              min={1}
+                              min={0}
                             />
                             <Button
                               variant="outline"

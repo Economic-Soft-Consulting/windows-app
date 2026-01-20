@@ -143,3 +143,7 @@ export async function saveAgentSettings(
 export async function debugDbCounts(): Promise<string> {
   return invoke<string>("debug_db_counts");
 }
+
+export async function openExternalLink(url: string): Promise<void> {
+  return invoke<void>("open_external_link", { url });
+}

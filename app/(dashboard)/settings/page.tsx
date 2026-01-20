@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, Loader2, Printer, FileText, User } from "lucide-react";
+import { Settings, Loader2, Printer, FileText, User, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { getAvailablePrinters, getAgentSettings, saveAgentSettings } from "@/lib/tauri/commands";
 import type { AgentSettings } from "@/lib/tauri/types";
 import { toast } from "sonner";
+import { useSyncStatus } from "@/hooks/useSyncStatus";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface PrintSettings {
   printer: string;
@@ -44,12 +46,47 @@ export default function SettingsPage() {
     invoice_number_current: null,
   });
   const [savingAgent, setSavingAgent] = useState(false);
+  
+  const { status, isSyncing, triggerSync } = useSyncStatus();
+  const { isOnline } = useOnlineStatus();
+
+  const handleSyncNow = async () => {
+    if (!isOnline) {
+      toast.error("Nu există conexiune la internet");
+      return;
+    }
+
+    try {
+      await triggerSync();
+      toast.success("Datele au fost sincronizate cu succes!");
+    } catch (e) {
+      console.error("Sync error:", e);
+      toast.error(`Eroare la sincronizare: ${e}`);
+    }
+  };
+
+  const formatLastSync = (dateStr: string | null) => {
+    if (!dateStr) return "Niciodată";
+    const date = new Date(dateStr);
+    return date.toLocaleString("ro-RO", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   useEffect(() => {
+    // Load settings and cached data immediately
     loadSettings();
     loadCachedPrinters();
-    loadPrinters();
     loadAgentSettings();
+    
+    // Load printers asynchronously without blocking
+    setTimeout(() => {
+      loadPrinters();
+    }, 100);
   }, []);
 
   const loadAgentSettings = async () => {
@@ -122,6 +159,7 @@ export default function SettingsPage() {
   };
 
   const loadPrinters = async () => {
+    // Don't set loading if we already have cached printers
     if (printers.length === 0) {
       setLoading(true);
     }
@@ -136,7 +174,7 @@ export default function SettingsPage() {
         const parsed = JSON.parse(saved);
         if (parsed.printer && list.includes(parsed.printer)) {
           setSettings(prev => ({ ...prev, printer: parsed.printer }));
-        } else if (list.length > 0) {
+        } else if (list.length > 0 && !parsed.printer) {
           setSettings(prev => ({ ...prev, printer: list[0] }));
         }
       } else if (list.length > 0) {
@@ -144,8 +182,11 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Failed to load printers:", error);
-      toast.error("Eroare la încărcarea imprimantelor");
-      setPrinters(["Default"]);
+      // Don't show error toast on initial load if we have cached printers
+      if (printers.length === 0) {
+        toast.error("Eroare la încărcarea imprimantelor");
+        setPrinters(["Default"]);
+      }
     } finally {
       setLoading(false);
     }
@@ -408,6 +449,64 @@ export default function SettingsPage() {
               "Salvează date agent"
             )}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Sync Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="h-5 w-5" />
+            Sincronizare Date
+          </CardTitle>
+          <CardDescription>
+            Sincronizează datele cu serverul WME pentru a obține ultimele informații despre parteneri și produse
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1 p-4 rounded-lg border bg-muted/30">
+              <p className="text-sm font-medium">Ultima sincronizare parteneri</p>
+              <p className="text-lg font-semibold text-primary">
+                {formatLastSync(status?.partners_synced_at ?? null)}
+              </p>
+            </div>
+            <div className="space-y-1 p-4 rounded-lg border bg-muted/30">
+              <p className="text-sm font-medium">Ultima sincronizare produse</p>
+              <p className="text-lg font-semibold text-primary">
+                {formatLastSync(status?.products_synced_at ?? null)}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Apasă butonul de mai jos pentru a sincroniza datele acum. Sincronizarea este necesară înainte de a crea prima factură.
+            </p>
+            <Button
+              onClick={handleSyncNow}
+              disabled={isSyncing || !isOnline}
+              size="lg"
+              className="w-full h-14 text-base gap-3"
+            >
+              {isSyncing ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Se sincronizează datele...
+                </>
+              ) : !isOnline ? (
+                <>
+                  <RefreshCw className="h-5 w-5" />
+                  Offline - Nu se poate sincroniza
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-5 w-5" />
+                  Sincronizează Acum
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

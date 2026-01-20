@@ -47,10 +47,10 @@ export function ReviewStep({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold">Revizuire factură</h2>
-        <p className="text-muted-foreground mt-1">
+        <h2 className="text-lg font-semibold">Revizuire factură</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
           Verifică detaliile înainte de a trimite factura
         </p>
       </div>

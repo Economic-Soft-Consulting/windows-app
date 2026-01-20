@@ -461,6 +461,15 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         info!("Migration 8 completed");
     }
     
+    // Migration 9: Add sent_at and error_message columns to invoices (v0.6.0)
+    if current_version < 9 {
+        info!("Applying migration 9: Add sent_at and error_message to invoices");
+        let _ = conn.execute("ALTER TABLE invoices ADD COLUMN sent_at TEXT;", []).ok();
+        let _ = conn.execute("ALTER TABLE invoices ADD COLUMN error_message TEXT;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (9, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 9 completed");
+    }
+
     info!("All migrations completed successfully");
     Ok(())
 }

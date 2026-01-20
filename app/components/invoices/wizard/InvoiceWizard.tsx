@@ -143,24 +143,34 @@ export function InvoiceWizard() {
           toast.error(`Eroare la printare: ${e}`);
         });
 
-      // Send invoice (non-blocking, don't wait)
+      // Send invoice with better error handling
       sendInvoice(invoice.id)
         .then((sentInvoice) => {
           if (sentInvoice.status === "sent") {
             toast.success("Factura a fost trimisă cu succes!");
           } else if (sentInvoice.status === "failed") {
-            toast.error(`Eroare la trimitere: ${sentInvoice.error_message}`);
+            toast.error(`Factura a fost salvată, dar nu a putut fi trimisă: ${sentInvoice.error_message || "Verifică conexiunea la internet"}`);
           }
         })
         .catch((e) => {
           console.error("Send error:", e);
-          toast.error(`Eroare la trimitere: ${e}`);
+          const errorMessage = String(e);
+          if (errorMessage.includes("network") || errorMessage.includes("internet") || errorMessage.includes("connection")) {
+            toast.error("Factura a fost salvată, dar nu a putut fi trimisă din cauza lipsei conexiunii la internet. O poți trimite mai târziu din pagina Facturi.");
+          } else {
+            toast.error(`Factura a fost salvată, dar nu a putut fi trimisă: ${errorMessage}`);
+          }
         });
 
       // Navigate immediately without waiting for print/send
       router.push("/invoices");
     } catch (e) {
-      toast.error(`Eroare la crearea facturii: ${e}`);
+      const errorMessage = String(e);
+      if (errorMessage.includes("network") || errorMessage.includes("internet") || errorMessage.includes("connection")) {
+        toast.error("Nu se poate crea factura din cauza lipsei conexiunii la internet. Verifică conexiunea și încearcă din nou.");
+      } else {
+        toast.error(`Eroare la crearea facturii: ${errorMessage}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -209,42 +219,7 @@ export function InvoiceWizard() {
         </div>
       </div>
 
-      {/* Step Content */}
-      <Card>
-        <CardContent className="p-6">
-          {currentStep === 1 && (
-            <PartnerStep
-              selectedPartner={selectedPartner}
-              onSelect={handlePartnerSelect}
-            />
-          )}
-          {currentStep === 2 && selectedPartner && (
-            <LocationStep
-              partner={selectedPartner}
-              selectedLocation={selectedLocation}
-              onSelect={handleLocationSelect}
-            />
-          )}
-          {currentStep === 3 && (
-            <ProductsStep
-              cartItems={cartItems}
-              onUpdateCart={setCartItems}
-              partnerId={selectedPartner?.id}
-            />
-          )}
-          {currentStep === 4 && selectedPartner && (
-            <ReviewStep
-              partner={selectedPartner}
-              location={selectedLocation || undefined}
-              cartItems={cartItems}
-              notes={notes}
-              onNotesChange={setNotes}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Navigation */}
+      {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
@@ -288,6 +263,41 @@ export function InvoiceWizard() {
           </Button>
         )}
       </div>
+
+      {/* Step Content */}
+      <Card>
+        <CardContent className="p-6">
+          {currentStep === 1 && (
+            <PartnerStep
+              selectedPartner={selectedPartner}
+              onSelect={handlePartnerSelect}
+            />
+          )}
+          {currentStep === 2 && selectedPartner && (
+            <LocationStep
+              partner={selectedPartner}
+              selectedLocation={selectedLocation}
+              onSelect={handleLocationSelect}
+            />
+          )}
+          {currentStep === 3 && (
+            <ProductsStep
+              cartItems={cartItems}
+              onUpdateCart={setCartItems}
+              partnerId={selectedPartner?.id}
+            />
+          )}
+          {currentStep === 4 && selectedPartner && (
+            <ReviewStep
+              partner={selectedPartner}
+              location={selectedLocation || undefined}
+              cartItems={cartItems}
+              notes={notes}
+              onNotesChange={setNotes}
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

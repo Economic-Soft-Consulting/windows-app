@@ -26,10 +26,10 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
   }, [searchQuery, search]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold">Selectează partenerul</h2>
-        <p className="text-muted-foreground mt-1">
+        <h2 className="text-lg font-semibold">Selectează partenerul</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">
           Alege partenerul pentru care dorești să creezi factura
         </p>
       </div>
@@ -58,7 +58,7 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
         </div>
       ) : (
         <ScrollArea className="h-[calc(100vh-380px)] min-h-[200px] max-h-[500px] pr-4">
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-2">
+          <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {partners.map((partner) => {
               const isSelected = selectedPartner?.id === partner.id;
               return (
@@ -70,26 +70,26 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
                   )}
                   onClick={() => onSelect(partner)}
                 >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-base">{partner.name}</CardTitle>
+                  <CardHeader className="pb-1.5 pt-2 px-2">
+                    <div className="flex items-start justify-between gap-1">
+                      <CardTitle className="text-sm leading-tight line-clamp-2">{partner.name}</CardTitle>
                       {isSelected && (
-                        <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="h-4 w-4 text-primary-foreground" />
+                        <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                          <Check className="h-3 w-3 text-primary-foreground" />
                         </div>
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {partner.locations.length} locații
+                  <CardContent className="px-2 pb-2">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {partner.locations.length} loc.
                       </div>
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <span className="text-muted-foreground">Scadență:</span>
+                      <div className="flex items-center gap-1 text-xs">
+                        <span className="text-muted-foreground">Scad:</span>
                         <span className="font-medium text-primary">
-                          {partner.scadenta_la_vanzare || '7'} zile
+                          {partner.scadenta_la_vanzare || '7'}z
                         </span>
                       </div>
                     </div>

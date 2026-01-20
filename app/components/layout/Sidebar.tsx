@@ -49,7 +49,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       {/* Overlay for mobile */}
       {isOpen && onClose && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
           onClick={onClose}
         />
       )}
@@ -58,11 +58,11 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       <aside
         className={cn(
           "bg-card border-r border-border flex flex-col z-50",
-          // Desktop: static sidebar
-          "lg:relative lg:w-64 lg:translate-x-0",
+          // Desktop/Tablet: static sidebar
+          "md:relative md:w-64 md:translate-x-0",
           // Mobile: overlay sidebar
-          "fixed inset-y-0 left-0 w-72 transition-transform duration-300 ease-in-out lg:transition-none",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          "fixed inset-y-0 left-0 w-72 transition-transform duration-300 ease-in-out md:transition-none",
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Logo */}
@@ -76,7 +76,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden h-11 w-11"
+              className="md:hidden h-11 w-11"
               onClick={onClose}
             >
               <X className="h-5 w-5" />
@@ -120,7 +120,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* Footer */}
         <div className="p-4 border-t border-border">
           <p className="text-xs text-muted-foreground text-center">
-            v0.5.2 • © 2026 eSoft
+            v0.6.0 • © 2026 eSoft
           </p>
         </div>
       </aside>

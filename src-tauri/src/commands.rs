@@ -4,7 +4,7 @@ use crate::models::*;
 use crate::print_invoice;
 use crate::api_client;
 use chrono::{Utc, Datelike};
-use log::info;
+use log::{info, warn, error};
 use tauri::State;
 use uuid::Uuid;
 use rusqlite::params;
@@ -125,49 +125,34 @@ pub fn get_sync_status(db: State<'_, Database>) -> Result<SyncStatus, String> {
 #[tauri::command]
 pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String> {
     // Try real API first
-    let (partners, products, offers) = match api_client::ApiClient::from_default() {
-        Ok(api) => {
-            // Try to get partners from API
-            match api.get_all_partners().await {
-                Ok(api_partners) => {
-                    
-                    // Try to get articles from API
-                    match api.get_all_articles().await {
-                        Ok(api_articles) => {
-                            // Try to get offers from API (active for today)
-                            let today = Utc::now().format("%d.%m.%Y").to_string();
-                            let offers = api
-                                .get_offers(api_client::OfferFilter {
-                                    data_referinta: None,
-                                    data_analiza: Some(today),
-                                    furnizori: None,
-                                    cod_subunit: None,
-                                })
-                                .await
-                                .ok()
-                                .map(|resp| resp.info_oferte)
-                                .unwrap_or_default();
+    // Try real API first - Strict mode for Release (No Mock Data)
+    let api = api_client::ApiClient::from_default().map_err(|e| format!("Failed to initialize API: {}", e))?;
 
-                            // Convert API data to our models
-                            let partners = convert_api_partners_to_model(api_partners);
-                            let products = convert_api_articles_to_model(api_articles);
-                            
-                            (partners, products, Some(offers))
-                        }
-                        Err(_) => {
-                            (mock_api::fetch_partners().await, mock_api::fetch_products().await, None)
-                        }
-                    }
-                }
-                Err(_) => {
-                    (mock_api::fetch_partners().await, mock_api::fetch_products().await, None)
-                }
-            }
-        }
-        Err(_) => {
-            (mock_api::fetch_partners().await, mock_api::fetch_products().await, None)
-        }
-    };
+    // Try to get partners from API
+    let api_partners = api.get_all_partners().await.map_err(|e| format!("Failed to fetch partners: {}", e))?;
+                    
+    // Try to get articles from API
+    let api_articles = api.get_all_articles().await.map_err(|e| format!("Failed to fetch products: {}", e))?;
+
+    // Try to get offers from API (active for today)
+    let today = Utc::now().format("%d.%m.%Y").to_string();
+    let offers_list = api
+        .get_offers(api_client::OfferFilter {
+            data_referinta: None,
+            data_analiza: Some(today),
+            cod_partener: None,
+            furnizori: None,
+            cod_subunit: None,
+        })
+        .await
+        .ok()
+        .map(|resp| resp.info_oferte)
+        .unwrap_or_default();
+
+    // Convert API data to our models
+    let partners = convert_api_partners_to_model(api_partners);
+    let products = convert_api_articles_to_model(api_articles);
+    let offers = Some(offers_list);
 
     // Now do all database operations synchronously
     let now = Utc::now().to_rfc3339();
@@ -290,30 +275,32 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                 )
                 .map_err(|e| format!("Failed to save offer: {}", e))?;
 
-                for item in &offer.items {
-                    let price = parse_price(&item.pret);
-                    conn.execute(
-                        "INSERT INTO offer_items (offer_id, id_client, product_id, denumire, um, cant_minima, cant_maxima, cant_optima, pret, discount, proc_adaos, pret_ref, pret_cu_proc_adaos, observatii, cod_oferta1, extensie_linie) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
-                        params![
-                            &offer_id,
-                            &id_client,
-                            &item.id,
-                            &item.denumire,
-                            &item.um,
-                            &item.cant_minima,
-                            &item.cant_maxima,
-                            &item.cant_optima,
-                            price,
-                            &item.discount,
-                            &item.proc_adaos,
-                            &item.pret_ref,
-                            &item.pret_cu_proc_adaos,
-                            &item.observatii,
-                            &item.cod_oferta1,
-                            &item.extensie_linie,
-                        ],
-                    )
-                    .map_err(|e| format!("Failed to save offer item: {}", e))?;
+                if let Some(items) = &offer.items {
+                    for item in items {
+                        let price = parse_price(&item.pret);
+                        conn.execute(
+                            "INSERT INTO offer_items (offer_id, id_client, product_id, denumire, um, cant_minima, cant_maxima, cant_optima, pret, discount, proc_adaos, pret_ref, pret_cu_proc_adaos, observatii, cod_oferta1, extensie_linie) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                            params![
+                                &offer_id,
+                                &id_client,
+                                &item.id,
+                                &item.denumire,
+                                &item.um,
+                                &item.cant_minima,
+                                &item.cant_maxima,
+                                &item.cant_optima,
+                                price,
+                                &item.discount,
+                                &item.proc_adaos,
+                                &item.pret_ref,
+                                &item.pret_cu_proc_adaos,
+                                &item.observatii,
+                                &item.cod_oferta1,
+                                &item.extensie_linie,
+                            ],
+                        )
+                        .map_err(|e| format!("Failed to save offer item: {}", e))?;
+                    }
                 }
             }
         }
@@ -369,6 +356,33 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
             is_syncing: false,
         })
     };
+
+    // Auto-process pending invoices if we have internet (implied by sync)
+    // We just try - if it fails it stays pending.
+    let pending_invoices: Vec<String> = {
+        match db.conn.lock() {
+            Ok(conn) => {
+                match conn.prepare("SELECT id FROM invoices WHERE status = 'pending'") {
+                    Ok(mut stmt) => {
+                         stmt.query_map([], |row| row.get(0))
+                            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                            .unwrap_or_default()
+                    },
+                    Err(_) => Vec::new(),
+                }
+            },
+            Err(_) => Vec::new(),
+        }
+    };
+
+    if !pending_invoices.is_empty() {
+        info!("Found {} pending invoices. Attempting to auto-send...", pending_invoices.len());
+        for id in pending_invoices {
+            info!("Auto-sending invoice: {}", id);
+            // We ignore errors here as send_invoice handles logging and status updates
+            let _ = send_invoice(db.clone(), id).await;
+        }
+    }
 
     result
 }
@@ -929,16 +943,31 @@ pub fn create_invoice(
     let mut items_to_insert: Vec<(String, String, String, f64, f64, String, f64)> = Vec::new();
 
     for item in &request.items {
-        let (product_name, price, um): (String, f64, String) = conn
+        // First try to get price from offer_items
+        let offer_price: Option<f64> = conn
             .query_row(
-                "SELECT p.name, COALESCE(oi.pret, p.price) AS price, p.unit_of_measure \
-                 FROM products p \
-                 LEFT JOIN offer_items oi ON oi.product_id = p.id AND oi.id_client = ?2 \
-                 WHERE p.id = ?1",
+                "SELECT pret FROM offer_items WHERE product_id = ?1 AND id_client = ?2",
                 [&item.product_id, &request.partner_id],
+                |row| row.get(0),
+            )
+            .ok();
+
+        let (product_name, product_price, um): (String, f64, String) = conn
+            .query_row(
+                "SELECT name, price, unit_of_measure FROM products WHERE id = ?1",
+                [&item.product_id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .map_err(|e| format!("Product not found: {}", e))?;
+
+        // Use offer price if available, otherwise use product price
+        let price = offer_price.unwrap_or(product_price);
+        
+        if offer_price.is_some() {
+            info!("Using offer price {} for product {} (partner {})", price, product_name, request.partner_id);
+        } else {
+            info!("No offer price found for product {} (partner {}), using standard price {}", product_name, request.partner_id, price);
+        }
 
         let item_total = price * item.quantity;
         total_amount += item_total;
@@ -1183,7 +1212,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     }
 
     // Get invoice details and items
-    let (invoice, items, partner_cod, location_id_sediu) = {
+    let (invoice, items, partner_cod, location_id_sediu, invoice_number): (Invoice, Vec<(String, f64, f64, String)>, Option<String>, Option<String>, i64) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
         
         // Get invoice with partner cod
@@ -1235,20 +1264,28 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             .ok()
             .flatten();
 
-        // Get invoice items
+        // Get invoice number from the invoice record
+        let invoice_number: i64 = conn
+            .query_row("SELECT invoice_number FROM invoices WHERE id = ?1", [&invoice_id], |row| row.get(0))
+            .map_err(|e| format!("Failed to get invoice number: {}", e))?;
+
+        // Get invoice items with UM from products
         let mut stmt = conn
             .prepare(
-                "SELECT product_id, quantity, unit_price FROM invoice_items WHERE invoice_id = ?1",
+                "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure \
+                 FROM invoice_items ii \
+                 JOIN products p ON ii.product_id = p.id \
+                 WHERE ii.invoice_id = ?1",
             )
             .map_err(|e| e.to_string())?;
 
-        let items: Vec<(String, f64, f64)> = stmt
-            .query_map([&invoice_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+        let items: Vec<(String, f64, f64, String)> = stmt
+            .query_map([&invoice_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
             .collect();
 
-        (invoice, items, partner_cod, location_id_sediu)
+        (invoice, items, partner_cod, location_id_sediu, invoice_number)
     };
 
     // Get agent settings
@@ -1289,37 +1326,46 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     let gestiune = agent_settings.simbol_gestiune_livrare.clone().unwrap();
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
-        .map(|(product_id, quantity, price)| api_client::WmeInvoiceItem {
+        .map(|(product_id, quantity, price, um)| api_client::WmeInvoiceItem {
             id_articol: product_id,
             cant: quantity,
             pret: price,
-            gestiune: gestiune.clone(),
+            um: Some(um),
+            gestiune: Some(gestiune.clone()),
             observatii: None,
+            tva: None,
         })
         .collect();
 
     // Build WME request
     let wme_request = api_client::WmeInvoiceRequest {
-        tip_document: "FACTURA IESIRE".to_string(),
-        an_lucru,
-        luna_lucru,
+        cod_partener: partner_cod.clone().unwrap(),
+        cod_sediu: location_id_sediu.clone(),
+        nume_delegate: agent_settings.delegate_name.clone().unwrap_or_default(),
+        act_delegate: agent_settings.delegate_act.clone().unwrap_or_default(),
+        tip_document: Some("FACTURA IESIRE".to_string()),
+        an_lucru: Some(an_lucru.to_string()),
+        luna_lucru: Some(luna_lucru.to_string()),
         cod_subunitate: None, // Empty for Central
         documente: vec![api_client::WmeDocument {
-            simbol_carnet: agent_settings.carnet_series.clone().unwrap(),
-            simbol_carnet_livr: agent_settings.simbol_carnet_livr.clone().unwrap(),
-            simbol_gestiune_livrare: agent_settings.simbol_gestiune_livrare.clone().unwrap(),
-            numerotare_automata: api_client::WmeNumerotareAutomata {
-                cod_carnet: agent_settings.cod_carnet.unwrap(),
-                cod_carnet_livr: agent_settings.cod_carnet_livr.unwrap(),
-            },
-            data: data_formatted.clone(),
-            data_livr: data_formatted,
-            cod_client: partner_cod.unwrap(),
+            tip_document: "FACTURA IESIRE".to_string(),
+            simbol_gestiune: gestiune.clone(),
+            nume_gestiune: gestiune.clone(),
+            serie_document: agent_settings.carnet_series.clone(),
+            numar_document: Some(invoice_number.to_string()), // Folosim numărul din aplicație
+            simbol_carnet: Some(agent_settings.carnet_series.clone().unwrap()),
+            simbol_carnet_livr: Some(agent_settings.simbol_carnet_livr.clone().unwrap()),
+            simbol_gestiune_livrare: Some(agent_settings.simbol_gestiune_livrare.clone().unwrap()),
+            numerotare_automata: None, // Nu mai folosim numerotare automată - folosim NrDoc
+            data: Some(data_formatted.clone()),
+            data_livr: Some(data_formatted),
+            cod_client: Some(partner_cod.unwrap()),
             id_sediu: location_id_sediu,
-            agent: agent_settings.agent_name.unwrap(),
+            agent: Some(agent_settings.agent_name.unwrap()),
             observatii: invoice.notes.clone(),
-            items: wme_items,
+            items: Some(wme_items),
         }],
+        articole: vec![],
     };
 
     // Log the JSON payload for debugging
@@ -1345,7 +1391,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         Ok(response) => {
             // Success - store document number if available
             let doc_info = response.documente_importate.first()
-                .map(|d| format!("WME: {} {}", d.serie, d.numar))
+                .map(|d| format!("WME: {} {}", d.serie.clone().unwrap_or_default(), d.numar.clone().unwrap_or_default()))
                 .unwrap_or_else(|| "Sent successfully".to_string());
             
             conn.execute(
@@ -1355,9 +1401,15 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             .map_err(|e| e.to_string())?;
         }
         Err(error) => {
+            // Offline/Error Handling:
+            // User requested to not show error but treat as "pending" (in asteptare).
+            // We save the error message for context but set status to pending.
+            let error_msg = format!("Salvat local (Offline/Eroare): {}", error);
+            warn!("Failed to send invoice (handling as offline): {}", error);
+
             conn.execute(
-                "UPDATE invoices SET status = 'failed', error_message = ?1 WHERE id = ?2",
-                [&error, &invoice_id],
+                "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+                [&error_msg, &invoice_id],
             )
             .map_err(|e| e.to_string())?;
         }
@@ -1370,7 +1422,8 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             SELECT
                 i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
-                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id)
+                (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
+                p.cod
             FROM invoices i
             JOIN partners p ON i.partner_id = p.id
             JOIN locations l ON i.location_id = l.id
@@ -1413,11 +1466,11 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     // Fetch invoice basic info
-    let (partner_name, notes, created_at): (String, Option<String>, String) = conn
+    let (partner_name, notes, created_at, invoice_number): (String, Option<String>, String, i64) = conn
         .query_row(
-            "SELECT p.name, i.notes, i.created_at FROM invoices i JOIN partners p ON i.partner_id = p.id WHERE i.id = ?1",
+            "SELECT p.name, i.notes, i.created_at, i.invoice_number FROM invoices i JOIN partners p ON i.partner_id = p.id WHERE i.id = ?1",
             [&invoice_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
         .map_err(|e| format!("Invoice not found: {}", e))?;
 
@@ -1436,13 +1489,16 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
     // Get invoice items
     let mut stmt = conn
         .prepare(
-            "SELECT ii.product_id, ii.quantity, ii.unit_price FROM invoice_items ii WHERE ii.invoice_id = ?1",
+            "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure \
+             FROM invoice_items ii \
+             JOIN products p ON ii.product_id = p.id \
+             WHERE ii.invoice_id = ?1",
         )
         .map_err(|e| e.to_string())?;
 
-    let items: Vec<(String, f64, f64)> = stmt
+    let items: Vec<(String, f64, f64, String)> = stmt
         .query_map([&invoice_id], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
         })
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
@@ -1486,37 +1542,46 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
     let gestiune = agent_settings.simbol_gestiune_livrare.clone().unwrap();
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
-        .map(|(product_id, quantity, price)| api_client::WmeInvoiceItem {
+        .map(|(product_id, quantity, price, um)| api_client::WmeInvoiceItem {
             id_articol: product_id,
             cant: quantity,
             pret: price,
-            gestiune: gestiune.clone(),
+            um: Some(um),
+            gestiune: Some(gestiune.clone()),
             observatii: None,
+            tva: None,
         })
         .collect();
 
     // Build WME request
     let wme_request = api_client::WmeInvoiceRequest {
-        tip_document: "FACTURA IESIRE".to_string(),
-        an_lucru,
-        luna_lucru,
+        cod_partener: partner_cod.clone().unwrap(),
+        cod_sediu: location_id_sediu.clone(),
+        nume_delegate: agent_settings.delegate_name.clone().unwrap_or_default(),
+        act_delegate: agent_settings.delegate_act.clone().unwrap_or_default(),
+        tip_document: Some("FACTURA IESIRE".to_string()),
+        an_lucru: Some(an_lucru.to_string()),
+        luna_lucru: Some(luna_lucru.to_string()),
         cod_subunitate: None,
         documente: vec![api_client::WmeDocument {
-            simbol_carnet: agent_settings.carnet_series.clone().unwrap(),
-            simbol_carnet_livr: agent_settings.simbol_carnet_livr.clone().unwrap(),
-            simbol_gestiune_livrare: agent_settings.simbol_gestiune_livrare.clone().unwrap(),
-            numerotare_automata: api_client::WmeNumerotareAutomata {
-                cod_carnet: agent_settings.cod_carnet.unwrap(),
-                cod_carnet_livr: agent_settings.cod_carnet_livr.unwrap(),
-            },
-            data: data_formatted.clone(),
-            data_livr: data_formatted,
-            cod_client: partner_cod.unwrap(),
+            tip_document: "FACTURA IESIRE".to_string(),
+            simbol_gestiune: gestiune.clone(),
+            nume_gestiune: gestiune.clone(),
+            serie_document: agent_settings.carnet_series.clone(),
+            numar_document: Some(invoice_number.to_string()), // Folosim numărul din aplicație
+            simbol_carnet: Some(agent_settings.carnet_series.clone().unwrap()),
+            simbol_carnet_livr: Some(agent_settings.simbol_carnet_livr.clone().unwrap()),
+            simbol_gestiune_livrare: Some(agent_settings.simbol_gestiune_livrare.clone().unwrap()),
+            numerotare_automata: None, // Nu mai folosim numerotare automată - folosim NrDoc
+            data: Some(data_formatted.clone()),
+            data_livr: Some(data_formatted),
+            cod_client: Some(partner_cod.unwrap()),
             id_sediu: location_id_sediu,
-            agent: agent_settings.agent_name.unwrap(),
+            agent: Some(agent_settings.agent_name.unwrap()),
             observatii: notes.clone(),
-            items: wme_items,
+            items: Some(wme_items),
         }],
+        articole: vec![],
     };
 
     // Return pretty JSON
@@ -2116,9 +2181,9 @@ pub fn save_agent_settings(
         cod_carnet_livr,
         delegate_name,
         delegate_act,
-        invoice_number_start,
-        invoice_number_end,
-        invoice_number_current: final_current,
+        invoice_number_start: invoice_number_start.map(|v| v as i32),
+        invoice_number_end: invoice_number_end.map(|v| v as i32),
+        invoice_number_current: final_current.map(|v| v as i32),
     })
 }
 
@@ -2198,4 +2263,12 @@ pub fn debug_partner_payment_terms(db: State<'_, Database>, partner_id: String) 
         }
         Err(e) => Err(format!("Partner not found: {}", e))
     }
+}
+
+#[tauri::command]
+pub async fn open_external_link(url: String) -> Result<(), String> {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("Invalid URL protocol".to_string());
+    }
+    open::that(url).map_err(|e| e.to_string())
 }
