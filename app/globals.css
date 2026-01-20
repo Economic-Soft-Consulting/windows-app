@@ -119,7 +119,16 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Global scale down using zoom - best for Tauri/Chrome */
+  html {
+    zoom: 0.8;
+    /* Scales UI elements down to fit 10-inch screen */
+    font-size: 110%;
+    /* Increases font size readability within the scaled UI */
   }
 }

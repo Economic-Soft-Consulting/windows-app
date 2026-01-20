@@ -26,8 +26,8 @@ const DataField = ({ label, value, className = "" }: { label: string; value: str
   if (value === null || value === undefined || value === "") return null;
   return (
     <div className={`flex flex-col space-y-0.5 ${className}`}>
-      <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
-      <span className="text-sm font-medium leading-none break-all">{value}</span>
+      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-xs font-medium leading-none break-all">{value}</span>
     </div>
   );
 };
@@ -128,19 +128,19 @@ export default function DataPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
               {partners.map((partner) => (
                 <Card
                   key={partner.id}
-                  className="overflow-hidden hover:border-primary/50 transition-colors shadow-sm active:scale-[0.99] transition-transform"
+                  className="overflow-hidden hover:border-primary/50 transition-colors shadow-sm active:scale-[0.99] transition-transform flex flex-col"
                 >
-                  <CardHeader className="pb-3 bg-muted/30">
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="space-y-1">
-                        <CardTitle className="text-base font-bold leading-tight line-clamp-2">
+                  <CardHeader className="pb-1 pt-1.5 px-2 bg-muted/30">
+                    <div className="flex justify-between items-start gap-1.5">
+                      <div className="space-y-0.5">
+                        <CardTitle className="text-xs font-bold leading-tight line-clamp-2">
                           {partner.name}
                         </CardTitle>
-                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
                           {partner.cif && <span className="font-mono bg-background px-1.5 py-0.5 rounded border">CUI: {partner.cif}</span>}
                           {partner.cod_intern && <span className="font-mono bg-background px-1.5 py-0.5 rounded border">COD: {partner.cod_intern}</span>}
                         </div>
@@ -150,24 +150,24 @@ export default function DataPage() {
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="pt-4 pb-2 space-y-3">
-                    <div className="grid grid-cols-2 gap-y-3 gap-x-2">
+                  <CardContent className="pt-1.5 pb-1 px-2 space-y-1 flex-1">
+                    <div className="grid grid-cols-2 gap-y-1 gap-x-1.5">
                       <DataField label="Județ" value={partner.locations[0]?.judet} />
                       <DataField label="Localitate" value={partner.locations[0]?.localitate} />
                       <DataField label="Linii Credit" value={partner.credit_client} />
                       <DataField label="Scadență" value={partner.scadenta_la_vanzare ? `${partner.scadenta_la_vanzare} zile` : undefined} />
                     </div>
                     {partner.locations.length > 0 && (
-                      <div className="text-xs text-muted-foreground pt-1 flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {partner.locations.length} locații disponibile
+                      <div className="text-[10px] text-muted-foreground pt-0.5 flex items-center gap-1">
+                        <MapPin className="h-2.5 w-2.5" />
+                        {partner.locations.length} locații
                       </div>
                     )}
                   </CardContent>
-                  <CardFooter className="pt-2 pb-4 px-4 bg-muted/10 border-t">
+                  <CardFooter className="pt-1 pb-1.5 px-2 bg-muted/10 border-t">
                     <Button
                       variant="outline"
-                      className="w-full h-12 text-sm font-medium active:bg-accent"
+                      className="w-full h-8 text-xs font-medium active:bg-accent"
                       onClick={() => {
                         setSelectedPartnerId(partner.id);
                         setIsDialogOpen(true);
@@ -219,7 +219,7 @@ export default function DataPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
               {allProducts.map((product) => (
                 <Card key={product.id} className="min-h-[140px] flex flex-col justify-between hover:border-primary/50 transition-colors">
                   <CardHeader className="pb-1 pt-3 px-3">
@@ -282,7 +282,7 @@ export default function DataPage() {
 
             <div className="flex-1 overflow-hidden bg-muted/5">
               <ScrollArea className="h-full">
-                <div className="p-6">
+                <div className="p-4">
 
                   {/* Tab: Info General */}
                   <TabsContent value="info" className="m-0 space-y-6">
@@ -383,18 +383,18 @@ export default function DataPage() {
                   </TabsContent>
 
                   {/* Tab: Products & Offers */}
-                  <TabsContent value="products" className="m-0 space-y-4">
-                    <div className="bg-background rounded-lg border p-4 shadow-sm sticky top-0 z-10">
-                      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                        <Search className="h-4 w-4" /> Verifică preț și ofertă pentru acest client
+                  <TabsContent value="products" className="m-0 space-y-1">
+                    <div className="bg-background rounded-lg border p-1.5 shadow-sm sticky top-0 z-10">
+                      <h3 className="text-xs font-semibold mb-1.5 flex items-center gap-1.5">
+                        <Search className="h-3 w-3" /> Verifică preț și ofertă pentru acest client
                       </h3>
                       <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input
                           placeholder="Caută în oferta clientului (denumire produs)..."
                           value={productSearch}
                           onChange={(e) => handleProductSearch(e.target.value)}
-                          className="pl-12 h-12 text-base shadow-sm border-primary/20 focus-visible:ring-primary"
+                          className="pl-9 h-8 text-xs shadow-sm border-primary/20 focus-visible:ring-primary"
                           autoFocus
                         />
                       </div>
@@ -413,28 +413,28 @@ export default function DataPage() {
                         </p>
                       </div>
                     ) : (
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="grid gap-1 grid-cols-3">
                         {partnerProducts.map((product) => (
-                          <Card key={product.id} className="text-sm border-l-4 border-l-primary/60">
-                            <CardHeader className="pb-2 pt-3 px-3">
-                              <div className="flex items-start justify-between gap-2">
-                                <CardTitle className="text-sm leading-tight line-clamp-2">{product.name}</CardTitle>
+                          <Card key={product.id} className="text-xs border-l-2 border-l-primary/60">
+                            <CardHeader className="pb-0.5 pt-1 px-1.5">
+                              <div className="flex items-start justify-between gap-1">
+                                <CardTitle className="text-xs leading-tight line-clamp-2">{product.name}</CardTitle>
                                 {product.class && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">
                                     {product.class}
                                   </Badge>
                                 )}
                               </div>
                             </CardHeader>
-                            <CardContent className="px-3 pb-3">
+                            <CardContent className="px-1.5 pb-1">
                               <div className="flex items-end justify-between">
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[10px] text-muted-foreground">
                                   <div>UM: <span className="font-medium text-foreground">{product.unit_of_measure}</span></div>
                                   <div>TVA: {product.tva_percent ? `${product.tva_percent}%` : "-"}</div>
                                 </div>
                                 <div className="text-right">
-                                  <span className="text-xs text-muted-foreground block">Preț</span>
-                                  <span className="text-lg font-bold text-primary">
+                                  <span className="text-[9px] text-muted-foreground block">Preț</span>
+                                  <span className="text-sm font-bold text-primary">
                                     {formatCurrency(product.price)}
                                   </span>
                                 </div>

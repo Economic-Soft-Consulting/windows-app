@@ -1725,12 +1725,35 @@ pub fn delete_invoice(db: State<'_, Database>, invoice_id: String) -> Result<(),
 pub fn get_available_printers() -> Result<Vec<String>, String> {
     #[cfg(target_os = "windows")]
     {
-        // Get list of Windows printers using WMI
+        // 1. Try WMIC first (Much faster than PowerShell)
+        // wmic printer get name
+        let wmic_output = std::process::Command::new("wmic")
+            .args(&["printer", "get", "name"])
+            .output();
+
+        if let Ok(output) = wmic_output {
+            if output.status.success() {
+                let text = String::from_utf8_lossy(&output.stdout);
+                let printers: Vec<String> = text
+                    .lines()
+                    .map(|l| l.trim().to_string())
+                    .filter(|l| !l.is_empty() && l.to_lowercase() != "name") // Filter header and empty lines
+                    .collect();
+
+                if !printers.is_empty() {
+                    return Ok(printers);
+                }
+            }
+        }
+
+        // 2. Fallback to PowerShell if WMIC fails or returns no printers
+        // Use Get-CimInstance which is generally preferred over Get-WmiObject
         let output = std::process::Command::new("powershell")
             .args(&[
                 "-NoProfile",
+                "-NonInteractive",
                 "-Command",
-                "Get-WmiObject Win32_Printer | Select-Object -ExpandProperty Name",
+                "Get-CimInstance Win32_Printer | Select-Object -ExpandProperty Name",
             ])
             .output()
             .map_err(|e| format!("Failed to get printers: {}", e))?;

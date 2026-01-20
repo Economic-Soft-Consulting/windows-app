@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Eye, Send, MoreHorizontal, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 type TabValue = "all" | InvoiceStatus;
 type ViewMode = "grid" | "table";
@@ -61,6 +62,7 @@ export default function InvoicesPage() {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const { isAdmin } = useAuth(); // Get admin status
 
   const statusFilter = activeTab === "all" ? undefined : activeTab;
   const { invoices, isLoading, send, remove, refresh } = useInvoices(statusFilter);
@@ -115,69 +117,69 @@ export default function InvoicesPage() {
 
       {/* Tabs with Button and View Toggle */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1">
-        <TabsList className="h-14 flex-wrap sm:flex-nowrap">
-          <TabsTrigger value="all" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
-            Toate
-            <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs">
-              {counts.all}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="pending" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
-            <span className="hidden sm:inline">În așteptare</span>
-            <span className="sm:hidden">Așteptare</span>
-            {counts.pending > 0 && (
-              <span className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 px-2 py-0.5 rounded-full text-xs">
-                {counts.pending}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="flex-1">
+          <TabsList className="h-14 flex-wrap sm:flex-nowrap">
+            <TabsTrigger value="all" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
+              Toate
+              <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs">
+                {counts.all}
               </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="sent" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
-            Trimise
-            {counts.sent > 0 && (
-              <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full text-xs">
-                {counts.sent}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="failed" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
-            Eșuate
-            {counts.failed > 0 && (
-              <span className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-full text-xs">
-                {counts.failed}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
+              <span className="hidden sm:inline">În așteptare</span>
+              <span className="sm:hidden">Așteptare</span>
+              {counts.pending > 0 && (
+                <span className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 px-2 py-0.5 rounded-full text-xs">
+                  {counts.pending}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="sent" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
+              Trimise
+              {counts.sent > 0 && (
+                <span className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full text-xs">
+                  {counts.sent}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="failed" className="h-11 px-3 sm:px-4 gap-1.5 sm:gap-2">
+              Eșuate
+              {counts.failed > 0 && (
+                <span className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-full text-xs">
+                  {counts.failed}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-      <div className="flex gap-2 w-full sm:w-auto">
-        <div className="flex border rounded-lg p-1">
-          <Button
-            variant={viewMode === "table" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("table")}
-            className="h-9 px-3"
-          >
-            <TableIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === "grid" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("grid")}
-            className="h-9 px-3"
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="flex border rounded-lg p-1">
+            <Button
+              variant={viewMode === "table" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("table")}
+              className="h-9 px-3"
+            >
+              <TableIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("grid")}
+              className="h-9 px-3"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <Link href="/invoices/new" className="flex-1 sm:flex-none">
+            <Button size="lg" className="gap-2 h-12 px-6 w-full sm:w-auto">
+              <Plus className="h-5 w-5" />
+              Factură nouă
+            </Button>
+          </Link>
         </div>
-        
-        <Link href="/invoices/new" className="flex-1 sm:flex-none">
-          <Button size="lg" className="gap-2 h-12 px-6 w-full sm:w-auto">
-            <Plus className="h-5 w-5" />
-            Factură nouă
-          </Button>
-        </Link>
-      </div>
       </div>
 
       {/* Invoice Display */}
@@ -248,14 +250,18 @@ export default function InvoicesPage() {
                             Trimite
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(invoice.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Șterge
-                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(invoice.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Șterge
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -265,7 +271,7 @@ export default function InvoicesPage() {
           </Table>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
           {invoices.map((invoice) => (
             <InvoiceCard
               key={invoice.id}
@@ -274,6 +280,7 @@ export default function InvoicesPage() {
               onDelete={handleDelete}
               onView={handleView}
               onCancel={handleCancel}
+              isAdmin={isAdmin}
             />
           ))}
         </div>

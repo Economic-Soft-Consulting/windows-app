@@ -102,24 +102,24 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-1.5">
       <div>
-        <h2 className="text-lg font-semibold">Adaugă produse</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
+        <h2 className="text-sm font-semibold">Adaugă produse</h2>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
           Selectează produsele și cantitățile dorite
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[1fr_1.5fr]">
+      <div className="grid gap-2.5 md:grid-cols-[1fr_1.5fr]">
         {/* Product Search */}
-        <div className="space-y-4">
+        <div className="space-y-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder="Caută produs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 text-base"
+              className="pl-9 h-9 text-sm"
             />
           </div>
 
@@ -134,8 +134,8 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
               <p className="text-xs text-muted-foreground mt-1">Numai produsele din clasa ouă sunt afișate</p>
             </div>
           ) : (
-            <ScrollArea className="h-[calc(100vh-420px)] min-h-[200px] max-h-[400px]">
-              <div className="space-y-2 pr-4">
+            <ScrollArea className="h-[calc(100vh-270px)] min-h-[280px] max-h-[550px]">
+              <div className="space-y-1 pr-4">
                 {filteredProducts.map((product) => {
                   const inCart = getCartQuantity(product.id) > 0;
                   return (
@@ -145,7 +145,7 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                         }`}
                       onClick={() => addToCart(product)}
                     >
-                      <CardContent className="p-3">
+                      <CardContent className="p-1.5">
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
@@ -184,10 +184,10 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
         </div>
 
         {/* Cart */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5" />
-            <h3 className="font-semibold">Coș ({cartItems.length} produse)</h3>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <ShoppingCart className="h-3.5 w-3.5" />
+            <h3 className="text-xs font-semibold">Coș ({cartItems.length})</h3>
           </div>
 
           {cartItems.length === 0 ? (
@@ -201,33 +201,33 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
             </Card>
           ) : (
             <>
-              <ScrollArea className="h-[calc(100vh-480px)] min-h-[150px] max-h-[350px] pr-4">
-                <div className="space-y-2">
+              <ScrollArea className="h-[calc(100vh-330px)] min-h-[220px] max-h-[480px] pr-4">
+                <div className="space-y-1">
                   {cartItems.map((item) => (
                     <Card key={item.product.id}>
-                      <CardContent className="p-3">
-                        <div className="flex items-center gap-3">
+                      <CardContent className="p-1.5">
+                        <div className="flex items-center gap-1.5">
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">
+                            <p className="text-xs font-medium truncate">
                               {item.product.name}
                             </p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-[10px] text-muted-foreground">
                               {formatCurrency(item.product.price)} /{" "}
                               {item.product.unit_of_measure}
                             </p>
                             {item.product.tva_percent != null && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
+                              <p className="text-[9px] text-muted-foreground mt-0.5">
                                 TVA: {item.product.tva_percent}%
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-0.5">
                             <Button
                               variant="outline"
-                              className="h-11 w-11 p-0"
+                              className="h-7 w-7 p-0"
                               onClick={() => updateQuantity(item.product.id, -1)}
                             >
-                              <Minus className="h-4 w-4" />
+                              <Minus className="h-2.5 w-2.5" />
                             </Button>
                             <Input
                               type="number"
@@ -240,26 +240,26 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                                 )
                               }
                               onFocus={(e) => e.target.select()}
-                              className="w-16 h-11 text-center"
+                              className="w-12 h-7 text-center text-xs"
                               min={0}
                             />
                             <Button
                               variant="outline"
-                              className="h-11 w-11 p-0"
+                              className="h-7 w-7 p-0"
                               onClick={() => updateQuantity(item.product.id, 1)}
                             >
-                              <Plus className="h-4 w-4" />
+                              <Plus className="h-2.5 w-2.5" />
                             </Button>
                             <Button
                               variant="ghost"
-                              className="h-11 w-11 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => removeFromCart(item.product.id)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-2.5 w-2.5" />
                             </Button>
                           </div>
                         </div>
-                        <div className="text-right mt-2 text-sm font-medium">
+                        <div className="text-right mt-1 text-[10px] font-medium">
                           {formatCurrency(item.product.price * item.quantity)}
                         </div>
                       </CardContent>
@@ -270,9 +270,9 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
 
               <Separator />
 
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <span className="font-semibold">Total:</span>
-                <span className="text-xl font-bold">
+              <div className="flex items-center justify-between p-1.5 bg-muted rounded-lg">
+                <span className="text-xs font-semibold">Total:</span>
+                <span className="text-base font-bold">
                   {formatCurrency(totalAmount)}
                 </span>
               </div>

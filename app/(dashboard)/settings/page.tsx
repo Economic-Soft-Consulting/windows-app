@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Settings, Loader2, Printer, FileText, User, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import type { AgentSettings } from "@/lib/tauri/types";
 import { toast } from "sonner";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 interface PrintSettings {
   printer: string;
@@ -23,6 +25,8 @@ interface PrintSettings {
 }
 
 export default function SettingsPage() {
+  const { isAdmin } = useAuth();
+  const router = useRouter();
   const [printers, setPrinters] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<PrintSettings>({
@@ -46,9 +50,17 @@ export default function SettingsPage() {
     invoice_number_current: null,
   });
   const [savingAgent, setSavingAgent] = useState(false);
-  
+
   const { status, isSyncing, triggerSync } = useSyncStatus();
   const { isOnline } = useOnlineStatus();
+
+  // Redirect non-admin users
+  useEffect(() => {
+    if (!isAdmin) {
+      toast.error("Acces interzis - doar pentru Administrator");
+      router.push("/");
+    }
+  }, [isAdmin, router]);
 
   const handleSyncNow = async () => {
     if (!isOnline) {
@@ -82,7 +94,7 @@ export default function SettingsPage() {
     loadSettings();
     loadCachedPrinters();
     loadAgentSettings();
-    
+
     // Load printers asynchronously without blocking
     setTimeout(() => {
       loadPrinters();

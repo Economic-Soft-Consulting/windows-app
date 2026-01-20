@@ -177,9 +177,20 @@ export function InvoiceWizard() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Step Indicator */}
-      <div className="flex items-center justify-center">
+    <div className="space-y-3">
+      {/* Step Indicator with Navigation */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleBack}
+          disabled={currentStep === 1}
+          className="gap-1.5 h-9"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Înapoi
+        </Button>
+        
         <div className="flex items-center gap-2">
           {steps.map((step, index) => {
             const isActive = currentStep === step.number;
@@ -190,7 +201,7 @@ export function InvoiceWizard() {
               <div key={step.number} className="flex items-center">
                 <div
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full transition-colors",
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors",
                     isActive && "bg-primary text-primary-foreground",
                     isCompleted && "bg-primary/20 text-primary",
                     !isActive && !isCompleted && "bg-muted text-muted-foreground"
@@ -208,7 +219,7 @@ export function InvoiceWizard() {
                 {index < steps.length - 1 && (
                   <div
                     className={cn(
-                      "w-8 h-0.5 mx-1",
+                      "w-6 h-0.5 mx-1",
                       currentStep > step.number ? "bg-primary" : "bg-muted"
                     )}
                   />
@@ -217,47 +228,33 @@ export function InvoiceWizard() {
             );
           })}
         </div>
-      </div>
-
-      {/* Top Navigation */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={handleBack}
-          disabled={currentStep === 1}
-          className="gap-2 h-12"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Înapoi
-        </Button>
 
         {currentStep < 4 ? (
           <Button
-            size="lg"
+            size="sm"
             onClick={handleNext}
             disabled={!canGoNext()}
-            className="gap-2 h-12"
+            className="gap-1.5 h-9"
           >
             Continuă
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         ) : (
           <Button
-            size="lg"
+            size="sm"
             onClick={handleSubmit}
             disabled={isSubmitting || !canGoNext()}
-            className="gap-2 h-12"
+            className="gap-1.5 h-9"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Se procesează...
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Procesează...
               </>
             ) : (
               <>
-                <Send className="h-4 w-4" />
-                Salvează și Trimite
+                <Send className="h-3.5 w-3.5" />
+                Trimite
               </>
             )}
           </Button>

@@ -26,6 +26,7 @@ interface InvoiceCardProps {
   onDelete: (id: string) => void;
   onView: (id: string) => void;
   onCancel?: (id: string) => void;
+  isAdmin?: boolean; // Add admin check
 }
 
 function formatCurrency(amount: number): string {
@@ -47,11 +48,11 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel }: InvoiceCardProps) {
+export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdmin = true }: InvoiceCardProps) {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const canSend = invoice.status === "pending" || invoice.status === "failed";
-  const canDelete = invoice.status === "pending" || invoice.status === "failed";
+  const canDelete = isAdmin && (invoice.status === "pending" || invoice.status === "failed"); // Only admin can delete
   const isSending = invoice.status === "sending";
 
   const handleCancel = async () => {

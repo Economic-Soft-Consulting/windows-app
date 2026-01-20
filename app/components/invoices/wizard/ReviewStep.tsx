@@ -47,30 +47,30 @@ export function ReviewStep({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <div>
-        <h2 className="text-lg font-semibold">Revizuire factură</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
+        <h2 className="text-sm font-semibold">Revizuire factură</h2>
+        <p className="text-[11px] text-muted-foreground mt-0.5">
           Verifică detaliile înainte de a trimite factura
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         {/* Partner & Location Info */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
+          <CardHeader className="pb-2 pt-2 px-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5" />
               Partener
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2 px-2 pb-2">
             <div>
-              <p className="font-medium">{partner.name}</p>
+              <p className="text-sm font-medium">{partner.name}</p>
             </div>
             <Separator />
-            <div className="flex items-start gap-2 text-sm">
-              <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-1.5 text-xs">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div>
                 {location ? (
                   <>
@@ -89,18 +89,18 @@ export function ReviewStep({
 
         {/* Summary */}
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="h-4 w-4" />
+          <CardHeader className="pb-2 pt-2 px-2">
+            <CardTitle className="text-sm flex items-center gap-1.5">
+              <Package className="h-3.5 w-3.5" />
               Sumar
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex justify-between">
+          <CardContent className="space-y-2 px-2 pb-2">
+            <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Produse:</span>
               <span className="font-medium">{cartItems.length}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Cantitate totală:</span>
               <span className="font-medium">
                 {cartItems.reduce((sum, item) => sum + item.quantity, 0)} buc
@@ -108,8 +108,8 @@ export function ReviewStep({
             </div>
             <Separator />
             <div className="flex justify-between">
-              <span className="font-semibold">Total:</span>
-              <span className="text-xl font-bold">{formatCurrency(totalAmount)}</span>
+              <span className="text-sm font-semibold">Total:</span>
+              <span className="text-base font-bold">{formatCurrency(totalAmount)}</span>
             </div>
           </CardContent>
         </Card>
@@ -117,41 +117,41 @@ export function ReviewStep({
 
       {/* Products Table */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4" />
+        <CardHeader className="pb-2 pt-2 px-2">
+          <CardTitle className="text-sm flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5" />
             Produse
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2 pb-2">
           <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-0">Produs</TableHead>
-                  <TableHead className="text-right whitespace-nowrap">Cantitate</TableHead>
-                  <TableHead className="text-right whitespace-nowrap hidden sm:table-cell">Preț unitar</TableHead>
-                  <TableHead className="text-right whitespace-nowrap">Total</TableHead>
+                  <TableHead className="min-w-0 text-xs h-8">Produs</TableHead>
+                  <TableHead className="text-right whitespace-nowrap text-xs h-8">Cantitate</TableHead>
+                  <TableHead className="text-right whitespace-nowrap hidden sm:table-cell text-xs h-8">Preț unitar</TableHead>
+                  <TableHead className="text-right whitespace-nowrap text-xs h-8">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {cartItems.map((item) => (
                   <TableRow key={item.product.id}>
-                    <TableCell className="font-medium min-w-0">
+                    <TableCell className="text-xs font-medium min-w-0 py-2">
                       <span className="line-clamp-2">{item.product.name}</span>
                       {item.product.tva_percent != null && (
-                        <span className="text-xs text-muted-foreground block mt-1">
+                        <span className="text-[10px] text-muted-foreground block mt-0.5">
                           TVA: {item.product.tva_percent}%
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
+                    <TableCell className="text-right whitespace-nowrap text-xs py-2">
                       {item.quantity} {item.product.unit_of_measure}
                     </TableCell>
-                    <TableCell className="text-right whitespace-nowrap hidden sm:table-cell">
+                    <TableCell className="text-right whitespace-nowrap hidden sm:table-cell text-xs py-2">
                       {formatCurrency(item.product.price)}
                     </TableCell>
-                    <TableCell className="text-right font-medium whitespace-nowrap">
+                    <TableCell className="text-right font-medium whitespace-nowrap text-xs py-2">
                       {formatCurrency(item.product.price * item.quantity)}
                     </TableCell>
                   </TableRow>
@@ -159,13 +159,13 @@ export function ReviewStep({
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={2} className="text-right font-semibold sm:hidden">
+                  <TableCell colSpan={2} className="text-right text-xs font-semibold sm:hidden py-2">
                     Total
                   </TableCell>
-                  <TableCell colSpan={3} className="text-right font-semibold hidden sm:table-cell">
+                  <TableCell colSpan={3} className="text-right text-xs font-semibold hidden sm:table-cell py-2">
                     Total
                   </TableCell>
-                  <TableCell className="text-right font-bold text-lg whitespace-nowrap">
+                  <TableCell className="text-right font-bold text-sm whitespace-nowrap py-2">
                     {formatCurrency(totalAmount)}
                   </TableCell>
                 </TableRow>
@@ -176,8 +176,8 @@ export function ReviewStep({
       </Card>
 
       {/* Notes */}
-      <div className="space-y-2">
-        <Label htmlFor="notes" className="text-base">
+      <div className="space-y-1.5">
+        <Label htmlFor="notes" className="text-sm">
           Note (opțional)
         </Label>
         <Textarea
@@ -185,7 +185,7 @@ export function ReviewStep({
           placeholder="Adaugă note sau observații pentru această factură..."
           value={notes}
           onChange={(e) => onNotesChange(e.target.value)}
-          className="min-h-[100px] text-base"
+          className="min-h-[80px] text-sm"
         />
       </div>
     </div>
