@@ -36,7 +36,11 @@
     ],
     "resources": [
       "resources/*"
-    ]
+    ],
+    "macOS": {
+      "entitlements": "entitlements.plist",
+      "infoPlist": "Info.plist"
+    }
   },
   "plugins": {
     "updater": {
