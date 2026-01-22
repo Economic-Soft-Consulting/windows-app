@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 permissions:
   contents: write
 
@@ -12,7 +14,7 @@ env:
 
 jobs:
   build-windows:
-    runs-on: self-hosted
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -85,9 +87,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: "eSoft Facturi v__VERSION__"
+          tagName: ${{ github.ref_name }}
+          releaseName: "eSoft Facturi ${{ github.ref_name }}"
           releaseBody: "See the assets for download."
+          releaseDraft: false
+          prerelease: false
 
       - name: Save caches
         if: always()

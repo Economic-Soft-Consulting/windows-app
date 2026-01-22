@@ -8,7 +8,7 @@ import { PartnerStep } from "./PartnerStep";
 import { LocationStep } from "./LocationStep";
 import { ProductsStep } from "./ProductsStep";
 import { ReviewStep } from "./ReviewStep";
-import { createInvoice, sendInvoice } from "@/lib/tauri/commands";
+import { createInvoice, sendInvoice, printInvoiceToHtml } from "@/lib/tauri/commands";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -50,18 +50,31 @@ export function InvoiceWizard() {
   const [notes, setNotes] = useState("");
 
   const canGoNext = () => {
-    switch (currentStep) {
-      case 1:
-        return selectedPartner !== null;
-      case 2:
-        return selectedLocation !== null;
-      case 3:
-        return cartItems.length > 0;
-      case 4:
-        return true;
-      default:
-        return false;
-    }
+    const result = (() => {
+      switch (currentStep) {
+        case 1:
+          return selectedPartner !== null;
+        case 2:
+          // Location is optional - allow continuing even without selection
+          return true;
+        case 3:
+          return cartItems.length > 0;
+        case 4:
+          return true;
+        default:
+          return false;
+      }
+    })();
+    
+    console.log("🔍 canGoNext:", {
+      currentStep,
+      result,
+      selectedPartner: selectedPartner?.name,
+      selectedLocation: selectedLocation?.name,
+      cartItemsCount: cartItems.length
+    });
+    
+    return result;
   };
 
   const handleNext = () => {
@@ -77,15 +90,30 @@ export function InvoiceWizard() {
   };
 
   const handlePartnerSelect = (partner: PartnerWithLocations) => {
+    console.log("🔵 Partner selected:", {
+      id: partner.id,
+      name: partner.name
+    });
     setSelectedPartner(partner);
     // Reset location if partner changed
     if (selectedPartner?.id !== partner.id) {
+      console.log("Partner changed, resetting location");
       setSelectedLocation(null);
     }
   };
 
+  const handleLocationSelect = (location: Location) => {
+    console.log("✅ handleLocationSelect called with:", {
+      id: location.id,
+      name: location.name,
+      partner_id: location.partner_id
+    });
+    setSelectedLocation(location);
+    console.log("✅ setSelectedLocation called");
+  };
+
   const handleSubmit = async () => {
-    if (!selectedPartner || !selectedLocation || cartItems.length === 0) {
+    if (!selectedPartner || cartItems.length === 0) {
       return;
     }
 
@@ -94,7 +122,7 @@ export function InvoiceWizard() {
     try {
       const request: CreateInvoiceRequest = {
         partner_id: selectedPartner.id,
-        location_id: selectedLocation.id,
+        location_id: selectedLocation?.id || "",
         notes: notes || undefined,
         items: cartItems.map((item) => ({
           product_id: item.product.id,
@@ -106,31 +134,63 @@ export function InvoiceWizard() {
       const invoice = await createInvoice(request);
       toast.success("Factura a fost creată cu succes!");
 
-      // Immediately try to send
-      try {
-        const sentInvoice = await sendInvoice(invoice.id);
-        if (sentInvoice.status === "sent") {
-          toast.success("Factura a fost trimisă cu succes!");
-        } else if (sentInvoice.status === "failed") {
-          toast.error(`Eroare la trimitere: ${sentInvoice.error_message}`);
-        }
-      } catch (e) {
-        toast.error("Eroare la trimiterea facturii");
-      }
+      // Print the invoice (non-blocking, don't wait)
+      const selectedPrinter = localStorage.getItem("selectedPrinter");
+      printInvoiceToHtml(invoice.id, selectedPrinter || undefined)
+        .then(() => toast.success("Factura a fost printată!"))
+        .catch((e) => {
+          console.error("Print error:", e);
+          toast.error(`Eroare la printare: ${e}`);
+        });
 
-      // Navigate to invoices list
+      // Send invoice with better error handling
+      sendInvoice(invoice.id)
+        .then((sentInvoice) => {
+          if (sentInvoice.status === "sent") {
+            toast.success("Factura a fost trimisă cu succes!");
+          } else if (sentInvoice.status === "failed") {
+            toast.error(`Factura a fost salvată, dar nu a putut fi trimisă: ${sentInvoice.error_message || "Verifică conexiunea la internet"}`);
+          }
+        })
+        .catch((e) => {
+          console.error("Send error:", e);
+          const errorMessage = String(e);
+          if (errorMessage.includes("network") || errorMessage.includes("internet") || errorMessage.includes("connection")) {
+            toast.error("Factura a fost salvată, dar nu a putut fi trimisă din cauza lipsei conexiunii la internet. O poți trimite mai târziu din pagina Facturi.");
+          } else {
+            toast.error(`Factura a fost salvată, dar nu a putut fi trimisă: ${errorMessage}`);
+          }
+        });
+
+      // Navigate immediately without waiting for print/send
       router.push("/invoices");
     } catch (e) {
-      toast.error(`Eroare la crearea facturii: ${e}`);
+      const errorMessage = String(e);
+      if (errorMessage.includes("network") || errorMessage.includes("internet") || errorMessage.includes("connection")) {
+        toast.error("Nu se poate crea factura din cauza lipsei conexiunii la internet. Verifică conexiunea și încearcă din nou.");
+      } else {
+        toast.error(`Eroare la crearea facturii: ${errorMessage}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Step Indicator */}
-      <div className="flex items-center justify-center">
+    <div className="space-y-3">
+      {/* Step Indicator with Navigation */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleBack}
+          disabled={currentStep === 1}
+          className="gap-1.5 h-9"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Înapoi
+        </Button>
+        
         <div className="flex items-center gap-2">
           {steps.map((step, index) => {
             const isActive = currentStep === step.number;
@@ -141,7 +201,7 @@ export function InvoiceWizard() {
               <div key={step.number} className="flex items-center">
                 <div
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full transition-colors",
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors",
                     isActive && "bg-primary text-primary-foreground",
                     isCompleted && "bg-primary/20 text-primary",
                     !isActive && !isCompleted && "bg-muted text-muted-foreground"
@@ -159,7 +219,7 @@ export function InvoiceWizard() {
                 {index < steps.length - 1 && (
                   <div
                     className={cn(
-                      "w-8 h-0.5 mx-1",
+                      "w-6 h-0.5 mx-1",
                       currentStep > step.number ? "bg-primary" : "bg-muted"
                     )}
                   />
@@ -168,6 +228,37 @@ export function InvoiceWizard() {
             );
           })}
         </div>
+
+        {currentStep < 4 ? (
+          <Button
+            size="sm"
+            onClick={handleNext}
+            disabled={!canGoNext()}
+            className="gap-1.5 h-9"
+          >
+            Continuă
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={isSubmitting || !canGoNext()}
+            className="gap-1.5 h-9"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Procesează...
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                Trimite
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Step Content */}
@@ -183,16 +274,20 @@ export function InvoiceWizard() {
             <LocationStep
               partner={selectedPartner}
               selectedLocation={selectedLocation}
-              onSelect={setSelectedLocation}
+              onSelect={handleLocationSelect}
             />
           )}
           {currentStep === 3 && (
-            <ProductsStep cartItems={cartItems} onUpdateCart={setCartItems} />
+            <ProductsStep
+              cartItems={cartItems}
+              onUpdateCart={setCartItems}
+              partnerId={selectedPartner?.id}
+            />
           )}
-          {currentStep === 4 && selectedPartner && selectedLocation && (
+          {currentStep === 4 && selectedPartner && (
             <ReviewStep
               partner={selectedPartner}
-              location={selectedLocation}
+              location={selectedLocation || undefined}
               cartItems={cartItems}
               notes={notes}
               onNotesChange={setNotes}
@@ -200,51 +295,6 @@ export function InvoiceWizard() {
           )}
         </CardContent>
       </Card>
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={handleBack}
-          disabled={currentStep === 1}
-          className="gap-2 h-12"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Înapoi
-        </Button>
-
-        {currentStep < 4 ? (
-          <Button
-            size="lg"
-            onClick={handleNext}
-            disabled={!canGoNext()}
-            className="gap-2 h-12"
-          >
-            Continuă
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        ) : (
-          <Button
-            size="lg"
-            onClick={handleSubmit}
-            disabled={isSubmitting || !canGoNext()}
-            className="gap-2 h-12"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Se procesează...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                Salvează și Trimite
-              </>
-            )}
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

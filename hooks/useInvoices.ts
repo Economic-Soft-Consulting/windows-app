@@ -6,6 +6,7 @@ import {
   sendInvoice,
   deleteInvoice,
   getInvoiceDetail,
+  printInvoiceToHtml,
 } from "@/lib/tauri/commands";
 import type { Invoice, InvoiceStatus, InvoiceDetail } from "@/lib/tauri/types";
 import { toast } from "sonner";
@@ -77,6 +78,22 @@ export function useInvoices(statusFilter?: InvoiceStatus) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Auto-refresh when there are invoices with "sending" status
+  useEffect(() => {
+    const hasSendingInvoices = invoices.some(inv => inv.status === "sending");
+    
+    if (!hasSendingInvoices) {
+      return;
+    }
+
+    // Poll every 2 seconds while there are sending invoices
+    const intervalId = setInterval(() => {
+      refresh();
+    }, 2000);
+
+    return () => clearInterval(intervalId);
+  }, [invoices, refresh]);
 
   return { invoices, isLoading, error, refresh, send, remove };
 }

@@ -26,21 +26,21 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
   }, [searchQuery, search]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       <div>
-        <h2 className="text-xl font-semibold">Selectează partenerul</h2>
-        <p className="text-muted-foreground mt-1">
+        <h2 className="text-base font-semibold">Selectează partenerul</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
           Alege partenerul pentru care dorești să creezi factura
         </p>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
         <Input
           placeholder="Caută partener după nume..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 h-12 text-base"
+          className="pl-9 h-9 text-sm"
         />
       </div>
 
@@ -57,8 +57,8 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
           </p>
         </div>
       ) : (
-        <ScrollArea className="h-[calc(100vh-380px)] min-h-[200px] max-h-[500px] pr-4">
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-2">
+        <ScrollArea className="h-[calc(100vh-280px)] min-h-[300px] max-h-[600px] pr-4">
+          <div className="grid gap-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {partners.map((partner) => {
               const isSelected = selectedPartner?.id === partner.id;
               return (
@@ -70,20 +70,28 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
                   )}
                   onClick={() => onSelect(partner)}
                 >
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-base">{partner.name}</CardTitle>
+                  <CardHeader className="pb-1 pt-1.5 px-1.5">
+                    <div className="flex items-start justify-between gap-1">
+                      <CardTitle className="text-xs leading-tight line-clamp-2">{partner.name}</CardTitle>
                       {isSelected && (
-                        <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="h-4 w-4 text-primary-foreground" />
+                        <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                          <Check className="h-2.5 w-2.5 text-primary-foreground" />
                         </div>
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {partner.locations.length} locații
+                  <CardContent className="px-1.5 pb-1.5">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {partner.locations.length} loc.
+                      </div>
+                      <div className="flex items-center gap-1 text-xs">
+                        <span className="text-muted-foreground">Scad:</span>
+                        <span className="font-medium text-primary">
+                          {partner.scadenta_la_vanzare || '7'}z
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

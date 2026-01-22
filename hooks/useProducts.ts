@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getProducts, searchProducts } from "@/lib/tauri/commands";
 import type { Product } from "@/lib/tauri/types";
 
-export function useProducts() {
+export function useProducts(partnerId?: string) {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export function useProducts() {
   const refresh = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await getProducts();
+      const data = await getProducts(partnerId);
       setProducts(data);
       setError(null);
     } catch (e) {
@@ -20,7 +20,7 @@ export function useProducts() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [partnerId]);
 
   const search = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -28,7 +28,7 @@ export function useProducts() {
     }
     setIsLoading(true);
     try {
-      const data = await searchProducts(query);
+      const data = await searchProducts(query, partnerId);
       setProducts(data);
       setError(null);
     } catch (e) {
@@ -36,7 +36,7 @@ export function useProducts() {
     } finally {
       setIsLoading(false);
     }
-  }, [refresh]);
+  }, [partnerId, refresh]);
 
   useEffect(() => {
     refresh();

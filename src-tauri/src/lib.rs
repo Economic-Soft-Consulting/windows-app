@@ -5,6 +5,8 @@ mod commands;
 mod database;
 mod mock_api;
 mod models;
+mod print_invoice;
+mod api_client;
 
 #[cfg(not(debug_assertions))]
 mod updater;
@@ -45,6 +47,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             // Sync commands
+            commands::clear_database,
             commands::check_first_run,
             commands::get_sync_status,
             commands::sync_all_data,
@@ -60,7 +63,22 @@ pub fn run() {
             commands::get_invoices,
             commands::get_invoice_detail,
             commands::send_invoice,
+            commands::preview_invoice_json,
+            commands::send_all_pending_invoices,
+            commands::cancel_invoice_sending,
             commands::delete_invoice,
+            commands::print_invoice_to_html,
+            commands::get_available_printers,
+            // Agent settings commands
+            commands::get_agent_settings,
+            commands::save_agent_settings,
+            // API test commands
+            commands::test_api_partners,
+            commands::test_api_articles,
+            // Debug commands
+            commands::debug_db_counts,
+            commands::debug_partner_payment_terms,
+            commands::open_external_link,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

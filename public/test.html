@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Print</title>
+    <script src="http://localhost:3000/__tauri__/core.js"></script>
+</head>
+<body>
+    <h1>Test Print Invoice</h1>
+    <button onclick="testPrint()">Test Print for Invoice ID: test-123</button>
+    
+    <script>
+        async function testPrint() {
+            try {
+                const result = await window.__TAURI__.core.invoke('get_invoices');
+                console.log('Invoices:', result);
+                
+                if (result && result.length > 0) {
+                    const invoiceId = result[0].id;
+                    console.log('Testing print for:', invoiceId);
+                    
+                    const printResult = await window.__TAURI__.core.invoke('print_invoice_to_html', {
+                        invoiceId: invoiceId
+                    });
+                    console.log('Print result:', printResult);
+                    document.body.innerHTML += `<p>Print file: ${printResult}</p>`;
+                }
+            } catch (e) {
+                console.error('Error:', e);
+                document.body.innerHTML += `<p>Error: ${e}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
