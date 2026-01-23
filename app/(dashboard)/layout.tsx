@@ -50,15 +50,15 @@ export default function DashboardLayout({
       {showFirstRun && (
         <FirstRunOverlay onComplete={() => setShowFirstRun(false)} />
       )}
-      <div className="h-screen flex bg-background">
+      <div className="fixed inset-0 flex bg-background">
         <Sidebar
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header onMenuClick={() => setSidebarOpen(true)} />
-          <main className="flex-1 overflow-auto p-2 md:p-3">
-            <div className="max-w-full mx-auto">
+          <main className="flex-1 overflow-hidden p-3 bg-muted/40">
+            <div className="max-w-7xl mx-auto h-full">
               {children}
             </div>
           </main>
