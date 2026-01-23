@@ -12,6 +12,7 @@ import { usePartners } from "@/hooks/usePartners";
 import { useProducts } from "@/hooks/useProducts";
 import { Search, Building2, Package, MapPin, Loader2, Info, Phone, Mail, FileText, CreditCard, Calendar } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { BarcodeScanner } from "@/app/components/barcode/BarcodeScanner";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("ro-RO", {
@@ -120,13 +121,21 @@ export default function DataPage() {
               </span>
             </h2>
           </div>
-          <div className="relative shrink-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Caută partener (nume, CUI, cod)..."
-              value={partnerSearch}
-              onChange={(e) => handlePartnerSearch(e.target.value)}
-              className="pl-9 h-9 text-sm"
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                placeholder="Caută partener (nume, CUI, cod)..."
+                value={partnerSearch}
+                onChange={(e) => handlePartnerSearch(e.target.value)}
+                className="pl-10 h-14 text-base"
+              />
+            </div>
+            <BarcodeScanner
+              onScan={(code) => {
+                setPartnerSearch(code);
+                searchPartners(code);
+              }}
             />
           </div>
 
