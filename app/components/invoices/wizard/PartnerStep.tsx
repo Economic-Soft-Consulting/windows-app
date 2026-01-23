@@ -65,28 +65,28 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
                 <Card
                   key={partner.id}
                   className={cn(
-                    "cursor-pointer transition-all hover:border-primary/50",
+                    "cursor-pointer transition-all hover:border-primary/50 min-h-[68px]",
                     isSelected && "border-primary bg-primary/5 ring-2 ring-primary"
                   )}
                   onClick={() => onSelect(partner)}
                 >
-                  <CardHeader className="pb-1 pt-1.5 px-1.5">
-                    <div className="flex items-start justify-between gap-1">
-                      <CardTitle className="text-xs leading-tight line-clamp-2">{partner.name}</CardTitle>
+                  <CardHeader className="pb-1 pt-1.5 px-2">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <CardTitle className="text-sm leading-tight line-clamp-2">{partner.name}</CardTitle>
                       {isSelected && (
-                        <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                          <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                        <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                          <Check className="h-3.5 w-3.5 text-primary-foreground" />
                         </div>
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="px-1.5 pb-1.5">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
+                  <CardContent className="px-2 pb-1.5">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
                         {partner.locations.length} loc.
                       </div>
-                      <div className="flex items-center gap-1 text-xs">
+                      <div className="flex items-center gap-1.5 text-sm">
                         <span className="text-muted-foreground">Scad:</span>
                         <span className="font-medium text-primary">
                           {partner.scadenta_la_vanzare || '7'}z

@@ -126,6 +126,8 @@ export default function SettingsPage() {
         agentSettings.invoice_number_end,
         agentSettings.invoice_number_current
       );
+      // Reload settings to update UI with latest values from database
+      await loadAgentSettings();
       toast.success("Setările agentului au fost salvate!");
     } catch (error) {
       console.error("Failed to save agent settings:", error);
@@ -216,9 +218,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <Settings className="h-8 w-8" />
         <div>
           <h1 className="text-3xl font-bold">Setări</h1>
@@ -228,6 +230,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-6">
       {/* Agent Settings */}
       <Card>
         <CardHeader>
@@ -239,8 +243,7 @@ export default function SettingsPage() {
             Configurează informațiile agentului care va fi folosit la trimiterea facturilor
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
+        <CardContent className="space-y-6">          <div className="space-y-2">
             <Label htmlFor="agentName">Marca Agent</Label>
             <Input
               id="agentName"
@@ -664,6 +667,7 @@ export default function SettingsPage() {
           </ul>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

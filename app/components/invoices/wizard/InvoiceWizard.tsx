@@ -55,8 +55,8 @@ export function InvoiceWizard() {
         case 1:
           return selectedPartner !== null;
         case 2:
-          // Location is optional - allow continuing even without selection
-          return true;
+          // Require location if partner has locations configured
+          return selectedPartner ? (selectedPartner.locations.length === 0 ? true : selectedLocation !== null) : false;
         case 3:
           return cartItems.length > 0;
         case 4:
@@ -182,12 +182,12 @@ export function InvoiceWizard() {
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
-          size="sm"
+          size="lg"
           onClick={handleBack}
           disabled={currentStep === 1}
-          className="gap-1.5 h-9"
+          className="gap-2 h-14 px-4 text-lg"
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ArrowLeft className="h-5 w-5" />
           Înapoi
         </Button>
         
@@ -201,25 +201,25 @@ export function InvoiceWizard() {
               <div key={step.number} className="flex items-center">
                 <div
                   className={cn(
-                    "flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors",
+                    "flex items-center gap-3 px-4 py-2 rounded-full transition-colors",
                     isActive && "bg-primary text-primary-foreground",
                     isCompleted && "bg-primary/20 text-primary",
                     !isActive && !isCompleted && "bg-muted text-muted-foreground"
                   )}
                 >
                   {isCompleted ? (
-                    <Check className="h-4 w-4" />
+                    <Check className="h-5 w-5" />
                   ) : (
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-5 w-5" />
                   )}
-                  <span className="text-sm font-medium hidden sm:inline">
+                  <span className="text-base font-medium hidden sm:inline">
                     {step.title}
                   </span>
                 </div>
                 {index < steps.length - 1 && (
                   <div
                     className={cn(
-                      "w-6 h-0.5 mx-1",
+                      "w-8 h-0.5 mx-2",
                       currentStep > step.number ? "bg-primary" : "bg-muted"
                     )}
                   />
@@ -231,29 +231,29 @@ export function InvoiceWizard() {
 
         {currentStep < 4 ? (
           <Button
-            size="sm"
+            size="lg"
             onClick={handleNext}
             disabled={!canGoNext()}
-            className="gap-1.5 h-9"
+            className="gap-2 h-14 px-4 text-lg"
           >
             Continuă
-            <ArrowRight className="h-3.5 w-3.5" />
+            <ArrowRight className="h-5 w-5" />
           </Button>
         ) : (
           <Button
-            size="sm"
+            size="lg"
             onClick={handleSubmit}
             disabled={isSubmitting || !canGoNext()}
-            className="gap-1.5 h-9"
+            className="gap-2 h-14 px-4 text-lg"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
                 Procesează...
               </>
             ) : (
               <>
-                <Send className="h-3.5 w-3.5" />
+                <Send className="h-5 w-5" />
                 Trimite
               </>
             )}

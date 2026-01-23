@@ -130,5 +130,16 @@
     /* Scales UI elements down to fit 10-inch screen */
     font-size: 110%;
     /* Increases font size readability within the scaled UI */
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    /* Prevent body scroll, handle in app */
   }
 }

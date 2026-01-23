@@ -36,6 +36,7 @@ export default function DataPage() {
   const [activeTab, setActiveTab] = useState<"partners" | "products">("partners");
   const [partnerSearch, setPartnerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -62,6 +63,7 @@ export default function DataPage() {
 
   useEffect(() => {
     setProductSearch("");
+    setLocationSearch("");
   }, [selectedPartnerId]);
 
   const handlePartnerSearch = (query: string) => {
@@ -74,47 +76,61 @@ export default function DataPage() {
     searchPartnerProducts(query);
   };
 
+  // Location search (client-side filter)
+  const handleLocationSearch = (query: string) => {
+    setLocationSearch(query);
+  };
+
+  const filteredLocations = selectedPartner?.locations.filter((loc) => {
+    const q = locationSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (loc.name || "").toLowerCase().includes(q) || (loc.localitate || "").toLowerCase().includes(q);
+  }) || [];
+
+  const manyProducts = partnerProducts.length >= 12;
+
   // Function to create mailto/tel links safely
   const safeHref = (type: 'tel' | 'mailto', value: string | null | undefined) => {
     return value ? `${type}:${value}` : '#';
   };
 
   return (
-    <div className="space-y-6 pb-20">
-      <div>
+    <div className="h-full w-full flex flex-col space-y-4">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold">Date</h1>
         <p className="text-muted-foreground">
           Vizualizează partenerii și produsele disponibile
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "partners" | "products")}>
-        <TabsList className="grid w-full max-w-md grid-cols-2 h-12">
-          <TabsTrigger value="partners" className="text-base h-10">Parteneri</TabsTrigger>
-          <TabsTrigger value="products" className="text-base h-10">Articole</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "partners" | "products")} className="flex-1 flex flex-col min-h-0">
+        <TabsList className="grid w-full max-w-md grid-cols-2 h-10">
+          <TabsTrigger value="partners" className="text-sm h-8">Parteneri</TabsTrigger>
+          <TabsTrigger value="products" className="text-sm h-8">Articole</TabsTrigger>
         </TabsList>
 
         {/* Partners Tab */}
-        <TabsContent value="partners" className="space-y-4 mt-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+        <TabsContent value="partners" className="mt-3 flex-1 flex flex-col min-h-0 gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
               Lista Parteneri
               <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs ml-2">
                 {partners.length}
               </span>
             </h2>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <div className="relative shrink-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Caută partener (nume, CUI, cod)..."
               value={partnerSearch}
               onChange={(e) => handlePartnerSearch(e.target.value)}
-              className="pl-10 h-14 text-base"
+              className="pl-9 h-9 text-sm"
             />
           </div>
 
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
           {partnersLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
@@ -128,12 +144,12 @@ export default function DataPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-              {partners.map((partner) => (
-                <Card
-                  key={partner.id}
-                  className="overflow-hidden hover:border-primary/50 transition-colors shadow-sm active:scale-[0.99] transition-transform flex flex-col"
-                >
+              <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+                {partners.map((partner) => (
+                  <Card
+                    key={partner.id}
+                    className="overflow-hidden hover:border-primary/50 transition-colors shadow-sm active:scale-[0.99] transition-transform flex flex-col"
+                  >
                   <CardHeader className="pb-1 pt-1.5 px-2 bg-muted/30">
                     <div className="flex justify-between items-start gap-1.5">
                       <div className="space-y-0.5">
@@ -180,21 +196,22 @@ export default function DataPage() {
               ))}
             </div>
           )}
+          </div>
         </TabsContent>
 
         {/* Products Tab */}
-        <TabsContent value="products" className="space-y-4 mt-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Package className="h-5 w-5" />
+        <TabsContent value="products" className="mt-3 flex-1 flex flex-col min-h-0 gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <Package className="h-4 w-4" />
               Lista Articole
               <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs ml-2">
                 {allProducts.length}
               </span>
             </h2>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <div className="relative shrink-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Caută articol (nume, cod)..."
               value={productSearch}
@@ -202,7 +219,7 @@ export default function DataPage() {
                 setProductSearch(e.target.value);
                 searchAllProducts(e.target.value);
               }}
-              className="pl-10 h-14 text-base"
+              className="pl-9 h-9 text-sm"
             />
           </div>
 
@@ -219,37 +236,39 @@ export default function DataPage() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
-              {allProducts.map((product) => (
-                <Card key={product.id} className="min-h-[140px] flex flex-col justify-between hover:border-primary/50 transition-colors">
-                  <CardHeader className="pb-1 pt-3 px-3">
-                    <div className="flex justify-between items-start">
-                      <Badge variant="outline" className="font-mono text-[10px] mb-2">{product.id.substring(0, 10)}...</Badge>
-                      {product.class && <Badge variant="secondary" className="text-[10px]">{product.class}</Badge>}
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <div className="grid gap-3 grid-cols-5 pr-4 auto-rows-min">
+                {allProducts.map((product) => (
+                  <Card key={product.id} className="text-sm border-l-2 border-l-primary/60 hover:border-primary/80 transition-colors">
+                  <CardHeader className="pb-0.5 pt-1 px-1.5">
+                    <div className="flex items-start justify-between gap-1">
+                      <CardTitle className="text-sm leading-tight line-clamp-2" title={product.name}>
+                        {product.name}
+                      </CardTitle>
+                      {product.class && (
+                        <Badge variant="secondary" className="text-[11px] px-1 py-0 shrink-0">
+                          {product.class}
+                        </Badge>
+                      )}
                     </div>
-                    <CardTitle className="text-sm font-medium leading-snug line-clamp-2" title={product.name}>
-                      {product.name}
-                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="px-3 pb-3 pt-2">
-                    <Separator className="mb-2 opacity-50" />
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-muted-foreground block text-[10px] uppercase">UM</span>
-                        <span className="font-medium">{product.unit_of_measure}</span>
+                  <CardContent className="px-1.5 pb-1">
+                    <div className="flex items-end justify-between">
+                      <div className="text-[12px] text-muted-foreground">
+                        <div>UM: <span className="font-medium text-foreground">{product.unit_of_measure}</span></div>
+                        <div>TVA: {product.tva_percent ? `${product.tva_percent}%` : "-"}</div>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground block text-[10px] uppercase">TVA</span>
-                        <span className="font-medium">{product.tva_percent ? `${product.tva_percent}%` : "-"}</span>
-                      </div>
-                      <div className="col-span-2 mt-1">
-                        <span className="text-muted-foreground block text-[10px] uppercase">Preț Standard</span>
-                        <span className="text-lg font-bold text-primary">{formatCurrency(product.price)}</span>
+                      <div className="text-right">
+                        <span className="text-[11px] text-muted-foreground block">Preț</span>
+                        <span className="text-sm font-bold text-primary">
+                          {formatCurrency(product.price)}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
+              </div>
             </div>
           )}
         </TabsContent>
@@ -257,7 +276,7 @@ export default function DataPage() {
 
       {/* Partner Detail & Products Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-[95vw] w-full max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0 sm:max-w-4xl">
+        <DialogContent className={`max-w-[95vw] w-full ${partnerProducts.length >= 12 ? 'max-h-[95vh] sm:max-w-6xl' : 'max-h-[90vh] sm:max-w-4xl'} overflow-hidden flex flex-col p-0 gap-0`}>
           <DialogHeader className="p-6 pb-2 border-b bg-muted/10 shrink-0">
             <div className="flex items-center gap-3">
               <Building2 className="h-8 w-8 text-primary/80" />
@@ -285,7 +304,7 @@ export default function DataPage() {
                 <div className="p-4">
 
                   {/* Tab: Info General */}
-                  <TabsContent value="info" className="m-0 space-y-6">
+                  <TabsContent value="info" className="m-0 space-y-6 max-h-[70vh] overflow-y-auto pr-4">
                     {selectedPartner && (
                       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                         <Card className="col-span-full md:col-span-2">
@@ -330,11 +349,19 @@ export default function DataPage() {
                   </TabsContent>
 
                   {/* Tab: Locations */}
-                  <TabsContent value="locations" className="m-0">
+                  <TabsContent value="locations" className="m-0 max-h-[70vh] overflow-y-auto pr-4">
+                    <div className="relative mb-2">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        placeholder="Caută locație (nume, localitate)..."
+                        value={locationSearch}
+                        onChange={(e) => handleLocationSearch(e.target.value)}
+                        className="pl-9 h-8 text-sm"
+                      />
+                    </div>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {selectedPartner?.locations.map((loc, idx) => (
+                      {filteredLocations.map((loc, idx) => (
                         <Card key={loc.id} className="relative overflow-hidden group hover:border-primary/50 transition-colors">
-                          <div className="absolute top-0 w-full h-1 bg-primary/20 group-hover:bg-primary transition-colors" />
                           <CardContent className="p-4 space-y-3 pt-5">
                             <div className="flex items-start gap-3 mb-2">
                               <div className="p-2 bg-muted rounded-full shrink-0"><MapPin className="h-4 w-4" /></div>
@@ -383,21 +410,11 @@ export default function DataPage() {
                   </TabsContent>
 
                   {/* Tab: Products & Offers */}
-                  <TabsContent value="products" className="m-0 space-y-1">
+                  <TabsContent value="products" className="m-0 space-y-1 max-h-[70vh] overflow-y-auto pr-4">
                     <div className="bg-background rounded-lg border p-1.5 shadow-sm sticky top-0 z-10">
                       <h3 className="text-xs font-semibold mb-1.5 flex items-center gap-1.5">
                         <Search className="h-3 w-3" /> Verifică preț și ofertă pentru acest client
                       </h3>
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                        <Input
-                          placeholder="Caută în oferta clientului (denumire produs)..."
-                          value={productSearch}
-                          onChange={(e) => handleProductSearch(e.target.value)}
-                          className="pl-9 h-8 text-xs shadow-sm border-primary/20 focus-visible:ring-primary"
-                          autoFocus
-                        />
-                      </div>
                     </div>
 
                     {partnerProductsLoading ? (
@@ -413,35 +430,37 @@ export default function DataPage() {
                         </p>
                       </div>
                     ) : (
-                      <div className="grid gap-1 grid-cols-3">
-                        {partnerProducts.map((product) => (
-                          <Card key={product.id} className="text-xs border-l-2 border-l-primary/60">
-                            <CardHeader className="pb-0.5 pt-1 px-1.5">
-                              <div className="flex items-start justify-between gap-1">
-                                <CardTitle className="text-xs leading-tight line-clamp-2">{product.name}</CardTitle>
-                                {product.class && (
-                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">
-                                    {product.class}
-                                  </Badge>
-                                )}
-                              </div>
-                            </CardHeader>
-                            <CardContent className="px-1.5 pb-1">
-                              <div className="flex items-end justify-between">
-                                <div className="text-[10px] text-muted-foreground">
-                                  <div>UM: <span className="font-medium text-foreground">{product.unit_of_measure}</span></div>
-                                  <div>TVA: {product.tva_percent ? `${product.tva_percent}%` : "-"}</div>
+                      <div className={partnerProducts.length >= 12 ? "h-[60vh] overflow-auto pr-2" : ""}>
+                        <div className="grid gap-1 grid-cols-4">
+                          {partnerProducts.map((product) => (
+                            <Card key={product.id} className="text-sm border-l-2 border-l-primary/60">
+                              <CardHeader className="pb-0.5 pt-1 px-1.5">
+                                <div className="flex items-start justify-between gap-1 ">
+                                  <CardTitle className="text-xs leading-tight line-clamp-2">{product.name}</CardTitle>
+                                  {product.class && (
+                                    <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0">
+                                      {product.class}
+                                    </Badge>
+                                  )}
                                 </div>
-                                <div className="text-right">
-                                  <span className="text-[9px] text-muted-foreground block">Preț</span>
-                                  <span className="text-sm font-bold text-primary">
-                                    {formatCurrency(product.price)}
-                                  </span>
+                              </CardHeader>
+                              <CardContent className="px-1.5 pb-1">
+                                <div className="flex items-end justify-between">
+                                  <div className="text-[10px] text-muted-foreground">
+                                    <div>UM: <span className="font-medium text-foreground">{product.unit_of_measure}</span></div>
+                                    <div>TVA: {product.tva_percent ? `${product.tva_percent}%` : "-"}</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-[9px] text-muted-foreground block">Preț</span>
+                                    <span className="text-sm font-bold text-primary">
+                                      {formatCurrency(product.price)}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </TabsContent>
