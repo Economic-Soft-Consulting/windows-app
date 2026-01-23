@@ -80,7 +80,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         className={cn(
           "bg-card border-r border-border flex flex-col z-50",
           // Desktop/Tablet: static sidebar
-          "md:relative md:w-60 md:translate-x-0 h-full",
+          "md:relative md:w-64 md:translate-x-0 h-full",
           // Mobile: overlay sidebar
           "fixed inset-y-0 left-0 w-64 transition-transform duration-300 ease-in-out md:transition-none",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
@@ -89,7 +89,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* Logo - Reduced padding from p-6 to p-4 */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="relative h-10 w-10 flex-shrink-0">
+            <div className="relative h-18 w-18 flex-shrink-0">
               <Image
                 src="/logo-simbol-transparent.png"
                 alt="eSoft Logo"
@@ -99,8 +99,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-primary">eSoft Facturi</h1>
-              <p className="text-xs text-muted-foreground">Gestiune facturi</p>
+              <h1 className="text-xl font-bold text-primary">eSoft Facturi</h1>
+              <p className="text-sm text-muted-foreground">Gestiune facturi</p>
             </div>
           </div>
           {/* Close button for mobile */}
@@ -117,8 +117,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         </div>
 
         {/* User Role Badge */}
-        <div className="px-4 py-2 bg-muted/30">
-          <div className="text-xs font-medium text-muted-foreground">
+        <div className="px-6 py-2 bg-muted/30">
+          <div className="text-sm font-medium text-muted-foreground">
             {isAdmin ? "👤 Administrator" : "👤 Agent"}
           </div>
         </div>
@@ -147,7 +147,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                         : "text-muted-foreground"
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
+                    <item.icon className="h-6 w-7" />
                     {item.label}
                   </Link>
                 </li>
@@ -163,15 +163,15 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             variant="outline"
             className="w-full justify-start gap-2 h-10"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-6 w-7" />
             Schimbă utilizator
           </Button>
         </div>
 
         {/* Footer - Reduced padding */}
         <div className="p-3 border-t border-border">
-          <p className="text-xs text-muted-foreground text-center">
-            v0.6.0 • © 2026 eSoft
+          <p className="text-sm text-muted-foreground text-center">
+            v0.6.3 • © 2026 eSoft
           </p>
         </div>
       </aside>

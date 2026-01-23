@@ -5,6 +5,8 @@ pub struct CompanyInfo {
     pub cif: &'static str,
     pub reg_com: &'static str,
     pub address: &'static str,
+    pub localitate: &'static str,
+    pub cod_postal: &'static str,
     pub bank_name: &'static str,
     pub bank_account: &'static str,
     pub capital: &'static str,
@@ -15,10 +17,12 @@ pub const KARIN: CompanyInfo = CompanyInfo {
     name: "KARIN SRL",
     cif: "RO5379259",
     reg_com: "J24/380/1994",
-    address: " 	Str. Nicolae Balcescu 43 Cod 435400, Loc. Seini, Jud. Maramures",
-    bank_name: "BRD - Groupe Société Générale",
-    bank_account: "RO12BRDE445SV20475833001 (RON)",
-    capital: "200 RON",
+    address: "Str. Nicolae Balcescu 43",
+    localitate: "Seini, Jud. Maramures",
+    cod_postal: "435500",
+    bank_name: "Banca Transilvania",
+    bank_account: "RO03BTRL02501202L70970XX",
+    capital: "200020 RON",
 };
 
 pub fn generate_invoice_html(
@@ -276,15 +280,13 @@ pub fn generate_invoice_html(
         {}<br>
         CIF: {}<br>
         Reg.Com: {}<br>
+        Capital Social: {}<br>
+        Localitate: {}<br>
         Sediul: {}<br>
-        
+        Cod Postal: {}<br>
         <div class="compact-row">
             Banca: {}<br>
             Cont: {}
-        </div>
-        
-        <div class="compact-row">
-            Capital Social: {}
         </div>
     </div>
 
@@ -378,10 +380,12 @@ pub fn generate_invoice_html(
         KARIN.name,
         KARIN.cif,
         KARIN.reg_com,
+        KARIN.capital,
+        KARIN.localitate,
         KARIN.address,
+        KARIN.cod_postal,
         KARIN.bank_name,
         KARIN.bank_account,
-        KARIN.capital,
         invoice.partner_name,
         invoice.partner_cif.as_deref().unwrap_or("N/A"),
         invoice.partner_reg_com.as_deref().unwrap_or("N/A"),

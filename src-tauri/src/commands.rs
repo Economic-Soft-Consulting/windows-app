@@ -858,7 +858,7 @@ pub fn get_products(db: State<'_, Database>, partner_id: Option<String>) -> Resu
         )
         .map_err(|e| e.to_string())?
     } else {
-        conn.prepare("SELECT id, name, unit_of_measure, price, class, procent_tva FROM products ORDER BY name")
+        conn.prepare("SELECT id, name, unit_of_measure, CASE WHEN price = 0 THEN COALESCE(pret_cu_tva, pret_valuta, pret_referinta, 0) ELSE price END AS price, class, procent_tva FROM products ORDER BY name")
             .map_err(|e| e.to_string())?
     };
 
@@ -889,7 +889,7 @@ pub fn search_products(db: State<'_, Database>, query: String, partner_id: Optio
         )
         .map_err(|e| e.to_string())?
     } else {
-        conn.prepare("SELECT id, name, unit_of_measure, price, class, procent_tva FROM products WHERE name LIKE ?1 OR class LIKE ?1 ORDER BY name")
+        conn.prepare("SELECT id, name, unit_of_measure, CASE WHEN price = 0 THEN COALESCE(pret_cu_tva, pret_valuta, pret_referinta, 0) ELSE price END AS price, class, procent_tva FROM products WHERE name LIKE ?1 OR class LIKE ?1 ORDER BY name")
             .map_err(|e| e.to_string())?
     };
 
@@ -1201,16 +1201,6 @@ pub fn get_invoice_detail(
 
 #[tauri::command]
 pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result<Invoice, String> {
-    // Update status to 'sending'
-    {
-        let conn = db.conn.lock().map_err(|e| e.to_string())?;
-        conn.execute(
-            "UPDATE invoices SET status = 'sending' WHERE id = ?1",
-            [&invoice_id],
-        )
-        .map_err(|e| e.to_string())?;
-    }
-
     // Get invoice details and items
     let (invoice, items, partner_cod, location_id_sediu, invoice_number): (Invoice, Vec<(String, f64, f64, String)>, Option<String>, Option<String>, i64) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
@@ -1293,27 +1283,78 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
 
     // Validate required settings
     if agent_settings.agent_name.is_none() || agent_settings.agent_name.as_ref().unwrap().is_empty() {
-        return Err("Agent name is not configured. Please set it in Settings.".to_string());
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let err_msg = "Agent name is not configured. Please set it in Settings.".to_string();
+        conn.execute(
+            "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+            [&err_msg, &invoice_id],
+        ).ok();
+        return Err(err_msg);
     }
     if agent_settings.carnet_series.is_none() || agent_settings.carnet_series.as_ref().unwrap().is_empty() {
-        return Err("Carnet series is not configured. Please set it in Settings.".to_string());
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let err_msg = "Carnet series is not configured. Please set it in Settings.".to_string();
+        conn.execute(
+            "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+            [&err_msg, &invoice_id],
+        ).ok();
+        return Err(err_msg);
     }
     if agent_settings.simbol_carnet_livr.is_none() || agent_settings.simbol_carnet_livr.as_ref().unwrap().is_empty() {
-        return Err("Simbol Carnet Livrări is not configured. Please set it in Settings.".to_string());
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let err_msg = "Simbol Carnet Livrări is not configured. Please set it in Settings.".to_string();
+        conn.execute(
+            "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+            [&err_msg, &invoice_id],
+        ).ok();
+        return Err(err_msg);
     }
     if agent_settings.cod_carnet.is_none() {
-        return Err("Cod Carnet is not configured. Please set it in Settings.".to_string());
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let err_msg = "Cod Carnet is not configured. Please set it in Settings.".to_string();
+        conn.execute(
+            "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+            [&err_msg, &invoice_id],
+        ).ok();
+        return Err(err_msg);
     }
     if agent_settings.cod_carnet_livr.is_none() {
-        return Err("Cod Carnet Livrări is not configured. Please set it in Settings.".to_string());
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let err_msg = "Cod Carnet Livrări is not configured. Please set it in Settings.".to_string();
+        conn.execute(
+            "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+            [&err_msg, &invoice_id],
+        ).ok();
+        return Err(err_msg);
     }
     if agent_settings.simbol_gestiune_livrare.is_none() || agent_settings.simbol_gestiune_livrare.as_ref().unwrap().is_empty() {
-        return Err("Simbol Gestiune Livrare is not configured. Please set it in Settings.".to_string());
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let err_msg = "Simbol Gestiune Livrare is not configured. Please set it in Settings.".to_string();
+        conn.execute(
+            "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+            [&err_msg, &invoice_id],
+        ).ok();
+        return Err(err_msg);
     }
     if partner_cod.is_none() || partner_cod.as_ref().unwrap().is_empty() {
-        return Err(format!("Partner {} does not have a COD set in WME", invoice.partner_name));
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let err_msg = format!("Partner {} does not have a COD set in WME", invoice.partner_name);
+        conn.execute(
+            "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+            [&err_msg, &invoice_id],
+        ).ok();
+        return Err(err_msg);
     }
 
+    // After validations, mark as sending
+    {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE invoices SET status = 'sending' WHERE id = ?1",
+            [&invoice_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
     // Parse invoice date
     let invoice_date = chrono::DateTime::parse_from_rfc3339(&invoice.created_at)
         .map_err(|e| format!("Failed to parse invoice date: {}", e))?;
@@ -1389,16 +1430,44 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     
     match result {
         Ok(response) => {
-            // Success - store document number if available
-            let doc_info = response.documente_importate.first()
-                .map(|d| format!("WME: {} {}", d.serie.clone().unwrap_or_default(), d.numar.clone().unwrap_or_default()))
-                .unwrap_or_else(|| "Sent successfully".to_string());
-            
-            conn.execute(
-                "UPDATE invoices SET status = 'sent', sent_at = ?1, error_message = ?2 WHERE id = ?3",
-                [&now, &doc_info, &invoice_id],
-            )
-            .map_err(|e| e.to_string())?;
+            // Verify that document was actually created
+            if let Some(doc) = response.documente_importate.first() {
+                // Check if document has a number (was actually created)
+                if doc.numar.is_some() && !doc.numar.as_ref().unwrap().is_empty() {
+                    let doc_info = format!("WME: {} {}", 
+                        doc.serie.clone().unwrap_or_default(), 
+                        doc.numar.clone().unwrap_or_default()
+                    );
+                    
+                    info!("Invoice successfully created in WME: {}", doc_info);
+                    
+                    conn.execute(
+                        "UPDATE invoices SET status = 'sent', sent_at = ?1, error_message = ?2 WHERE id = ?3",
+                        [&now, &doc_info, &invoice_id],
+                    )
+                    .map_err(|e| e.to_string())?;
+                } else {
+                    // API returned success but no document number - treat as error
+                    let error_msg = format!("API responded OK but document was not created. Result: {:?}", response.result);
+                    warn!("Invoice send failed - no document created: {}", error_msg);
+                    
+                    conn.execute(
+                        "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+                        [&error_msg, &invoice_id],
+                    )
+                    .map_err(|e| e.to_string())?;
+                }
+            } else {
+                // No documents in response - treat as error
+                let error_msg = "API responded OK but returned no documents".to_string();
+                warn!("Invoice send failed - empty response: {}", error_msg);
+                
+                conn.execute(
+                    "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
+                    [&error_msg, &invoice_id],
+                )
+                .map_err(|e| e.to_string())?;
+            }
         }
         Err(error) => {
             // Offline/Error Handling:

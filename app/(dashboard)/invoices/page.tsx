@@ -54,7 +54,6 @@ function formatTime(dateStr: string): string {
   return date.toLocaleTimeString("ro-RO", {
     hour: "2-digit",
     minute: "2-digit",
-    year: "numeric",
   });
 }
 
@@ -175,8 +174,8 @@ export default function InvoicesPage() {
           </TabsList>
         </Tabs>
 
-        <div className="flex gap-2 w-full sm:w-auto">
-          <div className="flex border rounded-lg p-1">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center border rounded-lg p-1">
             <Button
               variant={viewMode === "table" ? "secondary" : "ghost"}
               size="sm"
@@ -196,8 +195,8 @@ export default function InvoicesPage() {
           </div>
 
           <Link href="/invoices/new" className="flex-1 sm:flex-none">
-            <Button size="lg" className="gap-2 h-12 px-6 w-full sm:w-auto">
-              <Plus className="h-5 w-5" />
+            <Button size="lg" className="gap-4 h-14  px-6 w-full sm:w-auto">
+              <Plus className="h-8 w-8" />
               Factură nouă
             </Button>
           </Link>

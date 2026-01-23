@@ -46,7 +46,7 @@ export function LocationStep({
             console.log("Found location:", location);
             if (location) onSelect(location);
           }}
-          className="grid gap-3 sm:grid-cols-2 md:grid-cols-2"
+          className="grid gap-2 sm:grid-cols-2 md:grid-cols-2"
         >
           {partner.locations.map((location) => {
             const isSelected = selectedLocation?.id === location.id;
@@ -58,12 +58,12 @@ export function LocationStep({
               >
               <Card
                 className={cn(
-                  "transition-all hover:border-primary/50",
+                  "transition-all hover:border-primary/50 min-h-[68px]",
                   isSelected && "border-primary bg-primary/5 ring-2 ring-primary"
                 )}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
+                <CardContent className="p-2.5">
+                  <div className="flex items-start gap-2">
                     <RadioGroupItem
                       value={location.id}
                       id={location.id}
@@ -72,11 +72,11 @@ export function LocationStep({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <span className="font-medium">{location.name}</span>
+                          <MapPin className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                          <span className="text-base font-medium">{location.name}</span>
                         </div>
                         {isSelected && (
-                          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                          <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                             <Check className="h-4 w-4 text-primary-foreground" />
                           </div>
                         )}

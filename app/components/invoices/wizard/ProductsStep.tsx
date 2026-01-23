@@ -55,11 +55,11 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
   const addToCart = (product: Product) => {
     const existingItem = cartItems.find((item) => item.product.id === product.id);
     if (existingItem) {
-      // Don't auto-increment, just focus on the input
+      // Already in cart - do nothing
       return;
     } else {
-      // Add with quantity 0 as requested
-      onUpdateCart([...cartItems, { product, quantity: 0 }]);
+      // Add with quantity 1 and remove from the visible product list
+      onUpdateCart([...cartItems, { product, quantity: 1 }]);
     }
   };
 
@@ -102,15 +102,24 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
   };
 
   return (
-    <div className="space-y-1.5">
-      <div>
-        <h2 className="text-sm font-semibold">Adaugă produse</h2>
-        <p className="text-[11px] text-muted-foreground mt-0.5">
-          Selectează produsele și cantitățile dorite
-        </p>
+    <div className="space-y-2">
+      <div className="grid gap-2.5 md:grid-cols-[1fr_1fr]">
+        {/* Left Column Header */}
+        <div>
+          <h2 className="text-xl font-semibold">Adaugă produse</h2>
+          <p className="text-[14px] text-muted-foreground mt-0.5">
+            Selectează produsele și cantitățile dorite
+          </p>
+        </div>
+        
+        {/* Right Column Header */}
+        <div className="flex items-center gap-1.5">
+          <ShoppingCart className="h-4 w-4" />
+          <h2 className="text-sm font-semibold">Coș ({cartItems.length})</h2>
+        </div>
       </div>
 
-      <div className="grid gap-2.5 md:grid-cols-[1fr_1.5fr]">
+      <div className="grid gap-2.5 md:grid-cols-[1fr_1fr]">
         {/* Product Search */}
         <div className="space-y-2">
           <div className="relative">
@@ -119,7 +128,7 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
               placeholder="Caută produs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9 text-sm"
+              className="pl-8 w-118 h-9 text-sm"
             />
           </div>
 
@@ -135,21 +144,19 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
             </div>
           ) : (
             <ScrollArea className="h-[calc(100vh-270px)] min-h-[280px] max-h-[550px]">
-              <div className="space-y-1 pr-4">
-                {filteredProducts.map((product) => {
-                  const inCart = getCartQuantity(product.id) > 0;
+              <div className="space-y-2 pr-4">
+                {filteredProducts.filter(p => !cartItems.some(ci => ci.product.id === p.id)).map((product) => {
                   return (
                     <Card
                       key={product.id}
-                      className={`cursor-pointer transition-all hover:border-primary/50 ${inCart ? "border-primary bg-primary/5" : ""
-                        }`}
+                      className={`cursor-pointer transition-all hover:border-primary/50 min-h-[64px]`}
                       onClick={() => addToCart(product)}
                     >
-                      <CardContent className="p-1.5">
+                      <CardContent className="p-2.5">
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium truncate">
+                              <span className="text-sm font-medium truncate">
                                 {product.name}
                               </span>
                               {product.class && (
@@ -184,13 +191,7 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
         </div>
 
         {/* Cart */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <ShoppingCart className="h-3.5 w-3.5" />
-            <h3 className="text-xs font-semibold">Coș ({cartItems.length})</h3>
-          </div>
-
-          {cartItems.length === 0 ? (
+        <div className="space-y-2">{cartItems.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <ShoppingCart className="h-12 w-12 text-muted-foreground/50 mb-4" />
@@ -201,33 +202,33 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
             </Card>
           ) : (
             <>
-              <ScrollArea className="h-[calc(100vh-330px)] min-h-[220px] max-h-[480px] pr-4">
-                <div className="space-y-1">
+              <ScrollArea className="h-[calc(100vh-270px)] min-h-[280px] max-h-[550px] pr-4">
+                <div className="space-y-2">
                   {cartItems.map((item) => (
-                    <Card key={item.product.id}>
-                      <CardContent className="p-1.5">
-                        <div className="flex items-center gap-1.5">
+                  <Card key={item.product.id} className="min-h-[64px]">
+                      <CardContent className="p-2">
+                        <div className="flex items-center gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">
+                            <p className="text-sm font-medium truncate">
                               {item.product.name}
                             </p>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-sm text-muted-foreground">
                               {formatCurrency(item.product.price)} /{" "}
                               {item.product.unit_of_measure}
                             </p>
                             {item.product.tva_percent != null && (
-                              <p className="text-[9px] text-muted-foreground mt-0.5">
+                              <p className="text-xs text-muted-foreground mt-0.5">
                                 TVA: {item.product.tva_percent}%
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-0.5">
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="outline"
-                              className="h-7 w-7 p-0"
+                              className="h-9 w-9 p-0"
                               onClick={() => updateQuantity(item.product.id, -1)}
                             >
-                              <Minus className="h-2.5 w-2.5" />
+                              <Minus className="h-4 w-4" />
                             </Button>
                             <Input
                               type="number"
@@ -240,26 +241,26 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                                 )
                               }
                               onFocus={(e) => e.target.select()}
-                              className="w-12 h-7 text-center text-xs"
+                              className="w-14 h-9 text-center text-sm"
                               min={0}
                             />
                             <Button
                               variant="outline"
-                              className="h-7 w-7 p-0"
+                              className="h-9 w-9 p-0"
                               onClick={() => updateQuantity(item.product.id, 1)}
                             >
-                              <Plus className="h-2.5 w-2.5" />
+                              <Plus className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
-                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => removeFromCart(item.product.id)}
                             >
-                              <Trash2 className="h-2.5 w-2.5" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
-                        <div className="text-right mt-1 text-[10px] font-medium">
+                        <div className="text-right mt-1 text-sm font-medium">
                           {formatCurrency(item.product.price * item.quantity)}
                         </div>
                       </CardContent>
@@ -268,13 +269,15 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                 </div>
               </ScrollArea>
 
-              <Separator />
+              <div className="mt-3">
+                <Separator className="mb-2" />
 
-              <div className="flex items-center justify-between p-1.5 bg-muted rounded-lg">
-                <span className="text-xs font-semibold">Total:</span>
-                <span className="text-base font-bold">
-                  {formatCurrency(totalAmount)}
-                </span>
+                <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                  <span className="text-xs font-semibold">Total:</span>
+                  <span className="text-sm font-bold">
+                    {formatCurrency(totalAmount)}
+                  </span>
+                </div>
               </div>
             </>
           )}
