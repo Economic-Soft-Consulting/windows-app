@@ -86,7 +86,7 @@ export default function HomePage() {
       {/* Welcome Section - Compact */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-gradient-to-r from-primary/10 via-transparent to-transparent p-3 rounded-lg">
         <div className="flex items-center gap-2">
-          <div className="relative h-10 w-10 flex-shrink-0 hidden sm:block">
+          <div className="relative h-30 w-30 flex-shrink-0 hidden sm:block">
             <Image
               src="/logo-simbol-transparent.png"
               alt="eSoft Logo"
@@ -97,14 +97,14 @@ export default function HomePage() {
           </div>
           <div className="flex flex-col">
             <h1 className="text-xl font-bold tracking-tight text-foreground">Bine ai venit!</h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-m text-muted-foreground">
               {isAdmin ? "Panou Administrator - Toate datele" : "Panou Agent - Date zilnice"}
             </p>
           </div>
         </div>
         <Link href="/invoices/new">
-          <Button size="sm" className="gap-2">
-            <Plus className="h-3.5 w-3.5" />
+          <Button size="lg" className="gap-3 h-16 px-7 text-xl">
+            <Plus className="h-6 w-6" />
             Factură Nouă
           </Button>
         </Link>
@@ -112,16 +112,16 @@ export default function HomePage() {
 
       {/* Stats Grid - Compact */}
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold tracking-tight">
+        <h2 className="text-m font-semibold tracking-tight">
           {isAdmin ? "Sumar Total" : "Sumar Ziua Curentă"}
         </h2>
         {/* Auto-fill grid for better responsiveness on all screen sizes */}
         <div className="grid gap-1.5 grid-cols-2 lg:grid-cols-4">
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0.5 p-1.5">
-              <CardTitle className="text-sm font-medium">Facturi {isAgent && "Astăzi"}</CardTitle>
-              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileText className="h-3.5 w-3.5 text-primary" />
+              <CardTitle className="text-m font-medium">Facturi {isAgent && "Astăzi"}</CardTitle>
+              <div className="h-8 w-9 rounded-full bg-primary/10 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-primary" />
               </div>
             </CardHeader>
             <CardContent className="pb-1 px-1.5">
@@ -134,9 +134,9 @@ export default function HomePage() {
 
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0.5 p-1.5">
-              <CardTitle className="text-sm font-medium">În Așteptare</CardTitle>
-              <div className="h-7 w-7 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                <TrendingUp className="h-3.5 w-3.5 text-yellow-600" />
+              <CardTitle className="text-m font-medium">În Așteptare</CardTitle>
+              <div className="h-8 w-9 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-yellow-600" />
               </div>
             </CardHeader>
             <CardContent className="pb-1 px-1.5">
@@ -147,9 +147,9 @@ export default function HomePage() {
 
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0.5 p-1.5">
-              <CardTitle className="text-sm font-medium">Trimise</CardTitle>
-              <div className="h-7 w-7 rounded-full bg-green-500/10 flex items-center justify-center">
-                <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+              <CardTitle className="text-m font-medium">Trimise</CardTitle>
+              <div className="h-8 w-9 rounded-full bg-green-500/10 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-green-600" />
               </div>
             </CardHeader>
             <CardContent className="pb-1 px-1.5">
@@ -160,9 +160,9 @@ export default function HomePage() {
 
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0.5 p-1.5">
-              <CardTitle className="text-sm font-medium">Eșuate</CardTitle>
-              <div className="h-7 w-7 rounded-full bg-red-500/10 flex items-center justify-center">
-                <TrendingUp className="h-3.5 w-3.5 text-red-600" />
+              <CardTitle className="text-m font-medium">Eșuate</CardTitle>
+              <div className="h-8 w-9 rounded-full bg-red-500/10 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-red-600" />
               </div>
             </CardHeader>
             <CardContent className="pb-1 px-1.5">
@@ -214,19 +214,19 @@ export default function HomePage() {
 
       {/* Navigation / Quick Links - Compact */}
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold tracking-tight">Navigare Rapidă</h2>
-        <div className="grid gap-2 grid-cols-2 lg:grid-cols-4 justify-items-center">
+        <h2 className="text-m font-semibold tracking-tight">Navigare Rapidă</h2>
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 justify-items-center">
           <Link href="/invoices" className="group w-full">
             <Card className="h-full hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group-hover:-translate-y-1 flex flex-col">
               <CardHeader className="pb-1.5 p-3 flex-1">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <FileText className="h-4 w-4 text-primary" />
+                <CardTitle className="flex items-center gap-2 text-m">
+                  <FileText className="h-5 w-5 text-primary" />
                   Facturi
                 </CardTitle>
-                <CardDescription className="text-xs">Istoric și status</CardDescription>
+                <CardDescription className="text-m">Istoric și status</CardDescription>
               </CardHeader>
               <CardFooter className="pt-0 pb-2 px-3">
-                <span className="text-xs text-primary font-medium flex items-center gap-1 group-hover:underline">
+                <span className="text-m text-primary font-medium flex items-center gap-1 group-hover:underline">
                   Deschide <ArrowRight className="h-2.5 w-2.5" />
                 </span>
               </CardFooter>
@@ -236,14 +236,14 @@ export default function HomePage() {
           <Link href="/data" className="group w-full">
             <Card className="h-full hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group-hover:-translate-y-1 flex flex-col">
               <CardHeader className="pb-1.5 p-3 flex-1">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Database className="h-4 w-4 text-blue-600" />
+                <CardTitle className="flex items-center gap-2 text-m">
+                  <Database className="h- w-5 text-blue-600" />
                   Date / Parteneri
                 </CardTitle>
-                <CardDescription className="text-xs">Clienți și produse</CardDescription>
+                <CardDescription className="text-m">Clienți și produse</CardDescription>
               </CardHeader>
               <CardFooter className="pt-0 pb-2 px-3">
-                <span className="text-xs text-primary font-medium flex items-center gap-1 group-hover:underline">
+                <span className="text-m text-primary font-medium flex items-center gap-1 group-hover:underline">
                   Deschide <ArrowRight className="h-2.5 w-2.5" />
                 </span>
               </CardFooter>
@@ -254,14 +254,14 @@ export default function HomePage() {
             <Link href="/settings" className="group w-full">
               <Card className="h-full hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group-hover:-translate-y-1 flex flex-col">
                 <CardHeader className="pb-1.5 p-3 flex-1">
-                  <CardTitle className="flex items-center gap-2 text-sm">
-                    <Settings className="h-4 w-4 text-slate-600" />
+                  <CardTitle className="flex items-center gap-2 text-m">
+                    <Settings className="h-5 w-5 text-slate-600" />
                     Configurare
                   </CardTitle>
-                  <CardDescription className="text-xs">Setări aplicație</CardDescription>
+                  <CardDescription className="text-m">Setări aplicație</CardDescription>
                 </CardHeader>
                 <CardFooter className="pt-0 pb-2 px-3">
-                  <span className="text-xs text-primary font-medium flex items-center gap-1 group-hover:underline">
+                  <span className="text-m text-primary font-medium flex items-center gap-1 group-hover:underline">
                     Deschide <ArrowRight className="h-2.5 w-2.5" />
                   </span>
                 </CardFooter>

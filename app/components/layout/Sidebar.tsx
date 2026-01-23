@@ -80,7 +80,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         className={cn(
           "bg-card border-r border-border flex flex-col z-50",
           // Desktop/Tablet: static sidebar
-          "md:relative md:w-60 md:translate-x-0",
+          "md:relative md:w-60 md:translate-x-0 h-full",
           // Mobile: overlay sidebar
           "fixed inset-y-0 left-0 w-64 transition-transform duration-300 ease-in-out md:transition-none",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"

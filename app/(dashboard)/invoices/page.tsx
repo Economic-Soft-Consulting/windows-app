@@ -54,6 +54,7 @@ function formatTime(dateStr: string): string {
   return date.toLocaleTimeString("ro-RO", {
     hour: "2-digit",
     minute: "2-digit",
+    year: "numeric",
   });
 }
 
@@ -62,10 +63,22 @@ export default function InvoicesPage() {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
-  const { isAdmin } = useAuth(); // Get admin status
+  const { isAdmin, isAgent } = useAuth(); // Get role status
 
   const statusFilter = activeTab === "all" ? undefined : activeTab;
-  const { invoices, isLoading, send, remove, refresh } = useInvoices(statusFilter);
+  const { invoices: rawInvoices, isLoading, send, remove, refresh } = useInvoices(statusFilter);
+
+  // Filter invoices for agent (today only)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const invoices = isAgent
+    ? rawInvoices.filter(inv => {
+      const d = new Date(inv.created_at);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === today.getTime();
+    })
+    : rawInvoices;
 
   // Listen for auto-send updates
   useEffect(() => {
@@ -97,16 +110,25 @@ export default function InvoicesPage() {
   };
 
   // Count invoices by status (for badge numbers)
-  const allInvoices = useInvoices();
+  const { invoices: allRawInvoices } = useInvoices();
+
+  const allFilteredInvoices = isAgent
+    ? allRawInvoices.filter(inv => {
+      const d = new Date(inv.created_at);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === today.getTime();
+    })
+    : allRawInvoices;
+
   const counts = {
-    all: allInvoices.invoices.length,
-    pending: allInvoices.invoices.filter((i) => i.status === "pending").length,
-    sent: allInvoices.invoices.filter((i) => i.status === "sent").length,
-    failed: allInvoices.invoices.filter((i) => i.status === "failed").length,
+    all: allFilteredInvoices.length,
+    pending: allFilteredInvoices.filter((i) => i.status === "pending").length,
+    sent: allFilteredInvoices.filter((i) => i.status === "sent").length,
+    failed: allFilteredInvoices.filter((i) => i.status === "failed").length,
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 h-full flex flex-col">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Facturi</h1>
@@ -183,108 +205,110 @@ export default function InvoicesPage() {
       </div>
 
       {/* Invoice Display */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : invoices.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <FileText className="h-16 w-16 text-muted-foreground/50 mb-4" />
-          <h3 className="text-lg font-medium">Nu există facturi</h3>
-          <p className="text-muted-foreground mt-1 mb-6">
-            {activeTab === "all"
-              ? "Creează prima ta factură pentru a începe"
-              : `Nu există facturi cu statusul "${activeTab}"`}
-          </p>
-          {activeTab === "all" && (
-            <Link href="/invoices/new">
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Creează factură
-              </Button>
-            </Link>
-          )}
-        </div>
-      ) : viewMode === "table" ? (
-        <div className="border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[180px]">Partener</TableHead>
-                <TableHead className="w-[150px]">Locație</TableHead>
-                <TableHead className="w-[100px]">Data</TableHead>
-                <TableHead className="w-[70px]">Ora</TableHead>
-                <TableHead className="text-right w-[120px]">Valoare</TableHead>
-                <TableHead className="w-[100px]">Status</TableHead>
-                <TableHead className="text-right w-[80px]">Acțiuni</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invoices.map((invoice) => (
-                <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
-                  <TableCell className="font-medium">{invoice.partner_name}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">
-                    {invoice.location_name}
-                  </TableCell>
-                  <TableCell className="text-sm">{formatDate(invoice.created_at)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{formatTime(invoice.created_at)}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(invoice.total_amount)}</TableCell>
-                  <TableCell>
-                    <InvoiceStatusBadge status={invoice.status} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleView(invoice.id)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Detalii
-                        </DropdownMenuItem>
-                        {(invoice.status === "pending" || invoice.status === "failed") && (
-                          <DropdownMenuItem onClick={() => handleSend(invoice.id)}>
-                            <Send className="mr-2 h-4 w-4" />
-                            Trimite
-                          </DropdownMenuItem>
-                        )}
-                        {isAdmin && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(invoice.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Șterge
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+      <div className="flex-1 min-h-0 overflow-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : invoices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center h-full">
+            <FileText className="h-16 w-16 text-muted-foreground/50 mb-4" />
+            <h3 className="text-lg font-medium">Nu există facturi</h3>
+            <p className="text-muted-foreground mt-1 mb-6">
+              {activeTab === "all"
+                ? "Creează prima ta factură pentru a începe"
+                : `Nu există facturi cu statusul "${activeTab}"`}
+            </p>
+            {activeTab === "all" && (
+              <Link href="/invoices/new">
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Creează factură
+                </Button>
+              </Link>
+            )}
+          </div>
+        ) : viewMode === "table" ? (
+          <div className="border rounded-lg overflow-hidden min-h-full flex flex-col bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">Partener</TableHead>
+                  <TableHead className="w-[150px]">Locație</TableHead>
+                  <TableHead className="w-[100px]">Data</TableHead>
+                  <TableHead className="w-[70px]">Ora</TableHead>
+                  <TableHead className="text-right w-[120px]">Valoare</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="text-right w-[80px]">Acțiuni</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
-          {invoices.map((invoice) => (
-            <InvoiceCard
-              key={invoice.id}
-              invoice={invoice}
-              onSend={handleSend}
-              onDelete={handleDelete}
-              onView={handleView}
-              onCancel={handleCancel}
-              isAdmin={isAdmin}
-            />
-          ))}
-        </div>
-      )}
+              </TableHeader>
+              <TableBody>
+                {invoices.map((invoice) => (
+                  <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
+                    <TableCell className="font-medium">{invoice.partner_name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground truncate max-w-[150px]">
+                      {invoice.location_name}
+                    </TableCell>
+                    <TableCell className="text-sm">{formatDate(invoice.created_at)}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{formatTime(invoice.created_at)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(invoice.total_amount)}</TableCell>
+                    <TableCell>
+                      <InvoiceStatusBadge status={invoice.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleView(invoice.id)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Detalii
+                          </DropdownMenuItem>
+                          {(invoice.status === "pending" || invoice.status === "failed") && (
+                            <DropdownMenuItem onClick={() => handleSend(invoice.id)}>
+                              <Send className="mr-2 h-4 w-4" />
+                              Trimite
+                            </DropdownMenuItem>
+                          )}
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(invoice.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Șterge
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="grid gap-3 pb-4 min-h-full content-start" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+            {invoices.map((invoice) => (
+              <InvoiceCard
+                key={invoice.id}
+                invoice={invoice}
+                onSend={handleSend}
+                onDelete={handleDelete}
+                onView={handleView}
+                onCancel={handleCancel}
+                isAdmin={isAdmin}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Invoice Detail Dialog */}
       <InvoiceDetailDialog
