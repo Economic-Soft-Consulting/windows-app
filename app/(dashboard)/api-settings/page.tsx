@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 
 export default function ApiSettingsPage() {
-  const [apiIp, setApiIp] = useState("10.200.1.94");
+  const [apiIp, setApiIp] = useState("10.0.17.1");
   const [apiPort, setApiPort] = useState("8089");
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<string>("");
@@ -18,18 +18,18 @@ export default function ApiSettingsPage() {
     // Load saved settings
     const savedIp = localStorage.getItem("apiIp");
     const savedPort = localStorage.getItem("apiPort");
-    
+
     if (savedIp) setApiIp(savedIp);
     if (savedPort) setApiPort(savedPort);
   }, []);
 
   const handleSave = () => {
     setLoading(true);
-    
+
     try {
       localStorage.setItem("apiIp", apiIp);
       localStorage.setItem("apiPort", apiPort);
-      
+
       toast.success("Setări API salvate cu succes!");
     } catch (error) {
       toast.error("Eroare la salvarea setărilor");
@@ -43,7 +43,7 @@ export default function ApiSettingsPage() {
     setLoading(true);
     setTestResult("");
     toast.info("Testare GET parteneri...");
-    
+
     try {
       const result = await invoke<string>("test_api_partners");
       setTestResult(result);
@@ -61,7 +61,7 @@ export default function ApiSettingsPage() {
     setLoading(true);
     setTestResult("");
     toast.info("Testare GET articole...");
-    
+
     try {
       const result = await invoke<string>("test_api_articles");
       setTestResult(result);
@@ -94,7 +94,7 @@ export default function ApiSettingsPage() {
               type="text"
               value={apiIp}
               onChange={(e) => setApiIp(e.target.value)}
-              placeholder="10.200.1.94"
+              placeholder="10.0.17.1"
             />
           </div>
 
@@ -153,7 +153,7 @@ export default function ApiSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p>
-            <strong>IP implicit:</strong> 10.200.1.94
+            <strong>IP implicit:</strong> 10.0.17.1
           </p>
           <p>
             <strong>Port implicit:</strong> 8089

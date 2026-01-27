@@ -20,7 +20,7 @@ impl ApiConfig {
 
     pub fn from_env_or_default() -> Self {
         // Default configuration - can be changed via settings
-        Self::new("10.200.1.94", 8089, None)
+        Self::new("10.0.17.1", 8089, None)
     }
 }
 
