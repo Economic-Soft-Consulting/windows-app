@@ -320,9 +320,7 @@ pub fn generate_invoice_html(
 
     <div class="legal-note">
         Produsele din prezenta factura raman proprietatea firmei noastre pana la achitarea lor integrala.<br>
-        Pt depasirea termenului scadent se percepe o penalizare de 0.5% pe zi din valoarea totala.<br>
         Prezenta tine loc de contract ferm intre parti in lipsa altui acord scris.<br>
-        <br>
         <strong>Data Scadenta: {}</strong>
     </div>
 

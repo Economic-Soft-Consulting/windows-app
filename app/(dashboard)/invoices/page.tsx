@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Eye, Send, MoreHorizontal, Trash2 } from "lucide-react";
+import { Eye, Send, MoreHorizontal, Trash2, Printer, XCircle, RotateCcw, Loader2 as Loader2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/app/contexts/AuthContext";
 
@@ -106,6 +106,20 @@ export default function InvoicesPage() {
   const handleCancel = async (id: string) => {
     // Refresh after cancel to show updated status
     await refresh();
+  };
+
+  const handlePrint = async (id: string) => {
+    try {
+      const { printInvoiceToHtml } = await import("@/lib/tauri/commands");
+      const { toast } = await import("sonner");
+      const selectedPrinter = typeof window !== "undefined" ? localStorage.getItem("selectedPrinter") : null;
+      await printInvoiceToHtml(id, selectedPrinter || undefined);
+      toast.success("Factura s-a trimis la imprimantă!");
+    } catch (error) {
+      console.error("Print error:", error);
+      const { toast } = await import("sonner");
+      toast.error(`Eroare la imprimare: ${error}`);
+    }
   };
 
   // Count invoices by status (for badge numbers)
@@ -267,13 +281,43 @@ export default function InvoicesPage() {
                               <Eye className="mr-2 h-4 w-4" />
                               Detalii
                             </DropdownMenuItem>
-                            {(invoice.status === "pending" || invoice.status === "failed") && (
+                            <DropdownMenuItem onClick={() => handlePrint(invoice.id)}>
+                              <Printer className="mr-2 h-4 w-4" />
+                              Printează
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {invoice.status === "pending" && (
                               <DropdownMenuItem onClick={() => handleSend(invoice.id)}>
                                 <Send className="mr-2 h-4 w-4" />
                                 Trimite
                               </DropdownMenuItem>
                             )}
-                            {isAdmin && (
+                            {invoice.status === "failed" && (
+                              <DropdownMenuItem onClick={() => handleSend(invoice.id)}>
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                Reîncearcă
+                              </DropdownMenuItem>
+                            )}
+                            {invoice.status === "sending" && (
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  try {
+                                    const { cancelInvoiceSending } = await import("@/lib/tauri/commands");
+                                    const { toast } = await import("sonner");
+                                    await cancelInvoiceSending(invoice.id);
+                                    toast.success("Trimitere anulată!");
+                                    handleCancel(invoice.id);
+                                  } catch (error) {
+                                    console.error("Cancel error:", error);
+                                  }
+                                }}
+                                className="text-orange-600"
+                              >
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Anulează
+                              </DropdownMenuItem>
+                            )}
+                            {isAdmin && (invoice.status === "pending" || invoice.status === "failed") && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem

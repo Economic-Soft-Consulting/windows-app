@@ -230,6 +230,19 @@ export function InvoiceDetailDialog({
                 Trimisă cu succes: {formatDate(detail.invoice.sent_at)}
               </div>
             )}
+
+            {/* Print Button */}
+            <div className="flex justify-end pt-4 border-t">
+              <Button
+                onClick={handlePrint}
+                disabled={isPrinting}
+                variant="outline"
+                className="gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                {isPrinting ? "Se printează..." : "Printează Factura"}
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">

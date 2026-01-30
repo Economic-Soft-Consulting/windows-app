@@ -127,10 +127,10 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdm
         </div>
       </CardContent>
 
-      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2">
+      <CardFooter className="pt-2 px-3 pb-3 border-t gap-2 justify-center flex-wrap">
         <Button
           variant="outline"
-          className="flex-1 h-9 text-xs"
+          className="h-9 px-3 text-xs"
           onClick={() => onView(invoice.id)}
         >
           <Eye className="h-3.5 w-3.5 mr-1" />
