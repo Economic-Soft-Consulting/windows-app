@@ -142,4 +142,10 @@
     overflow: hidden;
     /* Prevent body scroll, handle in app */
   }
+
+  /* Fix for Radix UI portal positioning with zoom */
+  [data-radix-popper-content-wrapper] {
+    zoom: 1.25 !important;
+    /* Counter the 0.8 zoom on html (1/0.8 = 1.25) */
+  }
 }

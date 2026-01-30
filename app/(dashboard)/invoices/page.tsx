@@ -255,37 +255,39 @@ export default function InvoicesPage() {
                       <InvoiceStatusBadge status={invoice.status} />
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleView(invoice.id)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Detalii
-                          </DropdownMenuItem>
-                          {(invoice.status === "pending" || invoice.status === "failed") && (
-                            <DropdownMenuItem onClick={() => handleSend(invoice.id)}>
-                              <Send className="mr-2 h-4 w-4" />
-                              Trimite
+                      <div className="relative inline-flex justify-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" side="bottom" sideOffset={5}>
+                            <DropdownMenuItem onClick={() => handleView(invoice.id)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Detalii
                             </DropdownMenuItem>
-                          )}
-                          {isAdmin && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(invoice.id)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Șterge
+                            {(invoice.status === "pending" || invoice.status === "failed") && (
+                              <DropdownMenuItem onClick={() => handleSend(invoice.id)}>
+                                <Send className="mr-2 h-4 w-4" />
+                                Trimite
                               </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            )}
+                            {isAdmin && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(invoice.id)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Șterge
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

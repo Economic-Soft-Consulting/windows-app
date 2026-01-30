@@ -28,7 +28,7 @@ export default function SettingsPage() {
   const { isAdmin } = useAuth();
   const router = useRouter();
   const [printers, setPrinters] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingPrinters, setLoadingPrinters] = useState(true);
   const [settings, setSettings] = useState<PrintSettings>({
     printer: "",
     copies: 1,
@@ -50,6 +50,7 @@ export default function SettingsPage() {
     invoice_number_current: null,
   });
   const [savingAgent, setSavingAgent] = useState(false);
+  const [loadingAgentSettings, setLoadingAgentSettings] = useState(true);
 
   const { status, isSyncing, triggerSync } = useSyncStatus();
   const { isOnline } = useOnlineStatus();
@@ -95,18 +96,19 @@ export default function SettingsPage() {
     loadCachedPrinters();
     loadAgentSettings();
 
-    // Load printers asynchronously without blocking
-    setTimeout(() => {
-      loadPrinters();
-    }, 100);
+    // Load printers - this is the slow operation
+    loadPrinters();
   }, []);
 
   const loadAgentSettings = async () => {
+    setLoadingAgentSettings(true);
     try {
       const settings = await getAgentSettings();
       setAgentSettings(settings);
     } catch (error) {
       console.error("Failed to load agent settings:", error);
+    } finally {
+      setLoadingAgentSettings(false);
     }
   };
 
@@ -164,7 +166,7 @@ export default function SettingsPage() {
               setSettings(prev => ({ ...prev, printer: settingsParsed.printer }));
             }
           }
-          setLoading(false);
+          // Note: Don't set loading to false here - wait for actual printer fetch
         }
       } catch (e) {
         console.error("Failed to parse cached printers:", e);
@@ -173,10 +175,7 @@ export default function SettingsPage() {
   };
 
   const loadPrinters = async () => {
-    // Don't set loading if we already have cached printers
-    if (printers.length === 0) {
-      setLoading(true);
-    }
+    setLoadingPrinters(true);
     try {
       const list = await getAvailablePrinters();
       setPrinters(list);
@@ -196,13 +195,13 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Failed to load printers:", error);
-      // Don't show error toast on initial load if we have cached printers
+      // Only show error if we don't have cached printers
       if (printers.length === 0) {
         toast.error("Eroare la încărcarea imprimantelor");
         setPrinters(["Default"]);
       }
     } finally {
-      setLoading(false);
+      setLoadingPrinters(false);
     }
   };
 
@@ -216,6 +215,24 @@ export default function SettingsPage() {
   const updateSetting = <K extends keyof PrintSettings>(key: K, value: PrintSettings[K]) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
+
+  // Show full page loading while all settings are loading initially
+  if (loadingPrinters || loadingAgentSettings) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <div className="text-center">
+          <h2 className="text-lg font-semibold">Se încarcă setările...</h2>
+          <p className="text-muted-foreground text-sm">
+            {loadingPrinters
+              ? "Se verifică imprimantele disponibile"
+              : "Se încarcă configurările agentului"
+            }
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col space-y-6">
@@ -232,18 +249,18 @@ export default function SettingsPage() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto min-h-0 space-y-6">
-      {/* Agent Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Date Agent
-          </CardTitle>
-          <CardDescription>
-            Configurează informațiile agentului care va fi folosit la trimiterea facturilor
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">          <div className="space-y-2">
+        {/* Agent Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Date Agent
+            </CardTitle>
+            <CardDescription>
+              Configurează informațiile agentului care va fi folosit la trimiterea facturilor
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">          <div className="space-y-2">
             <Label htmlFor="agentName">Marca Agent</Label>
             <Input
               id="agentName"
@@ -262,411 +279,411 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="carnetSeries">Serie Carnet (SimbolCarnet)</Label>
-            <Input
-              id="carnetSeries"
-              type="text"
-              placeholder="Ex: RS, FAC"
-              value={agentSettings.carnet_series || ""}
-              onChange={(e) =>
-                setAgentSettings((prev) => ({
-                  ...prev,
-                  carnet_series: e.target.value,
-                }))
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              Seria carnetului pentru facturi (ex: RS, FAC, etc.)
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="simbolCarnetLivr">Serie Carnet Livrări (SimbolCarnetLivr)</Label>
-            <Input
-              id="simbolCarnetLivr"
-              type="text"
-              placeholder="Ex: BL, LIV"
-              value={agentSettings.simbol_carnet_livr || ""}
-              onChange={(e) =>
-                setAgentSettings((prev) => ({
-                  ...prev,
-                  simbol_carnet_livr: e.target.value,
-                }))
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              Seria carnetului pentru livrări (ex: BL, LIV, etc.)
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="simbolGestiuneLivrare">Simbol Gestiune Livrare</Label>
-            <Input
-              id="simbolGestiuneLivrare"
-              type="text"
-              placeholder="Ex: MAGAZIN, DEPOZIT"
-              value={agentSettings.simbol_gestiune_livrare || ""}
-              onChange={(e) =>
-                setAgentSettings((prev) => ({
-                  ...prev,
-                  simbol_gestiune_livrare: e.target.value,
-                }))
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              Simbolul gestiunii de livrare din WME
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="codCarnet">Cod Carnet Facturi (CodCarnet)</Label>
-            <Input
-              id="codCarnet"
-              type="text"
-              placeholder="Ex: 1"
-              value={agentSettings.cod_carnet || ""}
-              onChange={(e) =>
-                setAgentSettings((prev) => ({
-                  ...prev,
-                  cod_carnet: e.target.value || null,
-                }))
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              Codul numeric al carnetului de facturi din WME pentru numerotare automată
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="codCarnetLivr">Cod Carnet Livrări (CodCarnetLivr)</Label>
-            <Input
-              id="codCarnetLivr"
-              type="text"
-              placeholder="Ex: 2"
-              value={agentSettings.cod_carnet_livr || ""}
-              onChange={(e) =>
-                setAgentSettings((prev) => ({
-                  ...prev,
-                  cod_carnet_livr: e.target.value || null,
-                }))
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              Codul numeric al carnetului de livrări din WME pentru numerotare automată
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="delegateName">Numele Delegatului</Label>
-            <Input
-              id="delegateName"
-              type="text"
-              placeholder="Ex: Ion Popescu"
-              value={agentSettings.delegate_name || ""}
-              onChange={(e) =>
-                setAgentSettings((prev) => ({
-                  ...prev,
-                  delegate_name: e.target.value || null,
-                }))
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              Numele delegatului care apare pe factură
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="delegateAct">Act Delegat</Label>
-            <Input
-              id="delegateAct"
-              type="text"
-              placeholder="Ex: CI nr. AA123456"
-              value={agentSettings.delegate_act || ""}
-              onChange={(e) =>
-                setAgentSettings((prev) => ({
-                  ...prev,
-                  delegate_act: e.target.value || null,
-                }))
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              Actul de identitate al delegatului (ex: CI, BI, Pașaport)
-            </p>
-          </div>
-
-          <div className="space-y-4 pt-4 border-t">
-            <h3 className="font-semibold">Numerotare Facturi</h3>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="invoiceStart">Număr Start</Label>
-                <Input
-                  id="invoiceStart"
-                  type="number"
-                  min="1"
-                  placeholder="1"
-                  value={agentSettings.invoice_number_start || ''}
-                  onChange={(e) =>
-                    setAgentSettings((prev) => ({
-                      ...prev,
-                      invoice_number_start: parseInt(e.target.value) || null,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="invoiceEnd">Număr Final</Label>
-                <Input
-                  id="invoiceEnd"
-                  type="number"
-                  min="1"
-                  placeholder="99999"
-                  value={agentSettings.invoice_number_end || ''}
-                  onChange={(e) =>
-                    setAgentSettings((prev) => ({
-                      ...prev,
-                      invoice_number_end: parseInt(e.target.value) || null,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="invoiceCurrent">Număr Curent</Label>
-                <Input
-                  id="invoiceCurrent"
-                  type="number"
-                  value={agentSettings.invoice_number_current || 1}
-                  disabled
-                  className="bg-muted"
-                />
-              </div>
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              Setează intervalul de numerotare pentru facturi. Numărul curent se actualizează automat la fiecare factură creată.
-            </p>
-          </div>
-
-          <Button
-            onClick={handleSaveAgentSettings}
-            disabled={savingAgent}
-            className="w-full"
-          >
-            {savingAgent ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Se salvează...
-              </>
-            ) : (
-              "Salvează date agent"
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Sync Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5" />
-            Sincronizare Date
-          </CardTitle>
-          <CardDescription>
-            Sincronizează datele cu serverul WME pentru a obține ultimele informații despre parteneri și produse
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1 p-4 rounded-lg border bg-muted/30">
-              <p className="text-sm font-medium">Ultima sincronizare parteneri</p>
-              <p className="text-lg font-semibold text-primary">
-                {formatLastSync(status?.partners_synced_at ?? null)}
+            <div className="space-y-2">
+              <Label htmlFor="carnetSeries">Serie Carnet (SimbolCarnet)</Label>
+              <Input
+                id="carnetSeries"
+                type="text"
+                placeholder="Ex: RS, FAC"
+                value={agentSettings.carnet_series || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    carnet_series: e.target.value,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Seria carnetului pentru facturi (ex: RS, FAC, etc.)
               </p>
             </div>
-            <div className="space-y-1 p-4 rounded-lg border bg-muted/30">
-              <p className="text-sm font-medium">Ultima sincronizare produse</p>
-              <p className="text-lg font-semibold text-primary">
-                {formatLastSync(status?.products_synced_at ?? null)}
+
+            <div className="space-y-2">
+              <Label htmlFor="simbolCarnetLivr">Serie Carnet Livrări (SimbolCarnetLivr)</Label>
+              <Input
+                id="simbolCarnetLivr"
+                type="text"
+                placeholder="Ex: BL, LIV"
+                value={agentSettings.simbol_carnet_livr || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    simbol_carnet_livr: e.target.value,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Seria carnetului pentru livrări (ex: BL, LIV, etc.)
               </p>
             </div>
-          </div>
 
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Apasă butonul de mai jos pentru a sincroniza datele acum. Sincronizarea este necesară înainte de a crea prima factură.
-            </p>
+            <div className="space-y-2">
+              <Label htmlFor="simbolGestiuneLivrare">Simbol Gestiune Livrare</Label>
+              <Input
+                id="simbolGestiuneLivrare"
+                type="text"
+                placeholder="Ex: MAGAZIN, DEPOZIT"
+                value={agentSettings.simbol_gestiune_livrare || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    simbol_gestiune_livrare: e.target.value,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Simbolul gestiunii de livrare din WME
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="codCarnet">Cod Carnet Facturi (CodCarnet)</Label>
+              <Input
+                id="codCarnet"
+                type="text"
+                placeholder="Ex: 1"
+                value={agentSettings.cod_carnet || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    cod_carnet: e.target.value || null,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Codul numeric al carnetului de facturi din WME pentru numerotare automată
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="codCarnetLivr">Cod Carnet Livrări (CodCarnetLivr)</Label>
+              <Input
+                id="codCarnetLivr"
+                type="text"
+                placeholder="Ex: 2"
+                value={agentSettings.cod_carnet_livr || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    cod_carnet_livr: e.target.value || null,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Codul numeric al carnetului de livrări din WME pentru numerotare automată
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="delegateName">Numele Delegatului</Label>
+              <Input
+                id="delegateName"
+                type="text"
+                placeholder="Ex: Ion Popescu"
+                value={agentSettings.delegate_name || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    delegate_name: e.target.value || null,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Numele delegatului care apare pe factură
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="delegateAct">Act Delegat</Label>
+              <Input
+                id="delegateAct"
+                type="text"
+                placeholder="Ex: CI nr. AA123456"
+                value={agentSettings.delegate_act || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    delegate_act: e.target.value || null,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Actul de identitate al delegatului (ex: CI, BI, Pașaport)
+              </p>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="font-semibold">Numerotare Facturi</h3>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="invoiceStart">Număr Start</Label>
+                  <Input
+                    id="invoiceStart"
+                    type="number"
+                    min="1"
+                    placeholder="1"
+                    value={agentSettings.invoice_number_start || ''}
+                    onChange={(e) =>
+                      setAgentSettings((prev) => ({
+                        ...prev,
+                        invoice_number_start: parseInt(e.target.value) || null,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="invoiceEnd">Număr Final</Label>
+                  <Input
+                    id="invoiceEnd"
+                    type="number"
+                    min="1"
+                    placeholder="99999"
+                    value={agentSettings.invoice_number_end || ''}
+                    onChange={(e) =>
+                      setAgentSettings((prev) => ({
+                        ...prev,
+                        invoice_number_end: parseInt(e.target.value) || null,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="invoiceCurrent">Număr Curent</Label>
+                  <Input
+                    id="invoiceCurrent"
+                    type="number"
+                    value={agentSettings.invoice_number_current || 1}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Setează intervalul de numerotare pentru facturi. Numărul curent se actualizează automat la fiecare factură creată.
+              </p>
+            </div>
+
             <Button
-              onClick={handleSyncNow}
-              disabled={isSyncing || !isOnline}
-              size="lg"
-              className="w-full h-14 text-base gap-3"
+              onClick={handleSaveAgentSettings}
+              disabled={savingAgent}
+              className="w-full"
             >
-              {isSyncing ? (
+              {savingAgent ? (
                 <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Se sincronizează datele...
-                </>
-              ) : !isOnline ? (
-                <>
-                  <RefreshCw className="h-5 w-5" />
-                  Offline - Nu se poate sincroniza
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Se salvează...
                 </>
               ) : (
-                <>
-                  <RefreshCw className="h-5 w-5" />
-                  Sincronizează Acum
-                </>
+                "Salvează date agent"
               )}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Printer Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Printer className="h-5 w-5" />
-            Setări Printare
-          </CardTitle>
-          <CardDescription>
-            Configurează imprimanta și opțiunile de printare
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {loading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Se încarcă imprimantele...
+        {/* Sync Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Sincronizare Date
+            </CardTitle>
+            <CardDescription>
+              Sincronizează datele cu serverul WME pentru a obține ultimele informații despre parteneri și produse
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-1 p-4 rounded-lg border bg-muted/30">
+                <p className="text-sm font-medium">Ultima sincronizare parteneri</p>
+                <p className="text-lg font-semibold text-primary">
+                  {formatLastSync(status?.partners_synced_at ?? null)}
+                </p>
+              </div>
+              <div className="space-y-1 p-4 rounded-lg border bg-muted/30">
+                <p className="text-sm font-medium">Ultima sincronizare produse</p>
+                <p className="text-lg font-semibold text-primary">
+                  {formatLastSync(status?.products_synced_at ?? null)}
+                </p>
+              </div>
             </div>
-          ) : (
-            <>
-              {/* Printer Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="printer">Imprimantă</Label>
-                <Select value={settings.printer} onValueChange={(v) => updateSetting("printer", v)}>
-                  <SelectTrigger id="printer">
-                    <SelectValue placeholder="Selectează o imprimantă" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {printers.map((printer) => (
-                      <SelectItem key={printer} value={printer}>
-                        {printer}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
-              {/* Number of Copies */}
-              <div className="space-y-2">
-                <Label htmlFor="copies">Număr de copii</Label>
-                <Input
-                  id="copies"
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={settings.copies}
-                  onChange={(e) => updateSetting("copies", parseInt(e.target.value) || 1)}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Câte copii ale facturii să se printeze automat
-                </p>
-              </div>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Apasă butonul de mai jos pentru a sincroniza datele acum. Sincronizarea este necesară înainte de a crea prima factură.
+              </p>
+              <Button
+                onClick={handleSyncNow}
+                disabled={isSyncing || !isOnline}
+                size="lg"
+                className="w-full h-14 text-base gap-3"
+              >
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Se sincronizează datele...
+                  </>
+                ) : !isOnline ? (
+                  <>
+                    <RefreshCw className="h-5 w-5" />
+                    Offline - Nu se poate sincroniza
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-5 w-5" />
+                    Sincronizează Acum
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Paper Width */}
-              <div className="space-y-2">
-                <Label htmlFor="paperWidth">Lățime hârtie</Label>
-                <Select value={settings.paperWidth} onValueChange={(v) => updateSetting("paperWidth", v)}>
-                  <SelectTrigger id="paperWidth">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="58mm">58mm (Mic)</SelectItem>
-                    <SelectItem value="80mm">80mm (Standard)</SelectItem>
-                    <SelectItem value="A4">A4 (Lățime completă)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">
-                  Template-ul actual este optimizat pentru 80mm
-                </p>
+        {/* Printer Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5" />
+              Setări Printare
+            </CardTitle>
+            <CardDescription>
+              Configurează imprimanta și opțiunile de printare
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {loadingPrinters ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Se încarcă imprimantele...
               </div>
+            ) : (
+              <>
+                {/* Printer Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="printer">Imprimantă</Label>
+                  <Select value={settings.printer} onValueChange={(v) => updateSetting("printer", v)}>
+                    <SelectTrigger id="printer">
+                      <SelectValue placeholder="Selectează o imprimantă" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {printers.map((printer) => (
+                        <SelectItem key={printer} value={printer}>
+                          {printer}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Auto Print Toggle */}
-              <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="autoPrint" className="text-base cursor-pointer">
-                    Printare automată
-                  </Label>
+                {/* Number of Copies */}
+                <div className="space-y-2">
+                  <Label htmlFor="copies">Număr de copii</Label>
+                  <Input
+                    id="copies"
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={settings.copies}
+                    onChange={(e) => updateSetting("copies", parseInt(e.target.value) || 1)}
+                  />
                   <p className="text-sm text-muted-foreground">
-                    Printează automat factura după salvare
+                    Câte copii ale facturii să se printeze automat
                   </p>
                 </div>
-                <Switch
-                  id="autoPrint"
-                  checked={settings.autoPrint}
-                  onCheckedChange={(v) => updateSetting("autoPrint", v)}
-                />
-              </div>
 
-              {/* Show Preview Toggle */}
-              <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
-                <div className="space-y-0.5">
-                  <Label htmlFor="showPreview" className="text-base cursor-pointer">
-                    Previzualizare PDF
-                  </Label>
+                {/* Paper Width */}
+                <div className="space-y-2">
+                  <Label htmlFor="paperWidth">Lățime hârtie</Label>
+                  <Select value={settings.paperWidth} onValueChange={(v) => updateSetting("paperWidth", v)}>
+                    <SelectTrigger id="paperWidth">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="58mm">58mm (Mic)</SelectItem>
+                      <SelectItem value="80mm">80mm (Standard)</SelectItem>
+                      <SelectItem value="A4">A4 (Lățime completă)</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <p className="text-sm text-muted-foreground">
-                    Deschide PDF-ul generat înainte de printare (nu recomandat)
+                    Template-ul actual este optimizat pentru 80mm
                   </p>
                 </div>
-                <Switch
-                  id="showPreview"
-                  checked={settings.showPreview}
-                  onCheckedChange={(v) => updateSetting("showPreview", v)}
-                />
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <Button onClick={handleSaveSettings} className="flex-1">
-                  Salvează setările
-                </Button>
-                <Button onClick={loadPrinters} variant="outline">
-                  Reîncarcă imprimante
-                </Button>
-              </div>
+                {/* Auto Print Toggle */}
+                <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="autoPrint" className="text-base cursor-pointer">
+                      Printare automată
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Printează automat factura după salvare
+                    </p>
+                  </div>
+                  <Switch
+                    id="autoPrint"
+                    checked={settings.autoPrint}
+                    onCheckedChange={(v) => updateSetting("autoPrint", v)}
+                  />
+                </div>
 
-              {printers.length === 0 && (
-                <p className="text-sm text-red-600">
-                  Nu au fost găsite imprimante. Asigură-te că ai instalat o imprimantă.
-                </p>
-              )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+                {/* Show Preview Toggle */}
+                <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="showPreview" className="text-base cursor-pointer">
+                      Previzualizare PDF
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Deschide PDF-ul generat înainte de printare (nu recomandat)
+                    </p>
+                  </div>
+                  <Switch
+                    id="showPreview"
+                    checked={settings.showPreview}
+                    onCheckedChange={(v) => updateSetting("showPreview", v)}
+                  />
+                </div>
 
-      {/* Info Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Informații
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>• Versiunea aplicației: 0.6.7</li>
-            <li>• Fișierele facturilor sunt salvate în: %APPDATA%\facturi.softconsulting.com\invoices\</li>
-            <li>• Suport pentru printare PDF pe imprimantă termală 80mm</li>
-            <li>• Printarea se face prin SumatraPDF (instalat automat)</li>
-            <li>• Template optimizat pentru bonuri fiscale format 80mm x 297mm</li>
-          </ul>
-        </CardContent>
-      </Card>
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button onClick={handleSaveSettings} className="flex-1">
+                    Salvează setările
+                  </Button>
+                  <Button onClick={loadPrinters} variant="outline">
+                    Reîncarcă imprimante
+                  </Button>
+                </div>
+
+                {printers.length === 0 && (
+                  <p className="text-sm text-red-600">
+                    Nu au fost găsite imprimante. Asigură-te că ai instalat o imprimantă.
+                  </p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Info Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Informații
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>• Versiunea aplicației: 0.6.8</li>
+              <li>• Fișierele facturilor sunt salvate în: %APPDATA%\facturi.softconsulting.com\invoices\</li>
+              <li>• Suport pentru printare PDF pe imprimantă termală 80mm</li>
+              <li>• Printarea se face prin SumatraPDF (instalat automat)</li>
+              <li>• Template optimizat pentru bonuri fiscale format 80mm x 297mm</li>
+            </ul>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
