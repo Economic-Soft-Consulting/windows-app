@@ -89,7 +89,7 @@ export function PartnerStep({ selectedPartner, onSelect }: PartnerStepProps) {
                       <div className="flex items-center gap-1.5 text-sm">
                         <span className="text-muted-foreground">Scad:</span>
                         <span className="font-medium text-primary">
-                          {partner.scadenta_la_vanzare || '7'}z
+                          {partner.scadenta_la_vanzare ? `${partner.scadenta_la_vanzare}z` : '-'}
                         </span>
                       </div>
                     </div>

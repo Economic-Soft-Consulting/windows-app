@@ -515,9 +515,7 @@ fn convert_api_partners_to_model(api_partners: Vec<api_client::PartnerInfo>) -> 
                 inactiv: api_partner.inactiv,
                 categorie_pret_implicita: api_partner.categorie_pret_implicita,
                 simbol_categorie_pret: api_partner.simbol_categorie_pret,
-                scadenta_la_vanzare: api_partner.scadenta_la_vanzare.map(|s| {
-                    if s.trim() == "7" { "30".to_string() } else { s }
-                }),
+                scadenta_la_vanzare: Some("30".to_string()),
                 scadenta_la_cumparare: api_partner.scadenta_la_cumparare,
                 credit_client: api_partner.credit_client,
                 discount_fix: api_partner.discount_fix,
