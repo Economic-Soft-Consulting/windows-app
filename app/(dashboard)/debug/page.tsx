@@ -13,6 +13,8 @@ export default function DebugPage() {
   const [partnerId, setPartnerId] = useState("");
   const [partnerResult, setPartnerResult] = useState<string>("");
   const [partnerLoading, setPartnerLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [updateResult, setUpdateResult] = useState<string>("");
 
   const handleDebug = async () => {
     setLoading(true);
@@ -40,6 +42,22 @@ export default function DebugPage() {
       setPartnerResult(`Error: ${error}`);
     } finally {
       setPartnerLoading(false);
+    }
+  };
+
+  const handleUpdateAllPartners = async () => {
+    if (!confirm("Sigur vrei să actualizezi TOȚI partenerii la 30 zile scadență?")) {
+      return;
+    }
+
+    setUpdateLoading(true);
+    try {
+      const data = await invoke<string>("update_all_partners_payment_terms", { newDays: "30" });
+      setUpdateResult(data);
+    } catch (error) {
+      setUpdateResult(`Error: ${error}`);
+    } finally {
+      setUpdateLoading(false);
     }
   };
 
@@ -80,6 +98,31 @@ export default function DebugPage() {
           {partnerResult && (
             <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md overflow-auto text-sm whitespace-pre-wrap">
               {partnerResult}
+            </pre>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Update Payment Terms</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Actualizează toți partenerii din baza de date la scadență de 30 zile.
+            </p>
+            <Button 
+              onClick={handleUpdateAllPartners} 
+              disabled={updateLoading}
+              variant="destructive"
+            >
+              {updateLoading ? "Se actualizează..." : "Setează toți partenerii la 30 zile"}
+            </Button>
+          </div>
+          {updateResult && (
+            <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md overflow-auto text-sm whitespace-pre-wrap">
+              {updateResult}
             </pre>
           )}
         </CardContent>

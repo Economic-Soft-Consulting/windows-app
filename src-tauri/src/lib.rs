@@ -78,6 +78,7 @@ pub fn run() {
             // Debug commands
             commands::debug_db_counts,
             commands::debug_partner_payment_terms,
+            commands::update_all_partners_payment_terms,
             commands::open_external_link,
         ])
         .run(tauri::generate_context!())

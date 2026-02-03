@@ -1920,8 +1920,8 @@ pub async fn print_invoice_to_html(
     // Read logo and convert to base64
     let logo_base64 = read_logo_to_base64();
     
-    // Use partner's payment term or default to 10 days
-    let payment_days = payment_term_days.unwrap_or(10);
+    // Use partner's payment term or default to 30 days
+    let payment_days = payment_term_days.unwrap_or(30);
     
     info!("📅 Using payment term: {} days (partner: '{}', retrieved: {:?}, final: {})", 
         payment_days, invoice.partner_name, payment_term_days, payment_days);
@@ -2355,6 +2355,25 @@ pub fn debug_partner_payment_terms(db: State<'_, Database>, partner_id: String) 
         }
         Err(e) => Err(format!("Partner not found: {}", e))
     }
+}
+
+#[tauri::command]
+pub async fn update_all_partners_payment_terms(
+    db: State<'_, Database>,
+    new_days: String,
+) -> Result<String, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    
+    info!("🔄 Updating all partners payment terms to {} days", new_days);
+    
+    let updated = conn.execute(
+        "UPDATE partners SET scadenta_la_vanzare = ?1",
+        [&new_days],
+    ).map_err(|e| e.to_string())?;
+    
+    info!("✅ Updated {} partners with new payment term: {} days", updated, new_days);
+    
+    Ok(format!("Successfully updated {} partners to {} days payment term", updated, new_days))
 }
 
 #[tauri::command]
