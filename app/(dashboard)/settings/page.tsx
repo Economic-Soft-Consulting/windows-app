@@ -45,6 +45,7 @@ export default function SettingsPage() {
     cod_carnet_livr: null,
     delegate_name: null,
     delegate_act: null,
+    car_number: null,
     invoice_number_start: null,
     invoice_number_end: null,
     invoice_number_current: null,
@@ -124,6 +125,7 @@ export default function SettingsPage() {
         agentSettings.cod_carnet_livr || null,
         agentSettings.delegate_name || null,
         agentSettings.delegate_act || null,
+        agentSettings.car_number || null,
         agentSettings.invoice_number_start,
         agentSettings.invoice_number_end,
         agentSettings.invoice_number_current
@@ -412,6 +414,25 @@ export default function SettingsPage() {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="carNumber">Număr Auto</Label>
+              <Input
+                id="carNumber"
+                type="text"
+                placeholder="Ex: MM-01-ABC"
+                value={agentSettings.car_number || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    car_number: e.target.value || null,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Numărul de înmatriculare al mașinii de transport (apare pe factură)
+              </p>
+            </div>
+
             <div className="space-y-4 pt-4 border-t">
               <h3 className="font-semibold">Numerotare Facturi</h3>
 
@@ -676,7 +697,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>• Versiunea aplicației: 0.7.4</li>
+              <li>• Versiunea aplicației: 0.7.5</li>
               <li>• Fișierele facturilor sunt salvate în: %APPDATA%\facturi.softconsulting.com\invoices\</li>
               <li>• Suport pentru printare PDF pe imprimantă termală 80mm</li>
               <li>• Printarea se face prin SumatraPDF (instalat automat)</li>

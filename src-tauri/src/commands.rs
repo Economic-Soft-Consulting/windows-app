@@ -1935,6 +1935,13 @@ pub async fn print_invoice_to_html(
         |row| row.get::<_, Option<String>>(0)
     ).ok().flatten().unwrap_or_else(|| "FACTURA".to_string());
 
+    // Get car number from agent settings
+    let car_number = conn.query_row(
+        "SELECT car_number FROM agent_settings WHERE id = 1",
+        [],
+        |row| row.get::<_, Option<String>>(0)
+    ).ok().flatten();
+
     // Generate HTML
     let html = print_invoice::generate_invoice_html(
         &invoice, 
@@ -1944,6 +1951,7 @@ pub async fn print_invoice_to_html(
         payment_days,
         delegate_name.as_deref(),
         delegate_act.as_deref(),
+        car_number.as_deref(),
         &carnet_series
     );
 
@@ -2192,7 +2200,7 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let result = conn.query_row(
-        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr, delegate_name, delegate_act, invoice_number_start, invoice_number_end, invoice_number_current FROM agent_settings WHERE id = 1",
+        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current FROM agent_settings WHERE id = 1",
         [],
         |row| Ok(AgentSettings {
             agent_name: row.get(0)?,
@@ -2203,9 +2211,10 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
             cod_carnet_livr: row.get(5)?,
             delegate_name: row.get(6)?,
             delegate_act: row.get(7)?,
-            invoice_number_start: row.get(8)?,
-            invoice_number_end: row.get(9)?,
-            invoice_number_current: row.get(10)?,
+            car_number: row.get(8)?,
+            invoice_number_start: row.get(9)?,
+            invoice_number_end: row.get(10)?,
+            invoice_number_current: row.get(11)?,
         }),
     );
 
@@ -2220,6 +2229,7 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
             cod_carnet_livr: None,
             delegate_name: None,
             delegate_act: None,
+            car_number: None,
             invoice_number_start: Some(1),
             invoice_number_end: Some(99999),
             invoice_number_current: Some(1),
@@ -2238,6 +2248,7 @@ pub fn save_agent_settings(
     cod_carnet_livr: Option<String>,
     delegate_name: Option<String>,
     delegate_act: Option<String>,
+    car_number: Option<String>,
     invoice_number_start: Option<i64>,
     invoice_number_end: Option<i64>,
     invoice_number_current: Option<i64>,
@@ -2260,9 +2271,9 @@ pub fn save_agent_settings(
     };
 
     conn.execute(
-        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr, delegate_name, delegate_act, invoice_number_start, invoice_number_end, invoice_number_current, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) \
-         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, updated_at = excluded.updated_at",
-        (&agent_name, &carnet_series, &simbol_carnet_livr, &simbol_gestiune_livrare, &cod_carnet, &cod_carnet_livr, &delegate_name, &delegate_act, &invoice_number_start, &invoice_number_end, &final_current, &now),
+        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, cod_carnet, cod_carnet_livr, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13) \
+         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, updated_at = excluded.updated_at",
+        (&agent_name, &carnet_series, &simbol_carnet_livr, &simbol_gestiune_livrare, &cod_carnet, &cod_carnet_livr, &delegate_name, &delegate_act, &car_number, &invoice_number_start, &invoice_number_end, &final_current, &now),
     )
     .map_err(|e| e.to_string())?;
 
@@ -2275,6 +2286,7 @@ pub fn save_agent_settings(
         cod_carnet_livr,
         delegate_name,
         delegate_act,
+        car_number,
         invoice_number_start: invoice_number_start.map(|v| v as i32),
         invoice_number_end: invoice_number_end.map(|v| v as i32),
         invoice_number_current: final_current.map(|v| v as i32),

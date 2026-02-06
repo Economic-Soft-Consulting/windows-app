@@ -33,6 +33,7 @@ pub fn generate_invoice_html(
     payment_term_days: i64,
     delegate_name: Option<&str>,
     delegate_act: Option<&str>,
+    car_number: Option<&str>,
     carnet_series: &str,
 ) -> String {
     log::info!("📄 Generating invoice HTML with payment_term_days: {} for partner: '{}'", 
@@ -323,7 +324,7 @@ pub fn generate_invoice_html(
         Prezenta tine loc de contract ferm intre parti in lipsa altui acord scris.<br>
         <strong>Data Scadenta: {}</strong>
     </div>
-
+    {}
     <div class="signatures">
         
         <div class="sig-block">
@@ -393,8 +394,14 @@ pub fn generate_invoice_html(
         total_without_vat,
         total_vat,
         total_without_vat + total_vat,  // Total General = Subtotal + TVA
-        due_date,
-        delegate_name.unwrap_or("........................"),
+        due_date,        if let Some(car_num) = car_number {
+            format!(r#"
+    <div class="legal-note" style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 8px;">
+        <strong>Certificăm faptul că mașina cu numărul {} a fost dezinfectată cu Virocid 1% înainte de încărcare.</strong>
+    </div>"#, car_num)
+        } else {
+            String::new()
+        },        delegate_name.unwrap_or("........................"),
         delegate_act.unwrap_or("....................................."),
         if let Some(logo) = logo_base64 {
             format!(r#"<img src="{}" class="footer-logo" alt="Logo" />"#, logo)

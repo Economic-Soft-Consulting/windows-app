@@ -128,6 +128,7 @@ export interface AgentSettings {
   cod_carnet_livr: string | null;
   delegate_name: string | null;
   delegate_act: string | null;
+  car_number: string | null;
   invoice_number_start: number | null;
   invoice_number_end: number | null;
   invoice_number_current: number | null;

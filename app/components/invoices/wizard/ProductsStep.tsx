@@ -241,7 +241,7 @@ export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsSte
                                 )
                               }
                               onFocus={(e) => e.target.select()}
-                              className="w-14 h-9 text-center text-sm"
+                              className="w-24 h-9 text-center text-sm"
                               min={0}
                             />
                             <Button

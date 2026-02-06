@@ -470,6 +470,14 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         info!("Migration 9 completed");
     }
 
+    // Migration 10: Add car_number column to agent_settings (v0.7.4)
+    if current_version < 10 {
+        info!("Applying migration 10: Add car_number to agent_settings");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN car_number TEXT;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (10, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 10 completed");
+    }
+
     info!("All migrations completed successfully");
     Ok(())
 }

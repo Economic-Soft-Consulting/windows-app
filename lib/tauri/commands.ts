@@ -119,6 +119,7 @@ export async function saveAgentSettings(
   codCarnetLivr: string | null,
   delegateName: string | null,
   delegateAct: string | null,
+  carNumber: string | null,
   invoiceNumberStart: number | null,
   invoiceNumberEnd: number | null,
   invoiceNumberCurrent: number | null
@@ -132,6 +133,7 @@ export async function saveAgentSettings(
     codCarnetLivr,
     delegateName,
     delegateAct,
+    carNumber,
     invoiceNumberStart,
     invoiceNumberEnd,
     invoiceNumberCurrent,

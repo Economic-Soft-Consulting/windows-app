@@ -200,8 +200,7 @@ pub struct AgentSettings {
     pub cod_carnet: Option<String>,
     pub cod_carnet_livr: Option<String>,
     pub delegate_name: Option<String>,
-    pub delegate_act: Option<String>,
-    pub invoice_number_start: Option<i32>,
+    pub delegate_act: Option<String>,    pub car_number: Option<String>,    pub invoice_number_start: Option<i32>,
     pub invoice_number_end: Option<i32>,
     pub invoice_number_current: Option<i32>,
 }
