@@ -1010,9 +1010,11 @@ pub fn create_invoice(
     .map_err(|e| e.to_string())?;
 
     // Increment the current invoice number in settings for next invoice
+    // Using UPSERT to handle case when agent_settings has no rows
     conn.execute(
-        "UPDATE agent_settings SET invoice_number_current = invoice_number_current + 1 WHERE id = 1",
-        [],
+        "INSERT INTO agent_settings (id, invoice_number_current) VALUES (1, ?1) 
+         ON CONFLICT(id) DO UPDATE SET invoice_number_current = invoice_number_current + 1",
+        [invoice_number + 1],
     )
     .map_err(|e| e.to_string())?;
 

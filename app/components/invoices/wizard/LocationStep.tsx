@@ -46,7 +46,7 @@ export function LocationStep({
             console.log("Found location:", location);
             if (location) onSelect(location);
           }}
-          className="grid gap-2 sm:grid-cols-2 md:grid-cols-2"
+          className="grid gap-2 sm:grid-cols-2 md:grid-cols-2 max-h-[400px] overflow-y-auto pr-2"
         >
           {partner.locations.map((location) => {
             const isSelected = selectedLocation?.id === location.id;

@@ -171,7 +171,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* Footer - Reduced padding */}
         <div className="p-3 border-t border-border">
           <p className="text-sm text-muted-foreground text-center">
-            v0.7.2 • © 2026 eSoft
+            v0.7.3 • © 2026 eSoft
           </p>
         </div>
       </aside>
