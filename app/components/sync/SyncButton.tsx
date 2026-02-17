@@ -62,7 +62,11 @@ export function SyncButton() {
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Ultima sincronizare: {formatLastSync(status?.partners_synced_at ?? null)}</p>
+          <div className="space-y-1">
+            <p>Sincronizare completă: parteneri, produse, solduri, încasări</p>
+            <p>Parteneri: {formatLastSync(status?.partners_synced_at ?? null)}</p>
+            <p>Produse: {formatLastSync(status?.products_synced_at ?? null)}</p>
+          </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

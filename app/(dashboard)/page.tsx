@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { FileText, Plus, Database, TrendingUp, DollarSign, Globe, Settings, ExternalLink, ArrowRight } from "lucide-react";
+import { FileText, Plus, Database, TrendingUp, DollarSign, Globe, Settings, ExternalLink, ArrowRight, BarChart3, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useInvoices } from "@/hooks/useInvoices";
@@ -10,14 +10,7 @@ import { openExternalLink } from "@/lib/tauri/commands";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { getInvoiceDetail } from "@/lib/tauri/commands";
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("ro-RO", {
-    style: "decimal",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount) + " RON";
-}
+import { formatCurrency } from "@/lib/utils";
 
 export default function HomePage() {
   const { invoices } = useInvoices();
@@ -233,6 +226,23 @@ export default function HomePage() {
             </Card>
           </Link>
 
+          <Link href="/collections" className="group w-full">
+            <Card className="h-full hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group-hover:-translate-y-1 flex flex-col">
+              <CardHeader className="pb-1.5 p-3 flex-1">
+                <CardTitle className="flex items-center gap-2 text-m">
+                  <Receipt className="h-5 w-5 text-primary" />
+                  Chitanțe
+                </CardTitle>
+                <CardDescription className="text-m">Încasări și status</CardDescription>
+              </CardHeader>
+              <CardFooter className="pt-0 pb-2 px-3">
+                <span className="text-m text-primary font-medium flex items-center gap-1 group-hover:underline">
+                  Deschide <ArrowRight className="h-2.5 w-2.5" />
+                </span>
+              </CardFooter>
+            </Card>
+          </Link>
+
           <Link href="/data" className="group w-full">
             <Card className="h-full hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group-hover:-translate-y-1 flex flex-col">
               <CardHeader className="pb-1.5 p-3 flex-1">
@@ -241,6 +251,23 @@ export default function HomePage() {
                   Date / Parteneri
                 </CardTitle>
                 <CardDescription className="text-m">Clienți și produse</CardDescription>
+              </CardHeader>
+              <CardFooter className="pt-0 pb-2 px-3">
+                <span className="text-m text-primary font-medium flex items-center gap-1 group-hover:underline">
+                  Deschide <ArrowRight className="h-2.5 w-2.5" />
+                </span>
+              </CardFooter>
+            </Card>
+          </Link>
+
+          <Link href="/reports" className="group w-full">
+            <Card className="h-full hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group-hover:-translate-y-1 flex flex-col">
+              <CardHeader className="pb-1.5 p-3 flex-1">
+                <CardTitle className="flex items-center gap-2 text-m">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  Rapoarte
+                </CardTitle>
+                <CardDescription className="text-m">Vânzări și încasări</CardDescription>
               </CardHeader>
               <CardFooter className="pt-0 pb-2 px-3">
                 <span className="text-m text-primary font-medium flex items-center gap-1 group-hover:underline">

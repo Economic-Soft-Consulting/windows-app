@@ -1,24 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
 import { FirstRunOverlay } from "../components/sync/FirstRunOverlay";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { checkIsFirstRun } = useSyncStatus();
+  const { checkIsFirstRun, triggerSync, isSyncing } = useSyncStatus();
+  const { isOnline } = useOnlineStatus();
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const [showFirstRun, setShowFirstRun] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const autoSyncRunningRef = useRef(false);
+  const lastAutoSyncDateRef = useRef<string | null>(null);
+  const pendingRetryRef = useRef(false);
+  const lastRetryAttemptAtRef = useRef(0);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -35,6 +42,81 @@ export default function DashboardLayout({
       });
     }
   }, [checkIsFirstRun, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const AUTO_SYNC_HOUR = 23;
+    const AUTO_SYNC_MINUTE = 59;
+    const RETRY_INTERVAL_MS = 5 * 60 * 1000;
+
+    const toLocalDayKey = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const runFullAutoSync = async (now: Date) => {
+      if (autoSyncRunningRef.current || isSyncing) {
+        return;
+      }
+
+      if (!isOnline) {
+        pendingRetryRef.current = true;
+        return;
+      }
+
+      autoSyncRunningRef.current = true;
+      try {
+        await triggerSync();
+        lastAutoSyncDateRef.current = toLocalDayKey(now);
+        pendingRetryRef.current = false;
+        toast.success("Sincronizarea automată completă a fost executată.");
+      } catch (error) {
+        pendingRetryRef.current = true;
+        console.error("Auto-sync failed:", error);
+      } finally {
+        autoSyncRunningRef.current = false;
+      }
+    };
+
+    const checkAutoSync = async () => {
+      const now = new Date();
+      const todayKey = toLocalDayKey(now);
+
+      const target = new Date(now);
+      target.setHours(AUTO_SYNC_HOUR, AUTO_SYNC_MINUTE, 0, 0);
+
+      const dueToday =
+        now.getTime() >= target.getTime() &&
+        lastAutoSyncDateRef.current !== todayKey;
+
+      if (dueToday) {
+        pendingRetryRef.current = true;
+      }
+
+      const canRetryNow =
+        pendingRetryRef.current &&
+        now.getTime() - lastRetryAttemptAtRef.current >= RETRY_INTERVAL_MS;
+
+      if (!canRetryNow) {
+        return;
+      }
+
+      lastRetryAttemptAtRef.current = now.getTime();
+      await runFullAutoSync(now);
+    };
+
+    checkAutoSync();
+    const intervalId = window.setInterval(checkAutoSync, 60 * 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isAuthenticated, triggerSync, isOnline, isSyncing]);
 
   // Show nothing while checking or not authenticated
   if (!isAuthenticated || isChecking || showFirstRun === null) {

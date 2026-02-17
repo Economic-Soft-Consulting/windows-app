@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Settings, Loader2, Printer, FileText, User, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { getAvailablePrinters, getAgentSettings, saveAgentSettings } from "@/lib/tauri/commands";
+import { getAvailablePrinters, getAgentSettings, saveAgentSettings, deletePartnersAndLocations } from "@/lib/tauri/commands";
 import type { AgentSettings } from "@/lib/tauri/types";
 import { toast } from "sonner";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
@@ -41,17 +41,24 @@ export default function SettingsPage() {
     carnet_series: null,
     simbol_carnet_livr: null,
     simbol_gestiune_livrare: null,
+    tip_contabil: null,
     cod_carnet: null,
     cod_carnet_livr: null,
+    cod_delegat: null,
     delegate_name: null,
     delegate_act: null,
     car_number: null,
     invoice_number_start: null,
     invoice_number_end: null,
     invoice_number_current: null,
+    marca_agent: null,
+    nume_casa: null,
+    auto_sync_collections_enabled: null,
+    auto_sync_collections_time: null,
   });
   const [savingAgent, setSavingAgent] = useState(false);
   const [loadingAgentSettings, setLoadingAgentSettings] = useState(true);
+  const savedMarcaAgentRef = useRef<string>("");
 
   const { status, isSyncing, triggerSync } = useSyncStatus();
   const { isOnline } = useOnlineStatus();
@@ -106,6 +113,7 @@ export default function SettingsPage() {
     try {
       const settings = await getAgentSettings();
       setAgentSettings(settings);
+      savedMarcaAgentRef.current = (settings.marca_agent || "").trim();
     } catch (error) {
       console.error("Failed to load agent settings:", error);
     } finally {
@@ -116,20 +124,50 @@ export default function SettingsPage() {
   const handleSaveAgentSettings = async () => {
     setSavingAgent(true);
     try {
+      const oldMarcaAgent = savedMarcaAgentRef.current;
+      const newMarcaAgent = (agentSettings.marca_agent || "").trim();
+      const normalizedMarcaAgent = newMarcaAgent.length > 0 ? newMarcaAgent : null;
+
       await saveAgentSettings(
         agentSettings.agent_name || null,
         agentSettings.carnet_series || null,
         agentSettings.simbol_carnet_livr || null,
         agentSettings.simbol_gestiune_livrare || null,
+        agentSettings.tip_contabil || null,
         agentSettings.cod_carnet || null,
         agentSettings.cod_carnet_livr || null,
+        agentSettings.cod_delegat || null,
         agentSettings.delegate_name || null,
         agentSettings.delegate_act || null,
         agentSettings.car_number || null,
         agentSettings.invoice_number_start,
         agentSettings.invoice_number_end,
-        agentSettings.invoice_number_current
+        agentSettings.invoice_number_current,
+        normalizedMarcaAgent,
+        agentSettings.nume_casa || null,
+        agentSettings.auto_sync_collections_enabled,
+        agentSettings.auto_sync_collections_time || null
       );
+
+      const marcaChanged = oldMarcaAgent !== newMarcaAgent;
+
+      if (marcaChanged) {
+        if (newMarcaAgent) {
+          toast.info("Marca Agent a fost schimbată. Se reîncarcă partenerii pentru noul agent...");
+        } else {
+          toast.info("Marca Agent a fost ștearsă. Se reîncarcă partenerii fără filtrare pe marcă...");
+        }
+
+        await deletePartnersAndLocations();
+
+        if (isOnline) {
+          await triggerSync();
+          toast.success("Partenerii au fost resincronizați după modificarea mărcii.");
+        } else {
+          toast.warning("Marca Agent a fost salvată, dar ești offline. Fă sincronizarea când revii online.");
+        }
+      }
+
       // Reload settings to update UI with latest values from database
       await loadAgentSettings();
       toast.success("Setările agentului au fost salvate!");
@@ -263,7 +301,7 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">          <div className="space-y-2">
-            <Label htmlFor="agentName">Marca Agent</Label>
+            <Label htmlFor="agentName">Nume Agent (Afișare)</Label>
             <Input
               id="agentName"
               type="text"
@@ -280,6 +318,44 @@ export default function SettingsPage() {
               Numele agentului care va apărea pe documente
             </p>
           </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="marcaAgent">Marca Agent (Filtrare)</Label>
+              <Input
+                id="marcaAgent"
+                type="text"
+                placeholder="Ex: AG123"
+                value={agentSettings.marca_agent || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    marca_agent: e.target.value,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Codul agentului folosit pentru filtrarea soldurilor din WME
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="numeCasa">Nume Casă (Incasări)</Label>
+              <Input
+                id="numeCasa"
+                type="text"
+                placeholder="Ex: CASA1"
+                value={agentSettings.nume_casa || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    nume_casa: e.target.value,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Numele casei de marcat folosit pentru trimiterea incasărilor
+              </p>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="carnetSeries">Serie Carnet (SimbolCarnet)</Label>
@@ -339,6 +415,25 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="tipContabil">Tip Contabil (Items)</Label>
+              <Input
+                id="tipContabil"
+                type="text"
+                placeholder="Ex: valoare"
+                value={agentSettings.tip_contabil || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    tip_contabil: e.target.value,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Se trimite pe fiecare item în IesiriClienti, câmpul TipContabil (implicit: valoare)
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="codCarnet">Cod Carnet Facturi (CodCarnet)</Label>
               <Input
                 id="codCarnet"
@@ -373,6 +468,25 @@ export default function SettingsPage() {
               />
               <p className="text-sm text-muted-foreground">
                 Codul numeric al carnetului de livrări din WME pentru numerotare automată
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="codDelegat">Cod Delegat (CodDelegat)</Label>
+              <Input
+                id="codDelegat"
+                type="text"
+                placeholder="Ex: 30271"
+                value={agentSettings.cod_delegat || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    cod_delegat: e.target.value || null,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Codul delegatului trimis în payload-ul facturii (câmpul CodDelegat)
               </p>
             </div>
 
@@ -486,6 +600,46 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">
                 Setează intervalul de numerotare pentru facturi. Numărul curent se actualizează automat la fiecare factură creată.
               </p>
+            </div>
+
+            {/* Auto-Sync Collections */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label>Sincronizare Automată Încasări</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Sincronizează automat încasările zilnice la ora specificată
+                  </p>
+                </div>
+                <Switch
+                  checked={agentSettings.auto_sync_collections_enabled || false}
+                  onCheckedChange={(checked) =>
+                    setAgentSettings((prev) => ({
+                      ...prev,
+                      auto_sync_collections_enabled: checked,
+                    }))
+                  }
+                />
+              </div>
+              {agentSettings.auto_sync_collections_enabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="autoSyncTime">Oră Sincronizare</Label>
+                  <Input
+                    id="autoSyncTime"
+                    type="time"
+                    value={agentSettings.auto_sync_collections_time || "23:00"}
+                    onChange={(e) =>
+                      setAgentSettings((prev) => ({
+                        ...prev,
+                        auto_sync_collections_time: e.target.value,
+                      }))
+                    }
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Ora la care se vor sincroniza automat încasările din ziua respectivă
+                  </p>
+                </div>
+              )}
             </div>
 
             <Button

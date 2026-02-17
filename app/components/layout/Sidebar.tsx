@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { FileText, Database, Home, X, Settings, LogOut } from "lucide-react";
+import { FileText, Database, Home, X, Settings, LogOut, Receipt, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/contexts/AuthContext";
@@ -19,6 +19,18 @@ const navItems = [
     href: "/invoices",
     label: "Facturi",
     icon: FileText,
+    requiresAdmin: false,
+  },
+  {
+    href: "/collections",
+    label: "Chitanțe",
+    icon: Receipt,
+    requiresAdmin: false,
+  },
+  {
+    href: "/reports",
+    label: "Rapoarte",
+    icon: BarChart3,
     requiresAdmin: false,
   },
   {
@@ -43,7 +55,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAdmin, isAgent, userRole, logout } = useAuth();
+  const { isAdmin, logout } = useAuth();
 
   const handleNavClick = () => {
     // Close sidebar on mobile when navigating

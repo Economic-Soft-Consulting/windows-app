@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Building2, MapPin, Package, FileText } from "lucide-react";
 import type { PartnerWithLocations, Location, CartItem } from "@/lib/tauri/types";
+import { formatCurrency } from "@/lib/utils";
 
 interface ReviewStepProps {
   partner: PartnerWithLocations;
@@ -22,16 +23,6 @@ interface ReviewStepProps {
   cartItems: CartItem[];
   notes: string;
   onNotesChange: (notes: string) => void;
-}
-
-function formatCurrency(amount: number): string {
-  return (
-    new Intl.NumberFormat("ro-RO", {
-      style: "decimal",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount) + " RON"
-  );
 }
 
 export function ReviewStep({

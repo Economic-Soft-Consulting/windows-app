@@ -20,7 +20,7 @@ impl ApiConfig {
 
     pub fn from_env_or_default() -> Self {
         // Default configuration - can be changed via settings
-        Self::new("10.0.17.1", 8089, None)
+        Self::new("10.200.1.94", 8089, None)
     }
 }
 
@@ -178,6 +178,18 @@ pub struct SediuInfo {
     pub email: Option<String>,
     #[serde(rename = "Inactiv")]
     pub inactiv: Option<String>,
+    #[serde(rename = "Agent")]
+    pub agent: Option<SediuAgentInfo>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SediuAgentInfo {
+    #[serde(rename = "Marca")]
+    pub marca: Option<String>,
+    #[serde(rename = "Nume")]
+    pub nume: Option<String>,
+    #[serde(rename = "Prenume")]
+    pub prenume: Option<String>,
 }
 
 // ==================== ARTICLE API STRUCTURES ====================
@@ -261,12 +273,8 @@ impl ApiClient {
         Self::new(ApiConfig::from_env_or_default())
     }
 
-    // Get all partners (with pagination)
+    // Get partners using GET-only flow (legacy signature kept for compatibility)
     pub async fn get_partners(&self, filter: Option<PartnerFilter>) -> Result<PartnerResponse, String> {
-        let url = format!("{}/\"GetInfoParteneri\"", self.config.base_url);
-        
-        info!("Fetching partners from API: {}", url);
-
         let filter = filter.unwrap_or(PartnerFilter {
             data_referinta: None,
             denumire: None,
@@ -278,25 +286,116 @@ impl ApiClient {
             paginare: None,
         });
 
-        let response = self.client
-            .post(&url)
-            .json(&filter)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to fetch partners: {}", e))?;
+        let mut partners = self.get_partners_full_get().await?;
 
-        if !response.status().is_success() {
-            return Err(format!("API returned error status: {}", response.status()));
+        if let Some(simbol_clasa) = filter.simbol_clasa.as_ref().map(|value| value.trim().to_uppercase()) {
+            if !simbol_clasa.is_empty() {
+                partners.retain(|partner| {
+                    partner.simbol_clasa
+                        .as_ref()
+                        .map(|value| value.trim().to_uppercase() == simbol_clasa)
+                        .unwrap_or(false)
+                });
+            }
         }
 
-        let partner_response: PartnerResponse = response
-            .json()
+        if let Some(marca_agent) = filter.marca_agent.as_ref().map(|value| value.trim().to_string()) {
+            if !marca_agent.is_empty() {
+                partners.retain(|partner| {
+                    partner.sedii.iter().any(|sediu| {
+                        sediu.agent
+                            .as_ref()
+                            .and_then(|agent| agent.marca.as_ref())
+                            .map(|marca| marca.trim() == marca_agent)
+                            .unwrap_or(false)
+                    })
+                });
+            }
+        }
+
+        if let Some(denumire) = filter.denumire.as_ref().map(|value| value.trim().to_uppercase()) {
+            if !denumire.is_empty() {
+                partners.retain(|partner| partner.denumire.to_uppercase().contains(&denumire));
+            }
+        }
+
+        let total = partners.len();
+        let (page, per_page) = filter
+            .paginare
+            .as_ref()
+            .map(|p| {
+                let page = p
+                    .pagina
+                    .as_deref()
+                    .unwrap_or("1")
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|v| *v > 0)
+                    .unwrap_or(1);
+                let per_page = p
+                    .inregistrari
+                    .as_deref()
+                    .unwrap_or("100")
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|v| *v > 0)
+                    .unwrap_or(100);
+                (page, per_page)
+            })
+            .unwrap_or((1, total.max(1)));
+
+        let start = (page - 1) * per_page;
+        let paged_partners = if start < total {
+            partners.into_iter().skip(start).take(per_page).collect()
+        } else {
+            Vec::new()
+        };
+
+        let total_pages = if total == 0 { 0 } else { ((total as f64) / (per_page as f64)).ceil() as usize };
+
+        Ok(PartnerResponse {
+            result: Some("OK".to_string()),
+            info_parteneri: paged_partners,
+            paginare: Some(Pagination {
+                pagina: Some(page.to_string()),
+                inregistrari: Some(per_page.to_string()),
+                total_pagini: Some(total_pages.to_string()),
+            }),
+        })
+    }
+
+    // Get full partners list via GET (no filter body)
+    pub async fn get_partners_full_get(&self) -> Result<Vec<PartnerInfo>, String> {
+        let url = format!("{}/GetInfoParteneri", self.config.base_url);
+
+        info!("Fetching full partners list via GET from API: {}", url);
+
+        let response = self.client
+            .get(&url)
+            .send()
             .await
-            .map_err(|e| format!("Failed to parse partner response: {}", e))?;
+            .map_err(|e| format!("Failed to fetch full partners list (GET): {}", e))?;
 
-        info!("Successfully fetched {} partners", partner_response.info_parteneri.len());
+        if !response.status().is_success() {
+            return Err(format!("API returned error status for GET partners: {}", response.status()));
+        }
 
-        Ok(partner_response)
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read GET partners response body: {}", e))?;
+
+        if let Ok(parsed) = serde_json::from_str::<PartnerResponse>(&body) {
+            info!("Successfully fetched {} partners via GET (wrapped response)", parsed.info_parteneri.len());
+            return Ok(parsed.info_parteneri);
+        }
+
+        if let Ok(parsed) = serde_json::from_str::<Vec<PartnerInfo>>(&body) {
+            info!("Successfully fetched {} partners via GET (array response)", parsed.len());
+            return Ok(parsed);
+        }
+
+        Err("Failed to parse GET partners response".to_string())
     }
 
     // Get all articles (with pagination)
@@ -337,78 +436,26 @@ impl ApiClient {
         Ok(article_response)
     }
 
-    // Fetch all partners with automatic pagination
-    pub async fn get_all_partners(&self) -> Result<Vec<PartnerInfo>, String> {
-        let mut all_partners = Vec::new();
-        let mut page = 1;
-        let per_page = 100;
+    // Fetch all partners using GET-only flow
+    pub async fn get_all_partners(&self, marca_agent: Option<String>) -> Result<Vec<PartnerInfo>, String> {
+        let mut partners = self.get_partners_full_get().await?;
 
-        loop {
-            let filter = PartnerFilter {
-                data_referinta: None,
-                denumire: None,
-                telefon: None,
-                marca_agent: None,
-                cod_fiscal: None,
-                email: None,
-                simbol_clasa: Some("AGENTI".to_string()),
-                paginare: Some(Pagination {
-                    pagina: Some(page.to_string()),
-                    inregistrari: Some(per_page.to_string()),
-                    total_pagini: None,
-                }),
-            };
-
-            match self.get_partners(Some(filter)).await {
-                Ok(response) => {
-                    let count = response.info_parteneri.len();
-                    
-                    if count == 0 {
-                        info!("No more partners to fetch on page {}", page);
-                        break;
-                    }
-                    
-                    all_partners.extend(response.info_parteneri);
-
-                    info!("Fetched page {} with {} partners (total so far: {})", page, count, all_partners.len());
-
-                    // Check pagination info from response
-                    let should_continue = if let Some(paginare) = &response.paginare {
-                        info!("Pagination info: {:?}", paginare);
-                        
-                        if let Some(total_pages_str) = &paginare.total_pagini {
-                            if let Ok(total_pages) = total_pages_str.parse::<i32>() {
-                                info!("Total pages from API: {}, current page: {}", total_pages, page);
-                                page < total_pages
-                            } else {
-                                // Can't parse total_pages, continue if we got results
-                                count > 0
-                            }
-                        } else {
-                            // No total_pages info, continue if we got results
-                            count > 0
-                        }
-                    } else {
-                        // No pagination info, continue if we got results
-                        count > 0
-                    };
-
-                    if !should_continue {
-                        info!("Stopping pagination: reached last page or no pagination info");
-                        break;
-                    }
-
-                    page += 1;
-                }
-                Err(e) => {
-                    error!("Failed to fetch partners page {}: {}", page, e);
-                    return Err(e);
-                }
+        if let Some(marca) = marca_agent.as_ref().map(|value| value.trim().to_string()) {
+            if !marca.is_empty() {
+                partners.retain(|partner| {
+                    partner.sedii.iter().any(|sediu| {
+                        sediu.agent
+                            .as_ref()
+                            .and_then(|agent| agent.marca.as_ref())
+                            .map(|agent_marca| agent_marca.trim() == marca)
+                            .unwrap_or(false)
+                    })
+                });
             }
         }
 
-        info!("✅ Total partners fetched: {}", all_partners.len());
-        Ok(all_partners)
+        info!("✅ Total partners fetched via GET: {}", partners.len());
+        Ok(partners)
     }
 
     // Fetch all articles with automatic pagination
@@ -497,9 +544,54 @@ pub fn parse_bool(s: &Option<String>) -> bool {
 // Helper function to parse string number
 #[allow(dead_code)]
 pub fn parse_f64(s: &Option<String>) -> f64 {
-    s.as_ref()
-        .and_then(|val| val.parse::<f64>().ok())
-        .unwrap_or(0.0)
+    let Some(raw) = s.as_ref() else {
+        return 0.0;
+    };
+
+    let mut value = raw.trim().replace(' ', "");
+    if value.is_empty() {
+        return 0.0;
+    }
+
+    // Handle locale formats safely:
+    // - 1.234,56 -> 1234.56
+    // - 1,234.56 -> 1234.56
+    // - 123,45   -> 123.45
+    let has_comma = value.contains(',');
+    let has_dot = value.contains('.');
+
+    if has_comma && has_dot {
+        let last_comma = value.rfind(',').unwrap_or(0);
+        let last_dot = value.rfind('.').unwrap_or(0);
+        if last_comma > last_dot {
+            value = value.replace('.', "");
+            value = value.replace(',', ".");
+        } else {
+            value = value.replace(',', "");
+        }
+    } else if has_comma {
+        value = value.replace(',', ".");
+    }
+
+    value.parse::<f64>().unwrap_or(0.0)
+}
+
+#[derive(Debug, Serialize)]
+struct SolduriPaginationRequest {
+    #[serde(rename = "Pagina")]
+    pub pagina: i32,
+    #[serde(rename = "Inregistrari")]
+    pub inregistrari: i32,
+}
+
+#[derive(Debug, Serialize)]
+struct SolduriFilterRequest {
+    #[serde(rename = "IDPartener", skip_serializing_if = "Option::is_none")]
+    pub id_partener: Option<String>,
+    #[serde(rename = "MarcaAgent", skip_serializing_if = "Option::is_none")]
+    pub marca_agent: Option<String>,
+    #[serde(rename = "Paginare", skip_serializing_if = "Option::is_none")]
+    pub paginare: Option<SolduriPaginationRequest>,
 }
 
 // ==================== WME INVOICE STRUCTURES ====================
@@ -607,6 +699,12 @@ pub struct WmeInvoiceItem {
     pub um: Option<String>,
     #[serde(rename = "Gestiune", skip_serializing_if = "Option::is_none")]
     pub gestiune: Option<String>,
+    #[serde(rename = "TipContabil", skip_serializing_if = "Option::is_none")]
+    pub tip_contabil: Option<String>,
+    #[serde(rename = "PretInreg")]
+    pub pret_inreg: f64,
+    #[serde(rename = "PretAchiz")]
+    pub pret_achiz: f64,
     #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
     pub observatii: Option<String>,
     #[serde(rename = "TVA", skip_serializing_if = "Option::is_none")]
@@ -615,20 +713,16 @@ pub struct WmeInvoiceItem {
 
 #[derive(Debug, Serialize)]
 pub struct WmeDocument {
-    #[serde(rename = "TipDocument")]
-    pub tip_document: String,
-    #[serde(rename = "SimbolGestiune")]
-    pub simbol_gestiune: String,
-    #[serde(rename = "NumeGestiune")]
-    pub nume_gestiune: String,
     #[serde(rename = "NumerotareAutomata", skip_serializing_if = "Option::is_none")]
     pub numerotare_automata: Option<WmeNumerotareAutomata>,
-    #[serde(rename = "SerieDocument", skip_serializing_if = "Option::is_none")]
-    pub serie_document: Option<String>,
+    #[serde(rename = "TipDocument", skip_serializing_if = "Option::is_none")]
+    pub tip_document: Option<String>,
     #[serde(rename = "NrDoc", skip_serializing_if = "Option::is_none")]
     pub numar_document: Option<String>,
     #[serde(rename = "SimbolCarnet", skip_serializing_if = "Option::is_none")]
     pub simbol_carnet: Option<String>,
+    #[serde(rename = "NrLivr", skip_serializing_if = "Option::is_none")]
+    pub nr_livr: Option<String>,
     #[serde(rename = "SimbolCarnetLivr", skip_serializing_if = "Option::is_none")]
     pub simbol_carnet_livr: Option<String>,
     #[serde(rename = "SimbolGestiuneLivrare", skip_serializing_if = "Option::is_none")]
@@ -637,12 +731,38 @@ pub struct WmeDocument {
     pub data: Option<String>,
     #[serde(rename = "DataLivr", skip_serializing_if = "Option::is_none")]
     pub data_livr: Option<String>,
+    #[serde(rename = "Operatie", skip_serializing_if = "Option::is_none")]
+    pub operatie: Option<String>,
+    #[serde(rename = "Anulat", skip_serializing_if = "Option::is_none")]
+    pub anulat: Option<String>,
+    #[serde(rename = "Listat", skip_serializing_if = "Option::is_none")]
+    pub listat: Option<String>,
     #[serde(rename = "CodClient", skip_serializing_if = "Option::is_none")]
     pub cod_client: Option<String>,
     #[serde(rename = "IDSediu", skip_serializing_if = "Option::is_none")]
     pub id_sediu: Option<String>,
+    #[serde(rename = "Locatie", skip_serializing_if = "Option::is_none")]
+    pub locatie: Option<String>,
     #[serde(rename = "Agent", skip_serializing_if = "Option::is_none")]
     pub agent: Option<String>,
+    #[serde(rename = "TipTVA", skip_serializing_if = "Option::is_none")]
+    pub tip_tva: Option<String>,
+    #[serde(rename = "TipTranzactie", skip_serializing_if = "Option::is_none")]
+    pub tip_tranzactie: Option<String>,
+    #[serde(rename = "FacturaSimplificata", skip_serializing_if = "Option::is_none")]
+    pub factura_simplificata: Option<String>,
+    #[serde(rename = "Moneda", skip_serializing_if = "Option::is_none")]
+    pub moneda: Option<String>,
+    #[serde(rename = "Curs", skip_serializing_if = "Option::is_none")]
+    pub curs: Option<String>,
+    #[serde(rename = "Operat", skip_serializing_if = "Option::is_none")]
+    pub operat: Option<String>,
+    #[serde(rename = "CodDelegat", skip_serializing_if = "Option::is_none")]
+    pub cod_delegat: Option<String>,
+    #[serde(rename = "EmisaDe", skip_serializing_if = "Option::is_none")]
+    pub emisa_de: Option<String>,
+    #[serde(rename = "Scadenta", skip_serializing_if = "Option::is_none")]
+    pub scadenta: Option<String>,
     #[serde(rename = "Observatii", skip_serializing_if = "Option::is_none")]
     pub observatii: Option<String>,
     #[serde(rename = "Items", skip_serializing_if = "Option::is_none")]
@@ -661,14 +781,6 @@ pub struct WmeNumerotareAutomata {
 
 #[derive(Debug, Serialize)]
 pub struct WmeInvoiceRequest {
-    #[serde(rename = "CodPartener")]
-    pub cod_partener: String,
-    #[serde(rename = "CodSediu", skip_serializing_if = "Option::is_none")]
-    pub cod_sediu: Option<String>,
-    #[serde(rename = "NumeDelegate")]
-    pub nume_delegate: String,
-    #[serde(rename = "ActDelegate")]
-    pub act_delegate: String,
     #[serde(rename = "TipDocument", skip_serializing_if = "Option::is_none")]
     pub tip_document: Option<String>,
     #[serde(rename = "AnLucru", skip_serializing_if = "Option::is_none")]
@@ -679,8 +791,6 @@ pub struct WmeInvoiceRequest {
     pub cod_subunitate: Option<String>,
     #[serde(rename = "Documente")]
     pub documente: Vec<WmeDocument>,
-    #[serde(rename = "Articole")]
-    pub articole: Vec<WmeInvoiceItem>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -704,6 +814,163 @@ pub struct WmeDocumentImport {
     pub operat: Option<String>,
     #[serde(rename = "CodIes")]
     pub cod_ies: Option<String>,
+}
+
+// ==================== SOLDURI (CLIENT BALANCES) STRUCTURES ====================
+
+#[derive(Debug, Serialize)]
+pub struct SolduriFilter {
+    #[serde(rename = "IDPartener", skip_serializing_if = "Option::is_none")]
+    pub id_partener: Option<String>,
+    #[serde(rename = "MarcaAgent", skip_serializing_if = "Option::is_none")]
+    pub marca_agent: Option<String>,
+    #[serde(rename = "Paginare", skip_serializing_if = "Option::is_none")]
+    pub paginare: Option<Pagination>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SolduriResponse {
+    #[serde(rename = "result")]
+    pub result: Option<String>,
+    #[serde(rename = "Paginare")]
+    pub paginare: Option<Pagination>,
+    #[serde(rename = "InfoSolduri")]
+    #[serde(default)]
+    pub info_solduri: Vec<SoldInfo>,
+    #[serde(rename = "ErrorList")]
+    #[serde(default)]
+    pub error_list: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SoldInfo {
+    #[serde(rename = "IDPartener")]
+    pub id_partener: Option<String>,
+    #[serde(rename = "CodFiscal")]
+    pub cod_fiscal: Option<String>,
+    #[serde(rename = "Denumire")]
+    pub denumire: Option<String>,
+    #[serde(rename = "TipDocument")]
+    pub tip_document: Option<String>,
+    #[serde(rename = "Subunitatea")]
+    pub subunitatea: Option<String>,
+    #[serde(rename = "CodSubunitate")]
+    pub cod_subunitate: Option<String>,
+    #[serde(rename = "CodDocument")]
+    pub cod_document: Option<String>,
+    #[serde(rename = "Serie")]
+    pub serie: Option<String>,
+    #[serde(rename = "Numar")]
+    pub numar: Option<String>,
+    #[serde(rename = "Data")]
+    pub data: Option<String>,
+    #[serde(rename = "Valoare")]
+    pub valoare: Option<String>,
+    #[serde(rename = "Rest")]
+    pub rest: Option<String>,
+    #[serde(rename = "Termen")]
+    pub termen: Option<String>,
+    #[serde(rename = "Moneda")]
+    pub moneda: Option<String>,
+    #[serde(rename = "Sediu")]
+    pub sediu: Option<String>,
+    #[serde(rename = "IDSediu")]
+    pub id_sediu: Option<String>,
+    #[serde(rename = "Curs")]
+    pub curs: Option<String>,
+    #[serde(rename = "Observatii")]
+    pub observatii: Option<String>,
+    #[serde(rename = "CodObligatie")]
+    pub cod_obligatie: Option<String>,
+    #[serde(rename = "MarcaAgent")]
+    pub marca_agent: Option<String>,
+}
+
+// ==================== CASA/BANCA STRUCTURES ====================
+
+#[derive(Debug, Serialize)]
+pub struct CasaBancaRequest {
+    #[serde(rename = "AnLucru")]
+    pub an_lucru: i32,
+    #[serde(rename = "LunaLucru")]
+    pub luna_lucru: i32,
+    #[serde(rename = "CodSubunitate", skip_serializing_if = "Option::is_none")]
+    pub cod_subunitate: Option<i32>,
+    #[serde(rename = "Documente")]
+    pub documente: Vec<CasaBancaDocument>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CasaBancaDocument {
+    #[serde(rename = "Sursa")]
+    pub sursa: String,
+    #[serde(rename = "NumeCasa")]
+    pub nume_casa: String,
+    #[serde(rename = "NumarCont")]
+    pub numar_cont: String,
+    #[serde(rename = "Data")]
+    pub data: String,
+    #[serde(rename = "Agent")]
+    pub agent: String,
+    #[serde(rename = "Moneda")]
+    pub moneda: String,
+    #[serde(rename = "DocumentCumulativ")]
+    pub document_cumulativ: String,
+    #[serde(rename = "Tranzactii")]
+    pub tranzactii: Vec<CasaBancaTranzactie>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CasaBancaTranzactie {
+    #[serde(rename = "TipTranzactie")]
+    pub tip_tranzactie: String,
+    #[serde(rename = "DiferentaPeAvans")]
+    pub diferenta_pe_avans: String,
+    #[serde(rename = "TipDoc")]
+    pub tip_doc: String,
+    #[serde(rename = "SerieDoc")]
+    pub serie_doc: String,
+    #[serde(rename = "NrDoc")]
+    pub nr_doc: String,
+    #[serde(rename = "ObiectTranzactie")]
+    pub obiect_tranzactie: String,
+    #[serde(rename = "Data")]
+    pub data: String,
+    #[serde(rename = "Curs")]
+    pub curs: f64,
+    #[serde(rename = "IDPartener")]
+    pub id_partener: String,
+    #[serde(rename = "Valoare")]
+    pub valoare: f64,
+    #[serde(rename = "Obs")]
+    pub obs: String,
+    #[serde(rename = "Anulat")]
+    pub anulat: String,
+    #[serde(rename = "DistribuireValoare")]
+    pub distribuire_valoare: Vec<DistribuireValoare>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DistribuireValoare {
+    #[serde(rename = "Reprezinta")]
+    pub reprezinta: String,
+    #[serde(rename = "NumarFactura")]
+    pub numar_factura: String,
+    #[serde(rename = "SerieFactura")]
+    pub serie_factura: String,
+    #[serde(rename = "TermenFactura")]
+    pub termen_factura: String,
+    #[serde(rename = "Valoare")]
+    pub valoare: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CasaBancaResponse {
+    #[serde(rename = "result")]
+    pub result: Option<String>,
+    #[serde(rename = "ErrorList")]
+    #[serde(default)]
+    pub error_list: Vec<String>,
 }
 
 impl ApiClient {
@@ -735,7 +1002,7 @@ impl ApiClient {
     }
 
     // Send invoice to WME
-    pub async fn send_invoice_to_wme(&self, request: WmeInvoiceRequest) -> Result<WmeInvoiceResponse, String> {
+    pub async fn send_invoice_to_wme(&self, mut request: WmeInvoiceRequest) -> Result<WmeInvoiceResponse, String> {
         let url = format!("{}/IesiriClienti", self.config.base_url);
         
         info!("Sending invoice to WME API: {}", url);
@@ -769,4 +1036,124 @@ impl ApiClient {
 
         Ok(wme_response)
     }
+
+    // Get client balances (solduri)
+    pub async fn get_solduri_clienti(&self, filter: SolduriFilterRequest) -> Result<SolduriResponse, String> {
+        let url = format!("{}/\"GetSolduriClienti\"", self.config.base_url);
+        
+        info!("Fetching client balances from API: {}", url);
+
+        let response = self.client
+            .post(&url)
+            .json(&filter)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch balances: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(format!("API returned error status: {}", response.status()));
+        }
+
+        let solduri_response: SolduriResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse balances response: {}", e))?;
+
+        info!("Successfully fetched {} balance records", solduri_response.info_solduri.len());
+
+        Ok(solduri_response)
+    }
+
+    // Fetch all client balances with automatic pagination
+    pub async fn get_all_solduri(&self, marca_agent: Option<String>) -> Result<Vec<SoldInfo>, String> {
+        let mut all_solduri = Vec::new();
+        let mut page = 1;
+        let per_page = 100;
+
+        loop {
+            let filter = SolduriFilterRequest {
+                id_partener: None,
+                marca_agent: marca_agent.clone(),
+                paginare: Some(SolduriPaginationRequest {
+                    pagina: page,
+                    inregistrari: per_page,
+                }),
+            };
+
+            match self.get_solduri_clienti(filter).await {
+                Ok(response) => {
+                    let count = response.info_solduri.len();
+
+                    if count == 0 {
+                        info!("No more balance records on page {}", page);
+                        break;
+                    }
+
+                    all_solduri.extend(response.info_solduri);
+                    info!("Fetched page {} with {} balance records (total so far: {})", page, count, all_solduri.len());
+
+                    let should_continue = if let Some(paginare) = &response.paginare {
+                        if let Some(total_pages_str) = &paginare.total_pagini {
+                            if let Ok(total_pages) = total_pages_str.parse::<i32>() {
+                                page < total_pages
+                            } else {
+                                count > 0
+                            }
+                        } else {
+                            count > 0
+                        }
+                    } else {
+                        count > 0
+                    };
+
+                    if !should_continue {
+                        break;
+                    }
+
+                    page += 1;
+                }
+                Err(e) => {
+                    error!("Failed to fetch balances page {}: {}", page, e);
+                    return Err(e);
+                }
+            }
+        }
+
+        info!("✅ Total balance records fetched: {}", all_solduri.len());
+        Ok(all_solduri)
+    }
+
+    // Send collections to WME via CasaBanca
+    pub async fn send_collections_to_wme(&self, request: CasaBancaRequest) -> Result<CasaBancaResponse, String> {
+        let url = format!("{}/CasaBanca", self.config.base_url);
+        
+        info!("Sending collections to WME via CasaBanca: {}", url);
+
+        if let Ok(json_body) = serde_json::to_string_pretty(&request) {
+            info!("CasaBanca Request Payload:\n{}", json_body);
+        }
+
+        let response = self.client
+            .post(&url)
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to send collections: {}", e))?;
+
+        let status = response.status();
+        let body = response.text().await.map_err(|e| format!("Failed to read response body: {}", e))?;
+
+        info!("CasaBanca Response Status: {}", status);
+        info!("CasaBanca Response Body: {}", body);
+
+        if !status.is_success() {
+            return Err(format!("CasaBanca API error: {}. Body: {}", status, body));
+        }
+
+        let casa_response: CasaBancaResponse = serde_json::from_str(&body)
+            .map_err(|e| format!("Failed to parse CasaBanca response: {}", e))?;
+
+        Ok(casa_response)
+    }
 }
+

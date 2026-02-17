@@ -95,7 +95,15 @@ export function useInvoices(statusFilter?: InvoiceStatus) {
     return () => clearInterval(intervalId);
   }, [invoices, refresh]);
 
-  return { invoices, isLoading, error, refresh, send, remove };
+  // Calculate counts by status
+  const counts = {
+    all: invoices.length,
+    pending: invoices.filter((i) => i.status === "pending").length,
+    sent: invoices.filter((i) => i.status === "sent").length,
+    failed: invoices.filter((i) => i.status === "failed").length,
+  };
+
+  return { invoices, isLoading, error, refresh, send, remove, counts };
 }
 
 export function useInvoiceDetail(invoiceId: string | null) {

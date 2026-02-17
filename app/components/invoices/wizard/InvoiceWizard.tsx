@@ -8,7 +8,7 @@ import { PartnerStep } from "./PartnerStep";
 import { LocationStep } from "./LocationStep";
 import { ProductsStep } from "./ProductsStep";
 import { ReviewStep } from "./ReviewStep";
-import { createInvoice, sendInvoice, printInvoiceToHtml } from "@/lib/tauri/commands";
+import { createInvoice, sendInvoice } from "@/lib/tauri/commands";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -22,6 +22,7 @@ import {
   Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePrintInvoice } from "@/hooks/usePrintInvoice";
 import type {
   PartnerWithLocations,
   Location,
@@ -40,6 +41,7 @@ const steps = [
 
 export function InvoiceWizard() {
   const router = useRouter();
+  const { printInvoice, receiptDialog } = usePrintInvoice();
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -134,14 +136,8 @@ export function InvoiceWizard() {
       const invoice = await createInvoice(request);
       toast.success("Factura a fost creată cu succes!");
 
-      // Print the invoice (non-blocking, don't wait)
-      const selectedPrinter = localStorage.getItem("selectedPrinter");
-      printInvoiceToHtml(invoice.id, selectedPrinter || undefined)
-        .then(() => toast.success("Factura a fost printată!"))
-        .catch((e) => {
-          console.error("Print error:", e);
-          toast.error(`Eroare la printare: ${e}`);
-        });
+      // Print invoice and open receipt flow. Navigate after receipt flow ends.
+      await printInvoice(invoice.id, () => router.push("/invoices"));
 
       // Send invoice with better error handling
       sendInvoice(invoice.id)
@@ -153,17 +149,18 @@ export function InvoiceWizard() {
           }
         })
         .catch((e) => {
-          console.error("Send error:", e);
           const errorMessage = String(e);
-          if (errorMessage.includes("network") || errorMessage.includes("internet") || errorMessage.includes("connection")) {
+          if (
+            errorMessage.includes("network") ||
+            errorMessage.includes("internet") ||
+            errorMessage.includes("connection")
+          ) {
             toast.error("Factura a fost salvată, dar nu a putut fi trimisă din cauza lipsei conexiunii la internet. O poți trimite mai târziu din pagina Facturi.");
           } else {
             toast.error(`Factura a fost salvată, dar nu a putut fi trimisă: ${errorMessage}`);
           }
         });
 
-      // Navigate immediately without waiting for print/send
-      router.push("/invoices");
     } catch (e) {
       const errorMessage = String(e);
       if (errorMessage.includes("network") || errorMessage.includes("internet") || errorMessage.includes("connection")) {
@@ -177,6 +174,7 @@ export function InvoiceWizard() {
   };
 
   return (
+    <>
     <div className="space-y-3">
       {/* Step Indicator with Navigation */}
       <div className="flex items-center justify-between">
@@ -296,5 +294,7 @@ export function InvoiceWizard() {
         </CardContent>
       </Card>
     </div>
+    {receiptDialog}
+    </>
   );
 }

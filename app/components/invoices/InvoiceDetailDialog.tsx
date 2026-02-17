@@ -16,52 +16,18 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { previewInvoiceCertificate } from "@/lib/tauri/commands";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import { useInvoiceDetail } from "@/hooks/useInvoices";
+import { usePrintInvoice } from "@/hooks/usePrintInvoice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Calendar, FileText, Printer } from "lucide-react";
-import { printInvoiceToHtml } from "@/lib/tauri/commands";
-import { toast } from "sonner";
-import { useState } from "react";
+import { MapPin, FileText, Printer } from "lucide-react";
+import { formatCurrency, formatDateTime, formatDate, calculateDueDate } from "@/lib/utils";
 
 interface InvoiceDetailDialogProps {
   invoiceId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("ro-RO", {
-    style: "decimal",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount) + " RON";
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("ro-RO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDateShort(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("ro-RO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function calculateDueDate(createdAt: string, paymentTermDays: number = 7): string {
-  const date = new Date(createdAt);
-  date.setDate(date.getDate() + paymentTermDays);
-  return formatDateShort(date.toISOString());
 }
 
 export function InvoiceDetailDialog({
@@ -70,25 +36,21 @@ export function InvoiceDetailDialog({
   onOpenChange,
 }: InvoiceDetailDialogProps) {
   const { detail, isLoading } = useInvoiceDetail(open ? invoiceId : null);
-  const [isPrinting, setIsPrinting] = useState(false);
+  const { printInvoice, isPrinting, receiptDialog } = usePrintInvoice();
 
-  const handlePrint = async () => {
-    if (!invoiceId) return;
-
-    setIsPrinting(true);
+  const handlePreviewCertificate = async () => {
     try {
-      const selectedPrinter = typeof window !== "undefined" ? localStorage.getItem("selectedPrinter") : null;
-      await printInvoiceToHtml(invoiceId, selectedPrinter || undefined);
-      toast.success("Factura s-a trimis la imprimantă!");
+      if (!invoiceId) return;
+      await previewInvoiceCertificate(invoiceId);
     } catch (error) {
-      console.error("Print error:", error);
-      toast.error("Eroare la imprimare");
-    } finally {
-      setIsPrinting(false);
+      if (typeof window !== "undefined") {
+        console.error("Failed to preview certificate:", error);
+      }
     }
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -116,7 +78,7 @@ export function InvoiceDetailDialog({
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <div className="bg-muted/50 p-2 rounded">
                     <p className="text-xs text-muted-foreground">Data emitere</p>
-                    <p className="text-sm font-medium">{formatDateShort(detail.invoice.created_at)}</p>
+                    <p className="text-sm font-medium">{formatDate(detail.invoice.created_at)}</p>
                   </div>
                   <div className="bg-muted/50 p-2 rounded">
                     <p className="text-xs text-muted-foreground">Data scadență</p>
@@ -227,14 +189,20 @@ export function InvoiceDetailDialog({
             {/* Sent timestamp */}
             {detail.invoice.sent_at && (
               <div className="text-sm text-green-600 dark:text-green-400">
-                Trimisă cu succes: {formatDate(detail.invoice.sent_at)}
+                Trimisă cu succes: {formatDateTime(detail.invoice.sent_at)}
               </div>
             )}
 
             {/* Print Button */}
-            <div className="flex justify-end pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t">
               <Button
-                onClick={handlePrint}
+                onClick={handlePreviewCertificate}
+                variant="outline"
+              >
+                Vezi certificat
+              </Button>
+              <Button
+                onClick={() => invoiceId && printInvoice(invoiceId)}
                 disabled={isPrinting}
                 variant="outline"
                 className="gap-2"
@@ -251,5 +219,7 @@ export function InvoiceDetailDialog({
         )}
       </DialogContent>
     </Dialog>
+    {receiptDialog}
+    </>
   );
 }

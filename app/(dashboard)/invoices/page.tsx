@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InvoiceCard } from "@/app/components/invoices/InvoiceCard";
 import { InvoiceDetailDialog } from "@/app/components/invoices/InvoiceDetailDialog";
 import { useInvoices } from "@/hooks/useInvoices";
+import { usePrintInvoice } from "@/hooks/usePrintInvoice";
 import type { InvoiceStatus } from "@/lib/tauri/types";
 import {
   Table,
@@ -25,59 +26,41 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Eye, Send, MoreHorizontal, Trash2, Printer, XCircle, RotateCcw, Loader2 as Loader2Icon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Eye, Send, MoreHorizontal, Trash2, Printer, XCircle, RotateCcw } from "lucide-react";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { formatCurrency, formatDate, formatTime } from "@/lib/utils";
 
 type TabValue = "all" | InvoiceStatus;
 type ViewMode = "grid" | "table";
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("ro-RO", {
-    style: "decimal",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount) + " RON";
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("ro-RO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleTimeString("ro-RO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export default function InvoicesPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("all");
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
-  const { isAdmin, isAgent } = useAuth(); // Get role status
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const { isAdmin, isAgent } = useAuth();
+  const { printInvoice, receiptDialog } = usePrintInvoice();
 
   const statusFilter = activeTab === "all" ? undefined : activeTab;
   const { invoices: rawInvoices, isLoading, send, remove, refresh } = useInvoices(statusFilter);
+  const { invoices: allRawInvoices } = useInvoices();
 
   // Filter invoices for agent (today only)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const invoices = isAgent
-    ? rawInvoices.filter(inv => {
-      const d = new Date(inv.created_at);
+  const applyAgentTodayFilter = <T extends { created_at: string }>(items: T[]) => {
+    if (!isAgent) return items;
+
+    return items.filter((item) => {
+      const d = new Date(item.created_at);
       d.setHours(0, 0, 0, 0);
       return d.getTime() === today.getTime();
-    })
-    : rawInvoices;
+    });
+  };
+
+  const invoices = applyAgentTodayFilter(rawInvoices);
+  const allInvoicesForCounts = applyAgentTodayFilter(allRawInvoices);
 
   // Listen for auto-send updates
   useEffect(() => {
@@ -109,35 +92,14 @@ export default function InvoicesPage() {
   };
 
   const handlePrint = async (id: string) => {
-    try {
-      const { printInvoiceToHtml } = await import("@/lib/tauri/commands");
-      const { toast } = await import("sonner");
-      const selectedPrinter = typeof window !== "undefined" ? localStorage.getItem("selectedPrinter") : null;
-      await printInvoiceToHtml(id, selectedPrinter || undefined);
-      toast.success("Factura s-a trimis la imprimantă!");
-    } catch (error) {
-      console.error("Print error:", error);
-      const { toast } = await import("sonner");
-      toast.error(`Eroare la imprimare: ${error}`);
-    }
+    await printInvoice(id);
   };
 
-  // Count invoices by status (for badge numbers)
-  const { invoices: allRawInvoices } = useInvoices();
-
-  const allFilteredInvoices = isAgent
-    ? allRawInvoices.filter(inv => {
-      const d = new Date(inv.created_at);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime() === today.getTime();
-    })
-    : allRawInvoices;
-
   const counts = {
-    all: allFilteredInvoices.length,
-    pending: allFilteredInvoices.filter((i) => i.status === "pending").length,
-    sent: allFilteredInvoices.filter((i) => i.status === "sent").length,
-    failed: allFilteredInvoices.filter((i) => i.status === "failed").length,
+    all: allInvoicesForCounts.length,
+    pending: allInvoicesForCounts.filter((i) => i.status === "pending").length,
+    sent: allInvoicesForCounts.filter((i) => i.status === "sent").length,
+    failed: allInvoicesForCounts.filter((i) => i.status === "failed").length,
   };
 
   return (
@@ -361,6 +323,7 @@ export default function InvoicesPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+      {receiptDialog}
     </div>
   );
 }

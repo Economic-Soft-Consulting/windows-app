@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getSyncStatus, syncAllData, checkFirstRun } from "@/lib/tauri/commands";
+import {
+  getSyncStatus,
+  syncAllData,
+  sendAllPendingInvoices,
+  checkFirstRun,
+  syncClientBalances,
+  syncCollections,
+} from "@/lib/tauri/commands";
+import { toast } from "sonner";
 import type { SyncStatus } from "@/lib/tauri/types";
 
 export function useSyncStatus() {
@@ -26,7 +34,17 @@ export function useSyncStatus() {
     // Dispatch event when sync starts
     window.dispatchEvent(new CustomEvent('sync-started'));
     try {
-      const newStatus = await syncAllData();
+      await syncAllData();
+      await sendAllPendingInvoices();
+      try {
+        await syncClientBalances();
+      } catch (balanceError) {
+        console.warn("Sync solduri eșuat, continuăm cu sincronizarea chitanțelor.", balanceError);
+        toast.warning("Soldurile nu au putut fi sincronizate acum. Chitanțele continuă să se sincronizeze.");
+      }
+      await syncCollections();
+
+      const newStatus = await getSyncStatus();
       setStatus(newStatus);
       setIsFirstRun(false);
       // Dispatch event when sync completes

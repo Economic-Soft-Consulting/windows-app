@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
 import { Send, Trash2, Eye, RotateCcw, MapPin, Package, Printer, Loader2, XCircle } from "lucide-react";
 import type { Invoice } from "@/lib/tauri/types";
-import { printInvoiceToHtml, cancelInvoiceSending } from "@/lib/tauri/commands";
+import { cancelInvoiceSending } from "@/lib/tauri/commands";
 import { toast } from "sonner";
+import { usePrintInvoice } from "@/hooks/usePrintInvoice";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,28 +31,9 @@ interface InvoiceCardProps {
   isAdmin?: boolean; // Add admin check
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("ro-RO", {
-    style: "decimal",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount) + " RON";
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("ro-RO", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdmin = true }: InvoiceCardProps) {
-  const [isPrinting, setIsPrinting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const { printInvoice, isPrinting, receiptDialog } = usePrintInvoice();
   const canSend = invoice.status === "pending" || invoice.status === "failed";
   const canDelete = isAdmin && (invoice.status === "pending" || invoice.status === "failed"); // Only admin can delete
   const isSending = invoice.status === "sending";
@@ -70,21 +53,8 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdm
     }
   };
 
-  const handlePrint = async () => {
-    setIsPrinting(true);
-    try {
-      const selectedPrinter = typeof window !== "undefined" ? localStorage.getItem("selectedPrinter") : null;
-      await printInvoiceToHtml(invoice.id, selectedPrinter || undefined);
-      toast.success("Factura s-a trimis la imprimantă!");
-    } catch (error) {
-      console.error("Print error:", error);
-      toast.error(`Eroare la imprimare: ${error}`);
-    } finally {
-      setIsPrinting(false);
-    }
-  };
-
   return (
+    <>
     <Card className="flex flex-col text-sm">
       <CardHeader className="pb-2 pt-3 px-3">
         <div className="space-y-2">
@@ -110,7 +80,7 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdm
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {formatDate(invoice.created_at)}
+            {formatDateTime(invoice.created_at)}
           </div>
 
           {invoice.status === "failed" && invoice.error_message && (
@@ -121,7 +91,7 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdm
 
           {invoice.status === "sent" && invoice.sent_at && (
             <div className="text-xs text-green-600 dark:text-green-400">
-              Trimisă: {formatDate(invoice.sent_at)}
+              Trimisă: {formatDateTime(invoice.sent_at)}
             </div>
           )}
         </div>
@@ -140,7 +110,7 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdm
         <Button
           variant="outline"
           className="h-9 w-9 p-0 flex-shrink-0"
-          onClick={handlePrint}
+          onClick={() => printInvoice(invoice.id)}
           disabled={isPrinting}
           title="Imprimare"
         >
@@ -220,5 +190,7 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdm
         )}
       </CardFooter>
     </Card>
+    {receiptDialog}
+    </>
   );
 }

@@ -8,19 +8,27 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { usePartners } from "@/hooks/usePartners";
 import { useProducts } from "@/hooks/useProducts";
-import { Search, Building2, Package, MapPin, Loader2, Info, Phone, Mail, FileText, CreditCard, Calendar } from "lucide-react";
+import { Search, Building2, Package, MapPin, Loader2, Info, Phone, Mail, FileText, CreditCard, Calendar, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { BarcodeScanner } from "@/app/components/barcode/BarcodeScanner";
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("ro-RO", {
-    style: "decimal",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount) + " RON";
-}
+import { formatCurrency } from "@/lib/utils";
+import { getClientBalances, syncClientBalances, deletePartnersAndLocations } from "@/lib/tauri/commands";
+import type { ClientBalance } from "@/lib/tauri/types";
+import { toast } from "sonner";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 // Helper to display data fields
 const DataField = ({ label, value, className = "" }: { label: string; value: string | number | null | undefined; className?: string }) => {
@@ -34,12 +42,17 @@ const DataField = ({ label, value, className = "" }: { label: string; value: str
 };
 
 export default function DataPage() {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<"partners" | "products">("partners");
   const [partnerSearch, setPartnerSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [locationSearch, setLocationSearch] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [partnerBalances, setPartnerBalances] = useState<ClientBalance[]>([]);
+  const [loadingPartnerBalances, setLoadingPartnerBalances] = useState(false);
+  const [syncingPartnerBalances, setSyncingPartnerBalances] = useState(false);
+  const [deletingPartners, setDeletingPartners] = useState(false);
 
   const { partners, isLoading: partnersLoading, search: searchPartners, refresh: refreshPartners } = usePartners();
   const { products: partnerProducts, isLoading: partnerProductsLoading, search: searchPartnerProducts, refresh: refreshPartnerProducts } = useProducts(selectedPartnerId || undefined);
@@ -67,9 +80,64 @@ export default function DataPage() {
     setLocationSearch("");
   }, [selectedPartnerId]);
 
+  useEffect(() => {
+    if (!isDialogOpen || !selectedPartnerId) {
+      setPartnerBalances([]);
+      return;
+    }
+
+    loadPartnerBalances(selectedPartnerId);
+  }, [isDialogOpen, selectedPartnerId]);
+
+  const loadPartnerBalances = async (partnerId: string) => {
+    setLoadingPartnerBalances(true);
+    try {
+      const data = await getClientBalances(partnerId);
+      setPartnerBalances(data);
+    } catch (error) {
+      console.error("Failed to load partner balances:", error);
+      toast.error("Eroare la încărcarea soldurilor partenerului");
+      setPartnerBalances([]);
+    } finally {
+      setLoadingPartnerBalances(false);
+    }
+  };
+
+  const handleSyncPartnerBalances = async () => {
+    if (!selectedPartnerId) return;
+
+    setSyncingPartnerBalances(true);
+    try {
+      await syncClientBalances();
+      await loadPartnerBalances(selectedPartnerId);
+      toast.success("Solduri actualizate");
+    } catch (error) {
+      console.error("Failed to sync partner balances:", error);
+      toast.error("Eroare la actualizarea soldurilor");
+    } finally {
+      setSyncingPartnerBalances(false);
+    }
+  };
+
   const handlePartnerSearch = (query: string) => {
     setPartnerSearch(query);
     searchPartners(query);
+  };
+
+  const handleDeletePartnersAndLocations = async () => {
+    setDeletingPartners(true);
+    try {
+      const result = await deletePartnersAndLocations();
+      setSelectedPartnerId(null);
+      setIsDialogOpen(false);
+      await refreshPartners();
+      toast.success(result);
+    } catch (error) {
+      console.error("Failed to delete partners/locations:", error);
+      toast.error(`Eroare la ștergere: ${error}`);
+    } finally {
+      setDeletingPartners(false);
+    }
   };
 
   const handleProductSearch = (query: string) => {
@@ -89,6 +157,7 @@ export default function DataPage() {
   }) || [];
 
   const manyProducts = partnerProducts.length >= 12;
+  const totalPartnerBalance = partnerBalances.reduce((sum, balance) => sum + (balance.rest || 0), 0);
 
   // Function to create mailto/tel links safely
   const safeHref = (type: 'tel' | 'mailto', value: string | null | undefined) => {
@@ -120,6 +189,30 @@ export default function DataPage() {
                 {partners.length}
               </span>
             </h2>
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    Șterge parteneri + sedii
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmi ștergerea?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Vor fi șterși doar partenerii și sediile care NU au facturi asociate. Datele legate de facturi rămân protejate de constrângerile bazei de date.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deletingPartners}>Anulează</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeletePartnersAndLocations} disabled={deletingPartners}>
+                      {deletingPartners ? "Se șterge..." : "Șterge"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -301,10 +394,11 @@ export default function DataPage() {
 
           <Tabs defaultValue="info" className="flex-1 flex flex-col overflow-hidden">
             <div className="px-6 py-2 border-b bg-background shrink-0 overflow-x-auto">
-              <TabsList className="w-full sm:w-auto grid grid-cols-3 h-12">
+              <TabsList className="w-full sm:w-auto grid grid-cols-4 h-12">
                 <TabsTrigger value="info" className="gap-2 text-sm"><Info className="h-4 w-4" /> Info General</TabsTrigger>
                 <TabsTrigger value="locations" className="gap-2 text-sm"><MapPin className="h-4 w-4" /> Locații ({selectedPartner?.locations.length || 0})</TabsTrigger>
                 <TabsTrigger value="products" className="gap-2 text-sm"><Package className="h-4 w-4" /> Oferte & Prețuri</TabsTrigger>
+                <TabsTrigger value="balances" className="gap-2 text-sm"><CreditCard className="h-4 w-4" /> Solduri ({partnerBalances.length})</TabsTrigger>
               </TabsList>
             </div>
 
@@ -469,6 +563,81 @@ export default function DataPage() {
                           </Card>
                         ))}
                       </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Tab: Partner balances */}
+                <TabsContent value="balances" className="m-0 space-y-3 pr-4">
+                  <div className="flex items-center justify-between bg-background rounded-lg border p-2">
+                    <div>
+                      <h3 className="text-sm font-semibold">Solduri partener</h3>
+                      <p className="text-xs text-muted-foreground">Sunt afișate doar soldurile pentru partenerul selectat.</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-muted-foreground">Total sold</div>
+                      <div className={`text-sm font-bold ${totalPartnerBalance > 0 ? "text-red-600" : "text-green-600"}`}>
+                        {formatCurrency(totalPartnerBalance)}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSyncPartnerBalances}
+                      disabled={syncingPartnerBalances || loadingPartnerBalances}
+                    >
+                      {syncingPartnerBalances ? <Loader2 className="h-4 w-4 animate-spin" /> : "Actualizează"}
+                    </Button>
+                  </div>
+
+                  {loadingPartnerBalances ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : partnerBalances.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center bg-background rounded-lg border border-dashed">
+                      <CreditCard className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                      <h3 className="text-base font-medium">Nu există solduri pentru acest partener</h3>
+                      <p className="text-sm text-muted-foreground py-1">
+                        Apasă „Actualizează” pentru a sincroniza soldurile.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      {partnerBalances.map((balance) => (
+                        <Card key={`${balance.id}-${balance.cod_document}-${balance.serie}-${balance.numar}`} className="text-sm">
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="font-medium">
+                                    {balance.tip_document || "Document"} {balance.serie || ""} {balance.numar || ""}
+                                  </div>
+                                  <Badge variant={(balance.rest || 0) <= 0 ? "secondary" : "destructive"} className="text-[10px]">
+                                    {(balance.rest || 0) <= 0 ? "Paid" : "Unpaid"}
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                                  {balance.cod_document && <span>Cod: {balance.cod_document}</span>}
+                                  {balance.data && <span>Data: {balance.data}</span>}
+                                  {balance.termen && <span>Scadență: {balance.termen}</span>}
+                                </div>
+                              </div>
+                              <div className="text-right space-y-0.5">
+                                <div className="text-xs text-muted-foreground">Rest de plată</div>
+                                <div className="text-sm font-bold text-primary">
+                                  {formatCurrency(balance.rest || 0)}
+                                </div>
+                                {balance.valoare !== undefined && balance.valoare !== null && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Valoare: {formatCurrency(balance.valoare)}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
                   )}
                 </TabsContent>

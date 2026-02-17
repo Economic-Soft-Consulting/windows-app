@@ -18,21 +18,12 @@ import {
   Loader2,
 } from "lucide-react";
 import type { Product, CartItem } from "@/lib/tauri/types";
+import { formatCurrency } from "@/lib/utils";
 
 interface ProductsStepProps {
   cartItems: CartItem[];
   onUpdateCart: (items: CartItem[]) => void;
   partnerId?: string;
-}
-
-function formatCurrency(amount: number): string {
-  return (
-    new Intl.NumberFormat("ro-RO", {
-      style: "decimal",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount) + " RON"
-  );
 }
 
 export function ProductsStep({ cartItems, onUpdateCart, partnerId }: ProductsStepProps) {

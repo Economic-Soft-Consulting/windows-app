@@ -197,10 +197,151 @@ pub struct AgentSettings {
     pub carnet_series: Option<String>,
     pub simbol_carnet_livr: Option<String>,
     pub simbol_gestiune_livrare: Option<String>,
+    pub tip_contabil: Option<String>,
     pub cod_carnet: Option<String>,
     pub cod_carnet_livr: Option<String>,
+    pub cod_delegat: Option<String>,
     pub delegate_name: Option<String>,
-    pub delegate_act: Option<String>,    pub car_number: Option<String>,    pub invoice_number_start: Option<i32>,
+    pub delegate_act: Option<String>,
+    pub car_number: Option<String>,
+    pub invoice_number_start: Option<i32>,
     pub invoice_number_end: Option<i32>,
     pub invoice_number_current: Option<i32>,
+    pub marca_agent: Option<String>,
+    pub nume_casa: Option<String>,
+    pub auto_sync_collections_enabled: Option<bool>,
+    pub auto_sync_collections_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientBalance {
+    pub id: Option<i64>,
+    pub id_partener: String,
+    pub cod_fiscal: Option<String>,
+    pub denumire: Option<String>,
+    pub tip_document: Option<String>,
+    pub cod_document: Option<String>,
+    pub serie: Option<String>,
+    pub numar: Option<String>,
+    pub data: Option<String>,
+    pub valoare: Option<f64>,
+    pub rest: Option<f64>,
+    pub termen: Option<String>,
+    pub moneda: Option<String>,
+    pub sediu: Option<String>,
+    pub id_sediu: Option<String>,
+    pub curs: Option<f64>,
+    pub observatii: Option<String>,
+    pub cod_obligatie: Option<String>,
+    pub marca_agent: Option<String>,
+    pub synced_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum CollectionStatus {
+    Pending,
+    Sending,
+    Synced,
+    Failed,
+}
+
+impl ToString for CollectionStatus {
+    fn to_string(&self) -> String {
+        match self {
+            CollectionStatus::Pending => "pending".to_string(),
+            CollectionStatus::Sending => "sending".to_string(),
+            CollectionStatus::Synced => "synced".to_string(),
+            CollectionStatus::Failed => "failed".to_string(),
+        }
+    }
+}
+
+impl From<String> for CollectionStatus {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "pending" => CollectionStatus::Pending,
+            "sending" => CollectionStatus::Sending,
+            "synced" => CollectionStatus::Synced,
+            "failed" => CollectionStatus::Failed,
+            _ => CollectionStatus::Pending,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Collection {
+    pub id: String,
+    pub id_partener: String,
+    pub partner_name: Option<String>,
+    pub numar_factura: Option<String>,
+    pub serie_factura: Option<String>,
+    pub cod_document: Option<String>,
+    pub valoare: f64,
+    pub data_incasare: String,
+    pub status: CollectionStatus,
+    pub synced_at: Option<String>,
+    pub error_message: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionAllocationRequest {
+    pub serie_factura: Option<String>,
+    pub numar_factura: Option<String>,
+    pub cod_document: Option<String>,
+    pub valoare: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCollectionGroupRequest {
+    pub id_partener: String,
+    pub partner_name: Option<String>,
+    pub allocations: Vec<CollectionAllocationRequest>,
+}
+
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SalesReportItem {
+    pub partner_name: String,
+    pub invoice_count: i64,
+    pub total_amount: f64,
+    pub total_vat: f64,
+    pub total_quantity: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SalesPrintItem {
+    pub partner_name: String,
+    pub invoice_number: i64,
+    pub invoice_series: String,
+    pub total_quantity: f64,
+    pub total_cofrage: f64,
+    pub total_without_vat: f64,
+    pub total_with_vat: f64,
+    pub payment_section: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SalesProductReportItem {
+    pub product_id: String,
+    pub product_name: String,
+    pub product_class: Option<String>,
+    pub partner_name: String,
+    pub invoice_number: i64,
+    pub invoice_series: String,
+    pub total_quantity: f64,
+    pub total_cofrage: f64,
+    pub total_without_vat: f64,
+    pub total_with_vat: f64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionsReportItem {
+    pub partner_name: String,
+    pub collection_count: i64,
+    pub total_amount: f64,
+    pub status: String,
 }

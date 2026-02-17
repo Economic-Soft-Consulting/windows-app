@@ -1,0 +1,58 @@
+    Checking app v0.7.5 (F:\Proiecteprogramare\Karin-aplicatie\src-tauri)
+warning: unused import: `crate::mock_api`
+ --> src\commands.rs:2:5
+  |
+2 | use crate::mock_api;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `error`
+ --> src\commands.rs:7:23
+  |
+7 | use log::{info, warn, error};
+  |                       ^^^^^
+
+error[E0599]: no method named `get_client_balances` found for struct `ApiClient` in the current scope
+    --> src\commands.rs:2424:24
+     |
+2424 |     let balances = api.get_client_balances(marca_agent.clone()).await.map_err(|e: String| e)?;
+     |                        ^^^^^^^^^^^^^^^^^^^ method not found in `ApiClient`
+     |
+    ::: src\api_client.rs:245:1
+     |
+ 245 | pub struct ApiClient {
+     | -------------------- method `get_client_balances` not found for this struct
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:2424:20
+     |
+2424 |     let balances = api.get_client_balances(marca_agent.clone()).await.map_err(|e: String| e)?;
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0599]: no method named `send_collection` found for struct `ApiClient` in the current scope
+    --> src\commands.rs:2627:19
+     |
+2627 |         match api.send_collection(&collection).await {
+     |                   ^^^^^^^^^^^^^^^
+     |
+    ::: src\api_client.rs:245:1
+     |
+ 245 | pub struct ApiClient {
+     | -------------------- method `send_collection` not found for this struct
+     |
+help: there is a method `send_collections_to_wme` with a similar name
+     |
+2627 |         match api.send_collections_to_wme(&collection).await {
+     |                                  ++++++++
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:2641:29
+     |
+2641 |                     params![e.to_string(), collection.id]
+     |                             ^ cannot infer type
+
+Some errors have detailed explanations: E0282, E0599.
+For more information about an error, try `rustc --explain E0282`.
+warning: `app` (lib) generated 2 warnings
+error: could not compile `app` (lib) due to 4 previous errors; 2 warnings emitted

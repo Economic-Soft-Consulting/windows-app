@@ -286,8 +286,10 @@ const SCHEMA: &str = r#"
         carnet_series TEXT,
         simbol_carnet_livr TEXT,
         simbol_gestiune_livrare TEXT,
+        tip_contabil TEXT DEFAULT 'valoare',
         cod_carnet TEXT,
         cod_carnet_livr TEXT,
+        cod_delegat TEXT,
         delegate_name TEXT,
         delegate_act TEXT,
         updated_at TEXT
@@ -476,6 +478,110 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN car_number TEXT;", []).ok();
         conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (10, ?1)", [&Utc::now().to_rfc3339()])?;
         info!("Migration 10 completed");
+    }
+
+    // Migration 11: Add marca_agent, nume_casa, client_balances, collections (v0.8.0)
+    if current_version < 11 {
+        info!("Applying migration 11: Agent filtering, balances, collections");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN marca_agent TEXT;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN nume_casa TEXT;", []).ok();
+        
+        let _ = conn.execute_batch(r#"
+            CREATE TABLE IF NOT EXISTS client_balances (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id_partener TEXT NOT NULL,
+                cod_fiscal TEXT,
+                denumire TEXT,
+                tip_document TEXT,
+                cod_document TEXT,
+                serie TEXT,
+                numar TEXT,
+                data TEXT,
+                valoare REAL,
+                rest REAL,
+                termen TEXT,
+                moneda TEXT,
+                sediu TEXT,
+                id_sediu TEXT,
+                curs REAL,
+                observatii TEXT,
+                cod_obligatie TEXT,
+                marca_agent TEXT,
+                synced_at TEXT,
+                UNIQUE(id_partener, cod_document, serie, numar)
+            );
+
+            CREATE TABLE IF NOT EXISTS collections (
+                id TEXT PRIMARY KEY,
+                receipt_group_id TEXT,
+                receipt_series TEXT,
+                receipt_number TEXT,
+                id_partener TEXT NOT NULL,
+                partner_name TEXT,
+                numar_factura TEXT,
+                serie_factura TEXT,
+                cod_document TEXT,
+                valoare REAL NOT NULL,
+                data_incasare TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                synced_at TEXT,
+                error_message TEXT,
+                created_at TEXT NOT NULL
+            );
+        "#).ok();
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (11, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 11 completed");
+    }
+
+    // Migration 12: Add auto-sync settings for collections (v0.8.1)
+    if current_version < 12 {
+        info!("Applying migration 12: Add auto-sync settings for collections");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN auto_sync_collections_enabled INTEGER DEFAULT 0;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN auto_sync_collections_time TEXT DEFAULT '23:00';", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (12, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 12 completed");
+    }
+
+    // Migration 13: Add tip_contabil for IesiriClienti items (v0.8.2)
+    if current_version < 13 {
+        info!("Applying migration 13: Add tip_contabil to agent_settings");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN tip_contabil TEXT DEFAULT 'valoare';", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (13, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 13 completed");
+    }
+
+    // Migration 14: Add grouped receipt fields for collections (v0.9.0)
+    if current_version < 14 {
+        info!("Applying migration 14: Add grouped receipt fields to collections");
+        let _ = conn.execute("ALTER TABLE collections ADD COLUMN receipt_group_id TEXT;", []).ok();
+        let _ = conn.execute("ALTER TABLE collections ADD COLUMN receipt_series TEXT;", []).ok();
+        let _ = conn.execute("ALTER TABLE collections ADD COLUMN receipt_number TEXT;", []).ok();
+
+        let _ = conn.execute(
+            "UPDATE collections SET receipt_group_id = id WHERE receipt_group_id IS NULL OR TRIM(receipt_group_id) = ''",
+            [],
+        ).ok();
+
+        let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collections_receipt_group ON collections(receipt_group_id)",
+            [],
+        ).ok();
+        let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collections_receipt_number ON collections(receipt_series, receipt_number)",
+            [],
+        ).ok();
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (14, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 14 completed");
+    }
+
+    // Migration 15: Add cod_delegat to agent_settings (v0.9.1)
+    if current_version < 15 {
+        info!("Applying migration 15: Add cod_delegat to agent_settings");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN cod_delegat TEXT;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (15, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 15 completed");
     }
 
     info!("All migrations completed successfully");

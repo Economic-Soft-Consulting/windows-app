@@ -1,0 +1,528 @@
+    Checking app v0.7.5 (F:\Proiecteprogramare\Karin-aplicatie\src-tauri)
+error[E0428]: the name `sync_client_balances` is defined multiple times
+    --> src\commands.rs:2761:1
+     |
+2412 | / pub async fn sync_client_balances(
+2413 | |     app: tauri::AppHandle,
+2414 | |     db: State<'_, Database>,
+2415 | | ) -> Result<String, String> {
+...    |
+2478 | |     Ok(format!("Synced client balances"))
+2479 | | }
+     | |_- previous definition of the value `sync_client_balances` here
+...
+2761 | / pub async fn sync_client_balances(
+2762 | |     app: tauri::AppHandle,
+2763 | |     db: State<'_, Database>,
+2764 | | ) -> Result<String, String> {
+...    |
+2820 | |     Ok(format!("Synced {} client balances", solduri.len()))
+2821 | | }
+     | |_^ `sync_client_balances` redefined here
+     |
+     = note: `sync_client_balances` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `__cmd__sync_client_balances` is defined multiple times
+    --> src\commands.rs:2760:1
+     |
+2411 | #[tauri::command]
+     | ----------------- previous definition of the macro `__cmd__sync_client_balances` here
+...
+2760 | #[tauri::command]
+     | ^^^^^^^^^^^^^^^^^ `__cmd__sync_client_balances` redefined here
+     |
+     = note: `__cmd__sync_client_balances` must be defined only once in the macro namespace of this module
+     = note: this error originates in the attribute macro `tauri::command` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0428]: the name `get_client_balances` is defined multiple times
+    --> src\commands.rs:2824:1
+     |
+2482 | / pub fn get_client_balances(
+2483 | |     db: State<'_, Database>,
+2484 | |     partner_id: Option<String>,
+2485 | | ) -> Result<Vec<ClientBalance>, String> {
+...    |
+2533 | |     Ok(result)
+2534 | | }
+     | |_- previous definition of the value `get_client_balances` here
+...
+2824 | / pub fn get_client_balances(
+2825 | |     db: State<'_, Database>,
+2826 | |     partner_id: Option<String>,
+2827 | | ) -> Result<Vec<ClientBalance>, String> {
+...    |
+2875 | |     Ok(result)
+2876 | | }
+     | |_^ `get_client_balances` redefined here
+     |
+     = note: `get_client_balances` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `__cmd__get_client_balances` is defined multiple times
+    --> src\commands.rs:2823:1
+     |
+2481 | #[tauri::command]
+     | ----------------- previous definition of the macro `__cmd__get_client_balances` here
+...
+2823 | #[tauri::command]
+     | ^^^^^^^^^^^^^^^^^ `__cmd__get_client_balances` redefined here
+     |
+     = note: `__cmd__get_client_balances` must be defined only once in the macro namespace of this module
+     = note: this error originates in the attribute macro `tauri::command` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0428]: the name `record_collection` is defined multiple times
+    --> src\commands.rs:2879:1
+     |
+2537 | / pub fn record_collection(
+2538 | |     db: State<'_, Database>,
+2539 | |     collection: Collection,
+2540 | | ) -> Result<String, String> {
+...    |
+2569 | |     Ok(id)
+2570 | | }
+     | |_- previous definition of the value `record_collection` here
+...
+2879 | / pub fn record_collection(
+2880 | |     db: State<'_, Database>,
+2881 | |     collection: Collection,
+2882 | | ) -> Result<String, String> {
+...    |
+2910 | |     Ok(id)
+2911 | | }
+     | |_^ `record_collection` redefined here
+     |
+     = note: `record_collection` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `__cmd__record_collection` is defined multiple times
+    --> src\commands.rs:2878:1
+     |
+2536 | #[tauri::command]
+     | ----------------- previous definition of the macro `__cmd__record_collection` here
+...
+2878 | #[tauri::command]
+     | ^^^^^^^^^^^^^^^^^ `__cmd__record_collection` redefined here
+     |
+     = note: `__cmd__record_collection` must be defined only once in the macro namespace of this module
+     = note: this error originates in the attribute macro `tauri::command` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0428]: the name `get_collections` is defined multiple times
+    --> src\commands.rs:2914:1
+     |
+2573 | / pub fn get_collections(
+2574 | |     db: State<'_, Database>,
+2575 | |     status_filter: Option<String>,
+2576 | | ) -> Result<Vec<Collection>, String> {
+...    |
+2618 | |     Ok(result)
+2619 | | }
+     | |_- previous definition of the value `get_collections` here
+...
+2914 | / pub fn get_collections(
+2915 | |     db: State<'_, Database>,
+2916 | |     status_filter: Option<String>,
+2917 | | ) -> Result<Vec<Collection>, String> {
+...    |
+2959 | |     Ok(result)
+2960 | | }
+     | |_^ `get_collections` redefined here
+     |
+     = note: `get_collections` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `__cmd__get_collections` is defined multiple times
+    --> src\commands.rs:2913:1
+     |
+2572 | #[tauri::command]
+     | ----------------- previous definition of the macro `__cmd__get_collections` here
+...
+2913 | #[tauri::command]
+     | ^^^^^^^^^^^^^^^^^ `__cmd__get_collections` redefined here
+     |
+     = note: `__cmd__get_collections` must be defined only once in the macro namespace of this module
+     = note: this error originates in the attribute macro `tauri::command` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0428]: the name `sync_collections` is defined multiple times
+    --> src\commands.rs:2963:1
+     |
+2622 | / pub async fn sync_collections(
+2623 | |     db: State<'_, Database>,
+2624 | | ) -> Result<SyncStatus, String> {
+...    |
+2658 | |     get_sync_status(db)
+2659 | | }
+     | |_- previous definition of the value `sync_collections` here
+...
+2963 | / pub async fn sync_collections(
+2964 | |     db: State<'_, Database>,
+2965 | | ) -> Result<SyncStatus, String> {
+2966 | |     let pending_collections = get_collections(db.clone(), Some("pending".to_string()))?;
+...    |
+3062 | |     get_sync_status(db)
+3063 | | }
+     | |_^ `sync_collections` redefined here
+     |
+     = note: `sync_collections` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `__cmd__sync_collections` is defined multiple times
+    --> src\commands.rs:2962:1
+     |
+2621 | #[tauri::command]
+     | ----------------- previous definition of the macro `__cmd__sync_collections` here
+...
+2962 | #[tauri::command]
+     | ^^^^^^^^^^^^^^^^^ `__cmd__sync_collections` redefined here
+     |
+     = note: `__cmd__sync_collections` must be defined only once in the macro namespace of this module
+     = note: this error originates in the attribute macro `tauri::command` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0428]: the name `get_sales_report` is defined multiple times
+    --> src\commands.rs:3066:1
+     |
+2662 | / pub fn get_sales_report(
+2663 | |     db: State<'_, Database>,
+2664 | |     start_date: Option<String>,
+2665 | |     end_date: Option<String>,
+...    |
+2712 | |     Ok(result)
+2713 | | }
+     | |_- previous definition of the value `get_sales_report` here
+...
+3066 | / pub fn get_sales_report(
+3067 | |     db: State<'_, Database>,
+3068 | |     start_date: Option<String>,
+3069 | |     end_date: Option<String>,
+...    |
+3111 | |     Ok(result)
+3112 | | }
+     | |_^ `get_sales_report` redefined here
+     |
+     = note: `get_sales_report` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `__cmd__get_sales_report` is defined multiple times
+    --> src\commands.rs:3065:1
+     |
+2661 | #[tauri::command]
+     | ----------------- previous definition of the macro `__cmd__get_sales_report` here
+...
+3065 | #[tauri::command]
+     | ^^^^^^^^^^^^^^^^^ `__cmd__get_sales_report` redefined here
+     |
+     = note: `__cmd__get_sales_report` must be defined only once in the macro namespace of this module
+     = note: this error originates in the attribute macro `tauri::command` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0428]: the name `get_collections_report` is defined multiple times
+    --> src\commands.rs:3115:1
+     |
+2716 | / pub fn get_collections_report(
+2717 | |     db: State<'_, Database>,
+2718 | |     date: Option<String>,
+2719 | | ) -> Result<Vec<CollectionsReportItem>, String> {
+...    |
+2755 | |     Ok(result)
+2756 | | }
+     | |_- previous definition of the value `get_collections_report` here
+...
+3115 | / pub fn get_collections_report(
+3116 | |     db: State<'_, Database>,
+3117 | |     date: Option<String>,
+3118 | | ) -> Result<Vec<CollectionsReportItem>, String> {
+...    |
+3154 | |     Ok(result)
+3155 | | }
+     | |_^ `get_collections_report` redefined here
+     |
+     = note: `get_collections_report` must be defined only once in the value namespace of this module
+
+error[E0428]: the name `__cmd__get_collections_report` is defined multiple times
+    --> src\commands.rs:3114:1
+     |
+2715 | #[tauri::command]
+     | ----------------- previous definition of the macro `__cmd__get_collections_report` here
+...
+3114 | #[tauri::command]
+     | ^^^^^^^^^^^^^^^^^ `__cmd__get_collections_report` redefined here
+     |
+     = note: `__cmd__get_collections_report` must be defined only once in the macro namespace of this module
+     = note: this error originates in the attribute macro `tauri::command` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0252]: the name `__cmd__sync_client_balances` is defined multiple times
+    --> src\commands.rs:2761:14
+     |
+2412 | pub async fn sync_client_balances(
+     |              -------------------- previous import of the macro `__cmd__sync_client_balances` here
+...
+2761 | pub async fn sync_client_balances(
+     |              ^^^^^^^^^^^^^^^^^^^^ `__cmd__sync_client_balances` reimported here
+     |
+     = note: `__cmd__sync_client_balances` must be defined only once in the macro namespace of this module
+help: you can use `as` to change the binding name of the import
+     |
+2761 | pub async fn sync_client_balances as other___cmd__sync_client_balances(
+     |                                   ++++++++++++++++++++++++++++++++++++
+
+error[E0252]: the name `__cmd__get_client_balances` is defined multiple times
+    --> src\commands.rs:2824:8
+     |
+2482 | pub fn get_client_balances(
+     |        ------------------- previous import of the macro `__cmd__get_client_balances` here
+...
+2824 | pub fn get_client_balances(
+     |        ^^^^^^^^^^^^^^^^^^^ `__cmd__get_client_balances` reimported here
+     |
+     = note: `__cmd__get_client_balances` must be defined only once in the macro namespace of this module
+help: you can use `as` to change the binding name of the import
+     |
+2824 | pub fn get_client_balances as other___cmd__get_client_balances(
+     |                            +++++++++++++++++++++++++++++++++++
+
+error[E0252]: the name `__cmd__record_collection` is defined multiple times
+    --> src\commands.rs:2879:8
+     |
+2537 | pub fn record_collection(
+     |        ----------------- previous import of the macro `__cmd__record_collection` here
+...
+2879 | pub fn record_collection(
+     |        ^^^^^^^^^^^^^^^^^ `__cmd__record_collection` reimported here
+     |
+     = note: `__cmd__record_collection` must be defined only once in the macro namespace of this module
+help: you can use `as` to change the binding name of the import
+     |
+2879 | pub fn record_collection as other___cmd__record_collection(
+     |                          +++++++++++++++++++++++++++++++++
+
+error[E0252]: the name `__cmd__get_collections` is defined multiple times
+    --> src\commands.rs:2914:8
+     |
+2573 | pub fn get_collections(
+     |        --------------- previous import of the macro `__cmd__get_collections` here
+...
+2914 | pub fn get_collections(
+     |        ^^^^^^^^^^^^^^^ `__cmd__get_collections` reimported here
+     |
+     = note: `__cmd__get_collections` must be defined only once in the macro namespace of this module
+help: you can use `as` to change the binding name of the import
+     |
+2914 | pub fn get_collections as other___cmd__get_collections(
+     |                        +++++++++++++++++++++++++++++++
+
+error[E0252]: the name `__cmd__sync_collections` is defined multiple times
+    --> src\commands.rs:2963:14
+     |
+2622 | pub async fn sync_collections(
+     |              ---------------- previous import of the macro `__cmd__sync_collections` here
+...
+2963 | pub async fn sync_collections(
+     |              ^^^^^^^^^^^^^^^^ `__cmd__sync_collections` reimported here
+     |
+     = note: `__cmd__sync_collections` must be defined only once in the macro namespace of this module
+help: you can use `as` to change the binding name of the import
+     |
+2963 | pub async fn sync_collections as other___cmd__sync_collections(
+     |                               ++++++++++++++++++++++++++++++++
+
+error[E0252]: the name `__cmd__get_sales_report` is defined multiple times
+    --> src\commands.rs:3066:8
+     |
+2662 | pub fn get_sales_report(
+     |        ---------------- previous import of the macro `__cmd__get_sales_report` here
+...
+3066 | pub fn get_sales_report(
+     |        ^^^^^^^^^^^^^^^^ `__cmd__get_sales_report` reimported here
+     |
+     = note: `__cmd__get_sales_report` must be defined only once in the macro namespace of this module
+help: you can use `as` to change the binding name of the import
+     |
+3066 | pub fn get_sales_report as other___cmd__get_sales_report(
+     |                         ++++++++++++++++++++++++++++++++
+
+error[E0252]: the name `__cmd__get_collections_report` is defined multiple times
+    --> src\commands.rs:3115:8
+     |
+2716 | pub fn get_collections_report(
+     |        ---------------------- previous import of the macro `__cmd__get_collections_report` here
+...
+3115 | pub fn get_collections_report(
+     |        ^^^^^^^^^^^^^^^^^^^^^^ `__cmd__get_collections_report` reimported here
+     |
+     = note: `__cmd__get_collections_report` must be defined only once in the macro namespace of this module
+help: you can use `as` to change the binding name of the import
+     |
+3115 | pub fn get_collections_report as other___cmd__get_collections_report(
+     |                               ++++++++++++++++++++++++++++++++++++++
+
+warning: unused import: `crate::mock_api`
+ --> src\commands.rs:2:5
+  |
+2 | use crate::mock_api;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `error`
+ --> src\commands.rs:7:23
+  |
+7 | use log::{info, warn, error};
+  |                       ^^^^^
+
+error[E0599]: no function or associated item named `from_env_or_default` found for struct `ApiClient` in the current scope
+    --> src\commands.rs:2420:38
+     |
+2420 |     let api = api_client::ApiClient::from_env_or_default();
+     |                                      ^^^^^^^^^^^^^^^^^^^ function or associated item not found in `ApiClient`
+     |
+    ::: src\api_client.rs:245:1
+     |
+ 245 | pub struct ApiClient {
+     | -------------------- function or associated item `from_env_or_default` not found for this struct
+     |
+note: if you're trying to build a new `ApiClient` consider using one of the following associated functions:
+      ApiClient::new
+      ApiClient::from_default
+    --> src\api_client.rs:251:5
+     |
+ 251 |     pub fn new(config: ApiConfig) -> Result<Self, String> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 260 |     pub fn from_default() -> Result<Self, String> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is an associated function `from_default` with a similar name
+     |
+2420 -     let api = api_client::ApiClient::from_env_or_default();
+2420 +     let api = api_client::ApiClient::from_default();
+     |
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:2435:20
+     |
+2435 |     let balances = api.get_client_balances(marca_agent.clone()).await.map_err(|e| e.to_string())?;
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:2435:80
+     |
+2435 |     let balances = api.get_client_balances(marca_agent.clone()).await.map_err(|e| e.to_string())?;
+     |                                                                                ^  - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+2435 |     let balances = api.get_client_balances(marca_agent.clone()).await.map_err(|e: /* Type */| e.to_string())?;
+     |                                                                                 ++++++++++++
+
+error[E0599]: no function or associated item named `from_env_or_default` found for struct `ApiClient` in the current scope
+    --> src\commands.rs:2632:38
+     |
+2632 |     let api = api_client::ApiClient::from_env_or_default();
+     |                                      ^^^^^^^^^^^^^^^^^^^ function or associated item not found in `ApiClient`
+     |
+    ::: src\api_client.rs:245:1
+     |
+ 245 | pub struct ApiClient {
+     | -------------------- function or associated item `from_env_or_default` not found for this struct
+     |
+note: if you're trying to build a new `ApiClient` consider using one of the following associated functions:
+      ApiClient::new
+      ApiClient::from_default
+    --> src\api_client.rs:251:5
+     |
+ 251 |     pub fn new(config: ApiConfig) -> Result<Self, String> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 260 |     pub fn from_default() -> Result<Self, String> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is an associated function `from_default` with a similar name
+     |
+2632 -     let api = api_client::ApiClient::from_env_or_default();
+2632 +     let api = api_client::ApiClient::from_default();
+     |
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:2652:29
+     |
+2652 |                     params![e.to_string(), collection.id]
+     |                             ^ cannot infer type
+
+error[E0599]: no function or associated item named `from_env_or_default` found for struct `ApiClient` in the current scope
+    --> src\commands.rs:2769:38
+     |
+2769 |     let api = api_client::ApiClient::from_env_or_default()?;
+     |                                      ^^^^^^^^^^^^^^^^^^^ function or associated item not found in `ApiClient`
+     |
+    ::: src\api_client.rs:245:1
+     |
+ 245 | pub struct ApiClient {
+     | -------------------- function or associated item `from_env_or_default` not found for this struct
+     |
+note: if you're trying to build a new `ApiClient` consider using one of the following associated functions:
+      ApiClient::new
+      ApiClient::from_default
+    --> src\api_client.rs:251:5
+     |
+ 251 |     pub fn new(config: ApiConfig) -> Result<Self, String> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 260 |     pub fn from_default() -> Result<Self, String> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is an associated function `from_default` with a similar name
+     |
+2769 -     let api = api_client::ApiClient::from_env_or_default()?;
+2769 +     let api = api_client::ApiClient::from_default()?;
+     |
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:2772:19
+     |
+2772 |     let solduri = api.get_all_solduri(marca_agent.clone()).await.map_err(|e| e.to_string())?;
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:2772:75
+     |
+2772 |     let solduri = api.get_all_solduri(marca_agent.clone()).await.map_err(|e| e.to_string())?;
+     |                                                                           ^  - type must be known at this point
+     |
+help: consider giving this closure parameter an explicit type
+     |
+2772 |     let solduri = api.get_all_solduri(marca_agent.clone()).await.map_err(|e: /* Type */| e.to_string())?;
+     |                                                                            ++++++++++++
+
+error[E0599]: no function or associated item named `from_env_or_default` found for struct `ApiClient` in the current scope
+    --> src\commands.rs:2975:38
+     |
+2975 |     let api = api_client::ApiClient::from_env_or_default()?;
+     |                                      ^^^^^^^^^^^^^^^^^^^ function or associated item not found in `ApiClient`
+     |
+    ::: src\api_client.rs:245:1
+     |
+ 245 | pub struct ApiClient {
+     | -------------------- function or associated item `from_env_or_default` not found for this struct
+     |
+note: if you're trying to build a new `ApiClient` consider using one of the following associated functions:
+      ApiClient::new
+      ApiClient::from_default
+    --> src\api_client.rs:251:5
+     |
+ 251 |     pub fn new(config: ApiConfig) -> Result<Self, String> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 260 |     pub fn from_default() -> Result<Self, String> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is an associated function `from_default` with a similar name
+     |
+2975 -     let api = api_client::ApiClient::from_env_or_default()?;
+2975 +     let api = api_client::ApiClient::from_default()?;
+     |
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:3027:25
+     |
+3027 |                      if err_list.to_lowercase() == "ok" || response.error_list.is_empty() {
+     |                         ^^^^^^^^ cannot infer type
+
+error[E0282]: type annotations needed
+    --> src\commands.rs:3056:29
+     |
+3056 |                     params![e.to_string(), collection.id]
+     |                             ^ cannot infer type
+
+Some errors have detailed explanations: E0252, E0282, E0428, E0599.
+For more information about an error, try `rustc --explain E0252`.
+warning: `app` (lib) generated 2 warnings
+error: could not compile `app` (lib) due to 32 previous errors; 2 warnings emitted

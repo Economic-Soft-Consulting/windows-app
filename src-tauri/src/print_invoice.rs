@@ -259,7 +259,7 @@ pub fn generate_invoice_html(
         }}
 
         .footer-logo {{
-            width: 60mm;
+            width: 45mm;
             height: auto;
             display: block;
             margin: 0 auto 5px auto;
