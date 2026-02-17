@@ -138,6 +138,10 @@ export interface AgentSettings {
   nume_casa: string | null;
   auto_sync_collections_enabled: boolean | null;
   auto_sync_collections_time: string | null;
+  receipt_series: string | null;
+  receipt_number_start: number | null;
+  receipt_number_end: number | null;
+  receipt_number_current: number | null;
 }
 
 // Cart item for invoice creation wizard
@@ -209,11 +213,11 @@ export interface SalesReportItem {
 
 export interface SalesPrintItem {
   partner_name: string;
-  invoice_number: number;
-  invoice_series: string;
+  invoice_count: number;
   total_quantity: number;
   total_cofrage: number;
   total_without_vat: number;
+  total_vat: number;
   total_with_vat: number;
   payment_section: string;
 }
@@ -237,4 +241,22 @@ export interface CollectionsReportItem {
   collection_count: number;
   total_amount: number;
   status: string;
+}
+
+export interface DailyCollectionsPartnerItem {
+  partner_name: string;
+  amount_from_today_sales: number;
+  amount_from_previous_debt: number;
+  total_amount: number;
+}
+
+export interface DailyCollectionsReport {
+  items: DailyCollectionsPartnerItem[];
+  receipts_today_invoices_count: number;
+  receipts_previous_debt_count: number;
+  current_day_receipts_count: number;
+  previous_day_receipts_count: number;
+  current_day_collections_total: number;
+  previous_day_collections_total: number;
+  total_day_collections: number;
 }

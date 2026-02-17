@@ -71,6 +71,7 @@ pub fn run() {
             commands::cancel_invoice_sending,
             commands::delete_invoice,
             commands::print_invoice_to_html,
+            commands::print_invoice_certificate,
             commands::preview_invoice_certificate,
             commands::print_collection_to_html,
             commands::get_available_printers,
@@ -83,6 +84,7 @@ pub fn run() {
             commands::record_collection,
             commands::record_collection_group,
             commands::record_collection_from_invoice,
+            commands::get_invoice_remaining_for_collection,
             commands::get_collections,
             commands::sync_collections,
             commands::send_collection,
@@ -91,6 +93,7 @@ pub fn run() {
             commands::get_sales_print_report,
             commands::get_sales_products_report,
             commands::get_collections_report,
+            commands::get_daily_collections_report,
             commands::print_daily_report,
             commands::print_report_html,
             // API test commands

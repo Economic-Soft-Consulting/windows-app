@@ -60,8 +60,31 @@ fn build_invoice_key(id_partener: &str, serie_factura: &Option<String>, numar_fa
     )
 }
 
-fn generate_receipt_number() -> String {
-    Local::now().format("%Y%m%d%H%M%S").to_string()
+fn generate_receipt_number(conn: &rusqlite::Connection) -> Result<String, String> {
+    let (current, end): (Option<i64>, Option<i64>) = conn.query_row(
+        "SELECT receipt_number_current, receipt_number_end FROM agent_settings WHERE id = 1",
+        [],
+        |row| Ok((row.get(0).ok(), row.get(1).ok()))
+    ).map_err(|e| e.to_string())?;
+
+    if let Some(val) = current {
+        // Check end limit if set
+        if let Some(limit) = end {
+            if val > limit {
+                 return Err(format!("S-a atins limita de numere pentru chitanțe ({})", limit));
+            }
+        }
+        
+        // Update DB with next value
+        let next_val = val + 1;
+        conn.execute("UPDATE agent_settings SET receipt_number_current = ?1 WHERE id = 1", [next_val])
+            .map_err(|e| e.to_string())?;
+            
+        Ok(val.to_string())
+    } else {
+        // Fallback to timestamp if not configured
+        Ok(chrono::Local::now().format("%Y%m%d%H%M%S").to_string())
+    }
 }
 
 fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
@@ -123,27 +146,38 @@ fn try_generate_pdf_from_html(html_path_str: &str, pdf_path_str: &str) -> bool {
                     html_path_str.replace('\\', "/").replace(' ', "%20")
                 );
 
+                let temp_dir = std::env::temp_dir().join("esoft_edge_pdf");
+                let _ = std::fs::create_dir_all(&temp_dir);
+                let user_data_arg = format!("--user-data-dir={}", temp_dir.to_string_lossy());
+                let print_arg = format!("--print-to-pdf={}", pdf_path_str);
+                info!("[CERT][PDF] Generating PDF: {}", pdf_path_str);
+
                 let output = std::process::Command::new(edge_path)
                     .args(&[
                         "--headless",
                         "--disable-gpu",
                         "--no-sandbox",
                         "--disable-dev-shm-usage",
-                        &format!("--print-to-pdf={}", pdf_path_str),
+                        &user_data_arg,
+                        &print_arg,
                         &file_url,
                     ])
                     .output();
 
                 if let Ok(result) = output {
-                    info!("[CHITANTE][SAVE] Edge PDF command status: {}", result.status);
+                    info!("[CERT][PDF] Edge status: {}, stderr: {}", result.status, String::from_utf8_lossy(&result.stderr));
                     let mut waited = 0;
                     while waited < 6000 {
                         if wait_for_file_ready(pdf_path_str, 1200, 400) {
+                            info!("[CERT][PDF] PDF generated OK");
                             return true;
                         }
                         std::thread::sleep(std::time::Duration::from_millis(100));
                         waited += 100;
                     }
+                    info!("[CERT][PDF] PDF not ready after 6s");
+                } else {
+                    info!("[CERT][PDF] Edge exec failed");
                 }
             }
         }
@@ -238,6 +272,167 @@ fn save_receipt_html_file(
         "Nu am putut salva chitanța local. Erori: {}",
         failures.join(" | ")
     ))
+}
+
+fn generate_quality_certificate_html() -> String {
+    use base64::{engine::general_purpose, Engine as _};
+
+    let epc_img = general_purpose::STANDARD.encode(include_bytes!("../../public/EPC 16 EC.png"));
+    let iso_img = general_purpose::STANDARD.encode(include_bytes!("../../public/KARIN-ISO.png"));
+    let stamp_img = general_purpose::STANDARD.encode(include_bytes!("../../public/STAMPILA.png"));
+    let cert_date = Local::now().format("%d.%m.%Y").to_string();
+
+    format!(
+        r#"<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8" />
+    <title>Certificat de calitate - Declarație de conformitate</title>
+    <style>
+        @page {{ size: 80mm 297mm; margin: 2.5mm; }}
+        body {{ font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; color: #000; font-weight: 700; }}
+        .page {{ width: 68mm; margin-left: 0.5mm; box-sizing: border-box; padding: 0.5mm; }}
+        .header {{ margin-bottom: 3px; text-align: center; border-bottom: 2px solid #000; padding-bottom: 2px; }}
+        .header-line {{ font-size: 10.5px; font-weight: 800; line-height: 1.2; }}
+        .header-line + .header-line {{ margin-top: 0; }}
+        .logos {{ display: flex; justify-content: center; align-items: center; gap: 8px; margin: 3px 0; }}
+        .logo-box {{ width: calc(50% - 4px); display: flex; align-items: center; justify-content: center; }}
+        .logo-img {{ max-width: 100%; height: auto; object-fit: contain; }}
+        .title {{ text-align: center; font-size: 13px; font-weight: 900; margin: 3px 0 1px; text-decoration: underline; text-transform: uppercase; }}
+        .date {{ text-align: center; font-size: 10.5px; font-weight: 800; margin-top: 1px; }}
+        .cert-subtitle {{ text-align: center; font-size: 12px; font-weight: 800; margin-top: 1px; }}
+        .cert-intro {{ margin-top: 3px; font-size: 10.5px; line-height: 1.2; text-align: left; font-weight: 800; }}
+        .cat-grid {{ display: grid; grid-template-columns: 1fr; gap: 0; margin-top: 3px; }}
+        .cat-group {{ width: 100%; text-align: left; margin: 0 0 4px 0; }}
+        .cat-group:last-child {{ margin-bottom: 2px; }}
+        .cat-line {{ font-size: 10px; line-height: 1.2; font-weight: 700; white-space: normal; overflow-wrap: anywhere; margin: 0; text-align: left; }}
+        .cert-body {{ margin-top: 3px; font-size: 9.5px; line-height: 1.2; text-align: left; font-weight: 700; }}
+        .cert-body p {{ margin: 0 0 1px 0; }}
+        .cert-footer {{ display: flex; justify-content: space-between; align-items: flex-start; margin-top: 4px; font-size: 9.5px; font-weight: 700; }}
+        .footer-col {{ width: 48%; }}
+        .footer-right {{ text-align: right; padding-right: 5mm; }}
+        .stamp-section {{ text-align: center; margin-top: 4px; }}
+        .footer-stamp {{ width: 100px; height: auto; object-fit: contain; }}
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="header">
+            <div class="header-line">PO 7.5-03-F01Rev. 8/12012021</div>
+            <div class="header-line">SC KARIN SRL</div>
+            <div class="header-line">J24/380/1994, SEINI, N.BALCESCU, 43</div>
+            <div class="header-line">Jud. MM, Tel. 0262-491317</div>
+        </div>
+
+        <div class="logos">
+            <div class="logo-box">
+                <img src="data:image/png;base64,{}" class="logo-img" alt="EPC 16 EC" />
+            </div>
+            <div class="logo-box">
+                <img src="data:image/png;base64,{}" class="logo-img" alt="KARIN ISO" />
+            </div>
+        </div>
+
+        <div class="title">Certificat de calitate - Declarație de conformitate</div>
+        <div class="date">Data: {}</div>
+        <div class="cert-subtitle">Nr.033 din data de 05.02.2026</div>
+
+        <div class="cert-intro">
+            În conformitate cu prevederile legale privind răspunderea,
+            se atestă calitatea produselor livrate: ouă consum categoria A,
+            cu data ouatului:
+        </div>
+
+        <div class="cat-grid">
+            <div class="cat-group">
+                <div class="cat-line">Cat. S (&lt;53g) 04.02.26 ddm 04.03.26 Lot 035 S</div>
+                <div class="cat-line">Cat. S (&lt;53g) ________ ddm ________ Lot ____ S</div>
+            </div>
+            <div class="cat-group">
+                <div class="cat-line">Cat. L (63-73g) 02.02.26 ddm 02.03.26 Lot 033 L</div>
+                <div class="cat-line">Cat. L (63-73g) 04.02.26 ddm 04.03.26 Lot 035 L</div>
+                <div class="cat-line">Cat. L (63-73g) ________ ddm ________ Lot ____ L</div>
+            </div>
+            <div class="cat-group">
+                <div class="cat-line">Cat. M (53-63g) 02.02.26 ddm 02.03.26 Lot 033 M</div>
+                <div class="cat-line">Cat. M (53-63g) 04.02.26 ddm 04.03.26 Lot 035 M</div>
+                <div class="cat-line">Cat. M (53-63g) ________ ddm ________ Lot ____ M</div>
+            </div>
+            <div class="cat-group">
+                <div class="cat-line">Cat. XL (&gt;73g) 02.02.26 ddm 02.03.26 Lot 033 XL</div>
+                <div class="cat-line">Cat. XL (&gt;73g) 04.02.26 ddm 04.03.26 Lot 035 XL</div>
+                <div class="cat-line">Cat. XL (&gt;73g) ________ ddm ________ Lot ____ XL</div>
+            </div>
+        </div>
+
+        <div class="cert-body">
+            <p>Ambalate la data de 05.02.2026. Livrate beneficiarului: Rețea Magazine. Conform facturii/avizului nr. ______ din 05.02.2026.</p>
+            <p>Transport auto: MM44KRN, MM66KRN, MM56KAR, MM99KRN sau ______ indeplinesc parametri de calitate specificati conform BAnr.77/29.01.2026(salmonella negativ).</p>
+            <p>Caracteristici tehnice de livrare: SALUBRE; Rasa LOHMANN BROWN, LOHMANN SANDY; Aspectul cojii intactă, curată de formă normală, uscată;</p> 
+            <p>Camera de aer: imobilă, cu înălțimea maximă 5 mm. Albușul: clar, translucid, consistență gelatinoasă si lipsit de corpuri străine de orice natura.</p> 
+            <p>Gălbenuș vizibil, în fascicol de lumina sub formă de umbră. Mirosul și gust caracteristic oului proaspăt, fără miros și gust străin.</p>
+            <p>Data durabilității minime este de 28 zile iar data recomandata pentru vanzare este de 28 de zile de la momentul ouatului.</p>
+            <p>Temperatura de păstrare: 5-18 grade Celsius,În magazine, ferite de razele soarelui si sursa de caldura.</p>
+            <p>In magazinele de desfacere, ouale se pastreaza in locuri racoroase, curate, ferite de alte produse ale caror miros le pot imprumuta.</p>
+            <p>Produs fragil! A se manipula cu atenție la transport și depozitare.</p> 
+            <p>Prezentul certificat întocmit conform Reg.(CE) nr.1234/22.10.2007 de instituire a unei organizari comune a pietelor agricole si privind</p>
+            <p>dispozitii specifice referitoare la anumite produse agricole ("Regulamentul unic OCP"). Regulamentul (CE)NR.589/2008 al Comisiei din 23.06.2008</p>
+            <p>de stabilire a noremlor de aplicare a Reg.(CE)nr.1234/2007 al Consiliului privind standardele de comercializare a oualelor, modificat de Regulamentul </p>
+            <p>CE 598/2008. Mentionam ca ouale produse de noi cu cod pro.3RO MM 013 provin de la gaini crescute in custi imbunatatie si cu cod producator</p>
+            <p>2RO MM 040 provin de la gaini cresute in sistem volier. conform standardelor U.E. in vigoare. </p>
+        </div>
+
+        <div class="cert-footer">
+            <div class="footer-col">
+                Administrator,<br>
+                Dr. Meseșan Dan
+            </div>
+            <div class="footer-col footer-right">
+                Țara de origine:România<br>
+                Cod stație sortare RO MM 023<br>
+                Cod producător 3RO MM 013<br>
+                Cod producător 2RO MM 040<br>
+                Șef compartiment
+            </div>
+        </div>
+
+        <div class="stamp-section">
+            <img src="data:image/png;base64,{}" class="footer-stamp" alt="Ștampilă" />
+        </div>
+    </div>
+</body>
+</html>"#,
+        epc_img,
+        iso_img,
+        cert_date,
+        stamp_img,
+    )
+}
+
+fn save_invoice_certificate_file(invoice_id: &str) -> Result<(String, String, String), String> {
+    let html = generate_quality_certificate_html();
+
+    let app_data_dir = dirs::config_dir()
+        .ok_or("Could not find app data directory")?
+        .join("facturi.softconsulting.com")
+        .join("invoices")
+        .join("certificates");
+
+    std::fs::create_dir_all(&app_data_dir)
+        .map_err(|e| format!("Failed to create certificates directory: {}", e))?;
+
+    let html_file_path = app_data_dir.join(format!("certificat_{}.html", invoice_id));
+    let pdf_file_path = app_data_dir.join(format!("certificat_{}.pdf", invoice_id));
+
+    std::fs::write(&html_file_path, &html)
+        .map_err(|e| format!("Failed to write certificate HTML file: {}", e))?;
+
+    let html_path = html_file_path.to_string_lossy().to_string();
+    let pdf_path = pdf_file_path.to_string_lossy().to_string();
+    let pdf_generated = try_generate_pdf_from_html(&html_path, &pdf_path);
+    let print_target = if pdf_generated { pdf_path.clone() } else { html_path.clone() };
+
+    Ok((html_path, pdf_path, print_target))
 }
 
 fn get_partner_receipt_info(
@@ -2557,28 +2752,54 @@ pub async fn print_invoice_to_html(
         // Use SumatraPDF for printing
         if let Some(sumatra_path) = sumatra_exe {
             info!("Printing to '{}' using SumatraPDF", printer);
-            
-            // SumatraPDF with no scaling to keep normal size
-            let result = std::process::Command::new(&sumatra_path)
-                .args(&[
-                    "-print-to",
-                    &printer,
-                    "-print-settings",
-                    "noscale",
-                    &print_file,
-                    "-silent",
-                    "-exit-when-done",
-                    "-exit-on-print",
-                ])
-                .spawn();
-            
-            match result {
-                Ok(_) => {
-                    info!("Print job sent successfully to printer '{}': {}", printer, invoice_id);
+
+            let mut invoice_args: Vec<String> = Vec::new();
+            if printer.trim().is_empty() {
+                invoice_args.push("-print-to-default".to_string());
+            } else {
+                invoice_args.push("-print-to".to_string());
+                invoice_args.push(printer.clone());
+            }
+            invoice_args.extend([
+                "-print-settings".to_string(),
+                "noscale".to_string(),
+                print_file.clone(),
+                "-silent".to_string(),
+                "-exit-when-done".to_string(),
+                "-exit-on-print".to_string(),
+            ]);
+
+            match std::process::Command::new(&sumatra_path).args(&invoice_args).spawn() {
+                Ok(_) => info!("Invoice print job sent successfully to printer '{}': {}", printer, invoice_id),
+                Err(e) => warn!("Invoice SumatraPDF print failed: {}", e),
+            }
+
+            match save_invoice_certificate_file(&invoice_id) {
+                Ok((_cert_html_path, _cert_pdf_path, cert_print_file)) => {
+                    std::thread::sleep(std::time::Duration::from_millis(400));
+
+                    let mut cert_args: Vec<String> = Vec::new();
+                    if printer.trim().is_empty() {
+                        cert_args.push("-print-to-default".to_string());
+                    } else {
+                        cert_args.push("-print-to".to_string());
+                        cert_args.push(printer.clone());
+                    }
+                    cert_args.extend([
+                        "-print-settings".to_string(),
+                        "noscale".to_string(),
+                        cert_print_file.clone(),
+                        "-silent".to_string(),
+                        "-exit-when-done".to_string(),
+                        "-exit-on-print".to_string(),
+                    ]);
+
+                    match std::process::Command::new(&sumatra_path).args(&cert_args).spawn() {
+                        Ok(_) => info!("Certificate print job sent successfully to printer '{}': {}", printer, invoice_id),
+                        Err(e) => warn!("Certificate SumatraPDF print failed: {}", e),
+                    }
                 }
-                Err(e) => {
-                    info!("SumatraPDF print failed: {}", e);
-                }
+                Err(e) => warn!("Certificate generation/print skipped: {}", e),
             }
         } else {
             info!("SumatraPDF not found. PDF saved at: {}", print_file);
@@ -2610,175 +2831,101 @@ pub async fn print_invoice_to_html(
 }
 
 #[tauri::command]
+pub async fn print_invoice_certificate(
+    invoice_id: String,
+    printer_name: Option<String>,
+) -> Result<String, String> {
+    let (html_path, pdf_path, target) = save_invoice_certificate_file(&invoice_id)?;
+    let print_file = target.clone();
+    let is_pdf = print_file.ends_with(".pdf");
+
+    info!("[CERT][PRINT] Printing certificate for invoice {} (file: {})", invoice_id, print_file);
+
+    #[cfg(target_os = "windows")]
+    {
+        let printer = printer_name.unwrap_or_default();
+        let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
+        let bundled_path = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|p| p.join("resources").join("SumatraPDF.exe")));
+
+        let mut sumatra_paths = vec![
+            format!(r"{}\AppData\Local\SumatraPDF\SumatraPDF.exe", user_profile),
+            r"C:\Program Files\SumatraPDF\SumatraPDF.exe".to_string(),
+            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe".to_string(),
+        ];
+
+        if let Some(bundled) = bundled_path {
+            sumatra_paths.insert(0, bundled.to_string_lossy().to_string());
+        }
+
+        let mut sumatra_exe = None;
+        for path in &sumatra_paths {
+            if std::path::Path::new(path).exists() {
+                sumatra_exe = Some(path.to_string());
+                break;
+            }
+        }
+
+        if sumatra_exe.is_none() {
+            let app_data_dir = dirs::data_dir()
+                .ok_or("Could not get app data directory")?
+                .join("facturi.softconsulting.com");
+            let sumatra_portable = app_data_dir.join("tools").join("SumatraPDF.exe");
+            if sumatra_portable.exists() {
+                sumatra_exe = Some(sumatra_portable.to_string_lossy().to_string());
+            }
+        }
+
+        if let Some(sumatra_path) = sumatra_exe {
+            let mut command = std::process::Command::new(&sumatra_path);
+
+            if printer.trim().is_empty() {
+                command.arg("-print-to-default");
+            } else {
+                command.arg("-print-to").arg(&printer);
+            }
+
+            command
+                .arg("-print-settings")
+                .arg("noscale")
+                .arg(&print_file)
+                .arg("-silent")
+                .arg("-exit-when-done")
+                .arg("-exit-on-print")
+                .spawn()
+                .map_err(|e| format!("Failed to start print with SumatraPDF: {}", e))?;
+                
+            info!("[CERT][PRINT] Sent to SumatraPDF");
+        } else {
+            return Err("SumatraPDF not found. Instalează SumatraPDF sau configurează calea aplicației de printare.".to_string());
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("lp")
+            .arg(&print_file)
+            .spawn()
+            .ok();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("lp")
+            .arg(&print_file)
+            .spawn()
+            .map_err(|e| format!("Failed to print certificate: {}", e))?;
+    }
+
+    Ok(print_file)
+}
+
+#[tauri::command]
 pub async fn preview_invoice_certificate(
         invoice_id: String,
 ) -> Result<String, String> {
-        use base64::{engine::general_purpose, Engine as _};
-        let epc_img = general_purpose::STANDARD.encode(include_bytes!("../../public/EPC 16 EC.png"));
-        let iso_img = general_purpose::STANDARD.encode(include_bytes!("../../public/KARIN-ISO.png"));
-        let stamp_img = general_purpose::STANDARD.encode(include_bytes!("../../public/STAMPILA.png"));
-        let cert_date = Local::now().format("%d.%m.%Y").to_string();
-        let header_line_1 = "PO 7.5-03-F01Rev. 8/12012021";
-        let header_line_2 = "SC KARIN SRL";
-        let header_line_3 = "J24/380/1994, SEINI, N.BALCESCU, 43";
-        let header_line_4 = "Jud. MM, Tel. 0262-491317";
-
-        let html = format!(
-                r#"<!DOCTYPE html>
-<html lang="ro">
-<head>
-    <meta charset="UTF-8" />
-    <title>Certificat de calitate - Declarație de conformitate</title>
-    <style>
-        @page {{ size: 80mm 297mm; margin: 2mm; }}
-        body {{ font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; color: #111; }}
-        .page {{ width: 76mm; min-height: 292mm; box-sizing: border-box; padding: 1mm; }}
-        .header {{ margin-bottom: 6px; text-align: center; }}
-        .header-line {{ font-size: 8.3px; font-weight: 700; line-height: 1.22; }}
-        .header-line + .header-line {{ margin-top: 1px; }}
-        .logos {{ display: flex; justify-content: center; align-items: center; gap: 7px; margin: 4px 0 6px; }}
-        .logo-box {{ width: 68px; height: 44px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: transparent; }}
-        .logo-horizontal {{ max-width: 64px; max-height: 40px; object-fit: contain; transform: rotate(-90deg); filter: contrast(1.08) saturate(0.9); }}
-        .title {{ text-align: center; font-size: 11.3px; font-weight: 700; margin: 3px 0 2px; text-transform: none; }}
-        .date {{ text-align: center; font-size: 8.6px; margin-top: 1px; }}
-        .cert-subtitle {{ text-align: center; font-size: 10px; font-weight: 700; margin-top: 2px; }}
-        .cert-intro {{ margin-top: 5px; font-size: 8.1px; line-height: 1.25; }}
-        .cat-grid {{ display: grid; grid-template-columns: 1fr; gap: 3px; margin-top: 5px; }}
-        .cat-col + .cat-col {{ margin-top: 2px; }}
-        .cat-line {{ font-size: 7.7px; line-height: 1.24; white-space: nowrap; }}
-        .cert-body {{ margin-top: 5px; font-size: 7.2px; line-height: 1.24; text-align: justify; }}
-        .cert-footer {{ display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; column-gap: 6px; margin-top: 7px; font-size: 7.4px; }}
-        .footer-col {{ width: 100%; }}
-        .footer-right {{ text-align: right; }}
-        .footer-center {{ display: flex; align-items: end; justify-content: center; }}
-        .footer-stamp {{ width: 52px; height: auto; object-fit: contain; transform: rotate(-90deg); transform-origin: center; }}
-    </style>
-</head>
-<body>
-    <div class="page">
-        <div class="header">
-            <div class="header-line">{}</div>
-            <div class="header-line">{}</div>
-            <div class="header-line">{}</div>
-            <div class="header-line">{}</div>
-        </div>
-
-        <div class="logos">
-            <div class="logo-box">
-                <img src="data:image/png;base64,{}" class="logo-horizontal" alt="EPC 16 EC" />
-            </div>
-            <div class="logo-box">
-                <img src="data:image/png;base64,{}" class="logo-horizontal" alt="KARIN ISO" />
-            </div>
-        </div>
-
-        <div class="title">Certificat de calitate - Declarație de conformitate</div>
-        <div class="date">Data: {}</div>
-        <div class="cert-subtitle">Nr.033 din data de 05.02.2026</div>
-
-        <div class="cert-intro">
-            În conformitate cu prevederile legale privind răspunderea,<br>
-            se atestă calitatea produselor livrate:<br>
-            ouă consum categoria A, cu data ouatului:
-        </div>
-
-        <div class="cat-grid">
-            <div class="cat-col">
-                <div class="cat-line">Cat. S (&lt;53g )04.02.26 ddm 04.03.26 Lot 035 S</div>
-                <div class="cat-line">Cat. S (&lt;53g )________ ddm ________ Lot ____ S</div>
-                <div class="cat-line">&nbsp;</div>
-                <div class="cat-line">Cat. L (63-73g )02.02.26 ddm 02.03.26 Lot 033 L</div>
-                <div class="cat-line">Cat. L (63-73g )04.02.26 ddm 04.03.26 Lot 035 L</div>
-                <div class="cat-line">Cat. L (63-73g )________ ddm ________ Lot ____ L</div>
-            </div>
-            <div class="cat-col">
-                <div class="cat-line">Cat. M (53-63g)02.02.26 ddm 02.03.26 Lot 033 M</div>
-                <div class="cat-line">Cat. M (53-63g)04.02.26 ddm 04.03.26 Lot 035 M</div>
-                <div class="cat-line">Cat. M (53-63g)________ ddm ________ Lot ____ M</div>
-                <div class="cat-line">&nbsp;</div>
-                <div class="cat-line">Cat. XL (&gt;73g)02.02.26 ddm 02.03.26 Lot 033 XL</div>
-                <div class="cat-line">Cat. XL (&gt;73g)04.02.26 ddm 04.03.26 Lot 035 XL</div>
-                <div class="cat-line">Cat. XL (&gt;73g)________ ddm ________ Lot ____ XL</div>
-            </div>
-        </div>
-
-        <div class="cert-body">
-            Ambalate la data de 05.02.2026.<br>
-            Livrate beneficiarului: Rețea Magazine.<br>
-            Conform facturii/avizului nr. ______ din 05.02.2026.<br>
-            Transport auto: NM44KRN, MM66KRN, NM56KAR, MM99KRN sau ______.<br>
-            Parametri de calitate conform BA nr.77/29.01.2026.<br>
-            Rezultat microbiologic: salmonella negativ.<br>
-            Caracteristici tehnice: salubre, RĂN, LOHMANN BROWN, LOHMANN SANDY.<br>
-            Coajă intactă, curată, formă normală, uscată.<br>
-            Camera de aer imobilă, înălțime maximă 5 mm.<br>
-            Albuș clar, translucid, consistență gelatinoasă, fără corpuri străine.<br>
-            Gălbenuș vizibil în fascicol, sub formă de umbră.<br>
-            Miros și gust specifice oului proaspăt.<br>
-            Fără miros străin, fără gust străin.<br>
-            Data durabilității minime: 28 zile.<br>
-            Data recomandată pentru vânzare: 28 zile de la ouat.<br>
-            Temperatura de păstrare: 5-18 grade Celsius.<br>
-            Ferite de soare și de surse de căldură.<br>
-            În magazine, se păstrează în locuri răcoroase și curate.<br>
-            Ferite de produse cu miros puternic.<br>
-            Produs fragil: manipulați cu atenție la transport/depozitare.<br>
-            Certificat întocmit conform Reg. (CE) nr.1234/22.10.2007.<br>
-            Conform Regulamentului unic OCP și Regulamentului (UE) 589/2008.<br>
-            Cu modificările ulterioare în vigoare.<br>
-            Cod RO3MM 013: găini crescute în cuști îmbunătățite.<br>
-            Cod 2RO MM 040: găini crescute în sistem volier.<br>
-            În conformitate cu standardele U.E. în vigoare.
-        </div>
-
-        <div class="cert-footer">
-            <div class="footer-col">
-                Administrator,<br>
-                Dr. Meseșan Dan
-            </div>
-            <div class="footer-center">
-                <img src="data:image/png;base64,{}" class="footer-stamp" alt="Ștampilă" />
-            </div>
-            <div class="footer-col footer-right">
-                Țara de origine:România<br>
-                Cod stație sortare RO MM 023<br>
-                Cod producător 3RO MM 013<br>
-                Cod producător 2RO MM 040<br>
-                Șef compartiment
-            </div>
-        </div>
-    </div>
-</body>
-</html>"#,
-                header_line_1,
-                header_line_2,
-                header_line_3,
-                header_line_4,
-                epc_img,
-                iso_img,
-                cert_date,
-                stamp_img,
-        );
-
-        let app_data_dir = dirs::config_dir()
-                .ok_or("Could not find app data directory")?
-                .join("facturi.softconsulting.com")
-                .join("invoices")
-                .join("certificates");
-
-        std::fs::create_dir_all(&app_data_dir)
-                .map_err(|e| format!("Failed to create certificates directory: {}", e))?;
-
-        let html_file_path = app_data_dir.join(format!("certificat_{}.html", invoice_id));
-        let pdf_file_path = app_data_dir.join(format!("certificat_{}.pdf", invoice_id));
-
-        std::fs::write(&html_file_path, &html)
-                .map_err(|e| format!("Failed to write certificate HTML file: {}", e))?;
-
-        let html_path = html_file_path.to_string_lossy().to_string();
-        let pdf_path = pdf_file_path.to_string_lossy().to_string();
-        let pdf_generated = try_generate_pdf_from_html(&html_path, &pdf_path);
-        let target = if pdf_generated { pdf_path } else { html_path };
+        let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&invoice_id)?;
 
         open::that(&target).map_err(|e| format!("Failed to open certificate preview: {}", e))?;
         Ok(target)
@@ -2793,35 +2940,65 @@ pub async fn print_collection_to_html(
     info!("[CHITANTE][PRINT] Start print_collection_to_html for collection_id={} printer={:?}", collection_id, printer_name);
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT
-                id,
-                COALESCE(receipt_group_id, id) as receipt_group_id,
-                receipt_series,
-                receipt_number,
-                id_partener,
-                partner_name,
-                numar_factura,
-                serie_factura,
-                cod_document,
-                valoare,
-                data_incasare,
-                status,
-                synced_at,
-                error_message,
-                created_at
-             FROM collections
-             WHERE COALESCE(receipt_group_id, id) = ?1
-             ORDER BY created_at DESC",
+    // Check if this collection is part of a group
+    let receipt_group_id: Option<String> = conn
+        .query_row(
+            "SELECT receipt_group_id FROM collections WHERE id = ?1 OR receipt_group_id = ?1 LIMIT 1",
+            [&collection_id],
+            |row| row.get(0),
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Collection not found: {}", e))?;
 
+    let query = if receipt_group_id.is_some() {
+        "SELECT
+            id,
+            receipt_group_id,
+            receipt_series,
+            receipt_number,
+            id_partener,
+            partner_name,
+            numar_factura,
+            serie_factura,
+            cod_document,
+            valoare,
+            data_incasare,
+            status,
+            synced_at,
+            error_message,
+            created_at
+         FROM collections
+         WHERE receipt_group_id = ?1
+         ORDER BY created_at DESC"
+    } else {
+        "SELECT
+            id,
+            receipt_group_id,
+            receipt_series,
+            receipt_number,
+            id_partener,
+            partner_name,
+            numar_factura,
+            serie_factura,
+            cod_document,
+            valoare,
+            data_incasare,
+            status,
+            synced_at,
+            error_message,
+            created_at
+         FROM collections
+         WHERE id = ?1
+         ORDER BY created_at DESC"
+    };
+
+    let param = if let Some(gid) = &receipt_group_id { gid } else { &collection_id };
+
+    let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([&collection_id], |row| {
+        .query_map([param], |row| {
             Ok((
                 row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(1)?,
                 row.get::<_, Option<String>>(2)?,
                 row.get::<_, Option<String>>(3)?,
                 row.get::<_, String>(4)?,
@@ -2850,23 +3027,41 @@ pub async fn print_collection_to_html(
 
     let first = &loaded[0];
     let group_total: f64 = loaded.iter().map(|r| r.9).sum();
-    let invoice_count = loaded.len();
+
+    // Aggregate invoice references
+    let invoice_refs: Vec<String> = loaded.iter()
+        .map(|r| {
+             let serie = r.7.as_deref().unwrap_or("").trim();
+             let numar = r.6.as_deref().unwrap_or("").trim();
+             if serie.is_empty() && numar.is_empty() {
+                 return String::new();
+             }
+             if serie.is_empty() {
+                 return numar.to_string();
+             }
+             if numar.is_empty() {
+                 return serie.to_string();
+             }
+             format!("{}/{}", serie, numar)
+        })
+        .filter(|s| !s.is_empty())
+        .collect();
+    
+    let invoice_ref_str = if invoice_refs.is_empty() {
+        "Avans".to_string()
+    } else {
+        invoice_refs.join(", ")
+    };
 
     let collection = Collection {
-        id: first.1.clone(),
+        id: first.0.clone(),
+        // Use first row data for common fields
         id_partener: first.4.clone(),
         partner_name: first.5.clone(),
-        numar_factura: if invoice_count > 1 {
-            Some(format!("{} facturi", invoice_count))
-        } else {
-            first.6.clone()
-        },
-        serie_factura: if invoice_count > 1 {
-            first.2.clone()
-        } else {
-            first.7.clone()
-        },
-        cod_document: first.3.clone().or_else(|| first.8.clone()),
+        // Store combined invoices in numar_factura so generate_receipt_html sees them
+        numar_factura: Some(invoice_ref_str),
+        serie_factura: Some(String::new()), // Clear series since it's merged
+        cod_document: first.3.clone().or_else(|| first.8.clone()), // Use receipt number if available
         valoare: group_total,
         data_incasare: first.10.clone(),
         status: CollectionStatus::from(first.11.clone()),
@@ -2876,9 +3071,9 @@ pub async fn print_collection_to_html(
     };
 
     info!(
-        "[CHITANTE][PRINT] Loaded collection id={} partner={:?} value={} status={}",
+        "[CHITANTE][PRINT] Loaded GROUP collection id={} count={} val={} status={}",
         collection.id,
-        collection.partner_name,
+        loaded.len(),
         collection.valoare,
         collection.status.to_string()
     );
@@ -2905,17 +3100,15 @@ pub async fn print_collection_to_html(
         chrono::Utc::now().format("%d.%m.%Y").to_string()
     };
 
-    let doc_series = collection
-        .serie_factura
-        .clone()
-        .filter(|v| !v.trim().is_empty())
+    // Prioritize receipt_series from DB, then carnet_series, then fallback
+    let doc_series = first.2.clone()
         .or(carnet_series)
         .unwrap_or_else(|| "CH".to_string());
-    let doc_number = collection
-        .cod_document
-        .clone()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| collection.id.chars().take(8).collect::<String>());
+    
+    // Prioritize receipt_number from DB
+    let doc_number = first.3.clone()
+        .or_else(|| Some(collection.id.chars().take(8).collect::<String>()))
+        .unwrap_or_else(|| "N/A".to_string());
 
     let agent_display = agent_name
         .clone()
@@ -3125,7 +3318,7 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let result = conn.query_row(
-        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time FROM agent_settings WHERE id = 1",
+        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current FROM agent_settings WHERE id = 1",
         [],
         |row| {
             let auto_sync_enabled: Option<i32> = row.get(16)?;
@@ -3148,6 +3341,10 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
                 nume_casa: row.get(15)?,
                 auto_sync_collections_enabled: auto_sync_enabled.map(|v| v != 0),
                 auto_sync_collections_time: row.get(17)?,
+                receipt_series: row.get(18)?,
+                receipt_number_start: row.get(19)?,
+                receipt_number_end: row.get(20)?,
+                receipt_number_current: row.get(21)?,
             })
         },
     );
@@ -3173,6 +3370,10 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
             nume_casa: None,
             auto_sync_collections_enabled: Some(false),
             auto_sync_collections_time: Some("23:00".to_string()),
+            receipt_series: None,
+            receipt_number_start: Some(1),
+            receipt_number_end: Some(99999),
+            receipt_number_current: Some(1),
         }),
     }
 }
@@ -3198,13 +3399,17 @@ pub fn save_agent_settings(
     nume_casa: Option<String>,
     auto_sync_collections_enabled: Option<bool>,
     auto_sync_collections_time: Option<String>,
+    receipt_series: Option<String>,
+    receipt_number_start: Option<i64>,
+    receipt_number_end: Option<i64>,
+    receipt_number_current: Option<i64>,
 ) -> Result<AgentSettings, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
 
     // Smart logic for invoice numbering:
     // If invoice_number_start is provided and current is less than start, set current = start
-    let final_current = match (invoice_number_start, invoice_number_current) {
+    let final_invoice_current = match (invoice_number_start, invoice_number_current) {
         (Some(start), Some(current)) if current < start => {
             info!("Auto-adjusting invoice_number_current from {} to {} (matching start)", current, start);
             Some(start)
@@ -3214,6 +3419,19 @@ pub fn save_agent_settings(
             Some(start)
         },
         _ => invoice_number_current,
+    };
+
+    // Same logic for receipt numbering
+    let final_receipt_current = match (receipt_number_start, receipt_number_current) {
+        (Some(start), Some(current)) if current < start => {
+            info!("Auto-adjusting receipt_number_current from {} to {} (matching start)", current, start);
+            Some(start)
+        },
+        (Some(start), None) => {
+            info!("Initializing receipt_number_current to {} (start value)", start);
+            Some(start)
+        },
+        _ => receipt_number_current,
     };
 
     // Convert bool to i32 for SQLite
@@ -3226,13 +3444,15 @@ pub fn save_agent_settings(
         .or(Some("valoare".to_string()));
 
     conn.execute(
-        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19) \
-         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, tip_contabil = excluded.tip_contabil, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, cod_delegat = excluded.cod_delegat, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, marca_agent = excluded.marca_agent, nume_casa = excluded.nume_casa, auto_sync_collections_enabled = excluded.auto_sync_collections_enabled, auto_sync_collections_time = excluded.auto_sync_collections_time, updated_at = excluded.updated_at",
+        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23) \
+         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, tip_contabil = excluded.tip_contabil, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, cod_delegat = excluded.cod_delegat, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, marca_agent = excluded.marca_agent, nume_casa = excluded.nume_casa, auto_sync_collections_enabled = excluded.auto_sync_collections_enabled, auto_sync_collections_time = excluded.auto_sync_collections_time, receipt_series = excluded.receipt_series, receipt_number_start = excluded.receipt_number_start, receipt_number_end = excluded.receipt_number_end, receipt_number_current = excluded.receipt_number_current, updated_at = excluded.updated_at",
         params![
             agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare,
             normalized_tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name,
-            delegate_act, car_number, invoice_number_start, invoice_number_end, final_current,
-            marca_agent, nume_casa, auto_sync_enabled_int, auto_sync_collections_time, now
+            delegate_act, car_number, invoice_number_start, invoice_number_end, final_invoice_current,
+            marca_agent, nume_casa, auto_sync_enabled_int, auto_sync_collections_time,
+            receipt_series, receipt_number_start, receipt_number_end, final_receipt_current,
+            now
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -3251,11 +3471,15 @@ pub fn save_agent_settings(
         car_number,
         invoice_number_start: invoice_number_start.map(|v| v as i32),
         invoice_number_end: invoice_number_end.map(|v| v as i32),
-        invoice_number_current: final_current.map(|v| v as i32),
+        invoice_number_current: final_invoice_current.map(|v| v as i32),
         marca_agent,
         nume_casa,
         auto_sync_collections_enabled,
         auto_sync_collections_time,
+        receipt_series,
+        receipt_number_start: receipt_number_start.map(|v| v as i32),
+        receipt_number_end: receipt_number_end.map(|v| v as i32),
+        receipt_number_current: final_receipt_current.map(|v| v as i32),
     })
 }
 
@@ -3706,7 +3930,7 @@ pub fn get_client_balances(
                     COALESCE(cod_document, '') AS cod_document,
                     SUM(valoare) AS total_collected
                 FROM collections
-                WHERE status IN ('pending', 'sending')
+                WHERE status IN ('pending', 'sending', 'synced')
                 GROUP BY id_partener, COALESCE(serie_factura, ''), COALESCE(numar_factura, ''), COALESCE(cod_document, '')
             ) c ON (
                 cb.id_partener = c.id_partener AND
@@ -3759,7 +3983,7 @@ pub fn get_client_balances(
                     COALESCE(cod_document, '') AS cod_document,
                     SUM(valoare) AS total_collected
                 FROM collections
-                WHERE status IN ('pending', 'sending')
+                WHERE status IN ('pending', 'sending', 'synced')
                 GROUP BY id_partener, COALESCE(numar_factura, ''), COALESCE(cod_document, '')
             ) c2 ON (
                 c2.id_partener = i.partner_id AND
@@ -3826,16 +4050,21 @@ pub fn record_collection(
     collection: Collection,
 ) -> Result<String, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    let receipt_series = conn
+    let (receipt_series_opt, carnet_series_opt): (Option<String>, Option<String>) = conn
         .query_row(
-            "SELECT carnet_series FROM agent_settings WHERE id = 1",
+            "SELECT receipt_series, carnet_series FROM agent_settings WHERE id = 1",
             [],
-            |row| row.get::<_, Option<String>>(0),
+            |row| Ok((row.get(0).ok(), row.get(1).ok()))
         )
-        .ok()
-        .flatten()
+        .unwrap_or_default();
+
+    let receipt_series = receipt_series_opt
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .or(carnet_series_opt)
         .unwrap_or_else(|| "CH".to_string());
-    let receipt_number = generate_receipt_number();
+
+    let receipt_number = generate_receipt_number(&conn)?;
     
     // Check if there's already a pending or sending collection for this invoice
     let existing_count: i64 = conn.query_row(
@@ -3944,17 +4173,21 @@ pub fn record_collection_group(
 
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    let receipt_series = conn
+    let (receipt_series_opt, carnet_series_opt): (Option<String>, Option<String>) = conn
         .query_row(
-            "SELECT carnet_series FROM agent_settings WHERE id = 1",
+            "SELECT receipt_series, carnet_series FROM agent_settings WHERE id = 1",
             [],
-            |row| row.get::<_, Option<String>>(0),
+            |row| Ok((row.get(0).ok(), row.get(1).ok()))
         )
-        .ok()
-        .flatten()
+        .unwrap_or_default();
+
+    let receipt_series = receipt_series_opt
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .or(carnet_series_opt)
         .unwrap_or_else(|| "CH".to_string());
 
-    let receipt_number = generate_receipt_number();
+    let receipt_number = generate_receipt_number(&conn)?;
     let receipt_group_id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
 
@@ -4066,22 +4299,27 @@ pub fn record_collection_from_invoice(
 
     let invoice_number_str = invoice_number.to_string();
     let series = carnet_series.unwrap_or_else(|| "FACTURA".to_string());
-    let receipt_series = conn
+    let (receipt_series_opt, carnet_series_opt): (Option<String>, Option<String>) = conn
         .query_row(
-            "SELECT carnet_series FROM agent_settings WHERE id = 1",
+            "SELECT receipt_series, carnet_series FROM agent_settings WHERE id = 1",
             [],
-            |row| row.get::<_, Option<String>>(0),
+            |row| Ok((row.get(0).ok(), row.get(1).ok()))
         )
-        .ok()
-        .flatten()
+        .unwrap_or_default();
+
+    let receipt_series = receipt_series_opt
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .or(carnet_series_opt)
         .unwrap_or_else(|| "CH".to_string());
-    let receipt_number = generate_receipt_number();
+
+    let receipt_number = generate_receipt_number(&conn)?;
 
     let collected_total: f64 = conn
         .query_row(
             "SELECT COALESCE(SUM(valoare), 0) FROM collections WHERE
              id_partener = ?1 AND numar_factura = ?2 AND cod_document = ?3 AND
-             status IN ('pending', 'sending')",
+             status IN ('pending', 'sending', 'synced')",
             params![&partner_id, &invoice_number_str, &invoice_number_str],
             |row| row.get(0),
         )
@@ -4128,6 +4366,40 @@ pub fn record_collection_from_invoice(
     .map_err(|e| e.to_string())?;
 
     Ok(collection_id)
+}
+
+#[tauri::command]
+pub fn get_invoice_remaining_for_collection(
+    db: State<'_, Database>,
+    invoice_id: String,
+) -> Result<f64, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    let (partner_id, invoice_number, total_amount): (String, i64, f64) = conn
+        .query_row(
+            r#"
+            SELECT i.partner_id, i.invoice_number, i.total_amount
+            FROM invoices i
+            WHERE i.id = ?1
+            "#,
+            [&invoice_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|e| format!("Factura nu a fost găsită: {}", e))?;
+
+    let invoice_number_str = invoice_number.to_string();
+
+    let collected_total: f64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(valoare), 0) FROM collections WHERE
+             id_partener = ?1 AND numar_factura = ?2 AND cod_document = ?3 AND
+             status IN ('pending', 'sending', 'synced')",
+            params![&partner_id, &invoice_number_str, &invoice_number_str],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    Ok((total_amount - collected_total).max(0.0))
 }
 
 #[tauri::command]
@@ -4319,7 +4591,7 @@ pub async fn send_collection(
         .3
         .clone()
         .or_else(|| rows[0].8.clone())
-        .unwrap_or_else(generate_receipt_number);
+        .unwrap_or_else(|| chrono::Local::now().format("%Y%m%d%H%M%S").to_string());
     let partner_id = rows[0].4.clone();
     let partner_name = rows[0].5.clone();
     let doc_date_source = rows[0].10.clone();
@@ -4594,9 +4866,7 @@ pub fn get_sales_print_report(
 
     let mut query = "WITH invoice_data AS (
         SELECT
-            p.name AS partner_name,
-            COALESCE(i.invoice_number, 0) AS invoice_number,
-            COALESCE((SELECT carnet_series FROM agent_settings WHERE id = 1), 'FACTURA') AS invoice_series,
+            COALESCE(NULLIF(TRIM(p.cod_extern), ''), p.name, 'Partener') AS partner_name,
             i.created_at,
             COALESCE(inv_qty.total_quantity, 0) AS total_quantity,
             COALESCE(inv_totals.total_without_vat, i.total_amount) AS total_without_vat,
@@ -4638,37 +4908,53 @@ pub fn get_sales_print_report(
                 OR col.cod_document = CAST(i.invoice_number AS TEXT)
             )
         )
-    )
-    SELECT
-        partner_name,
-        invoice_number,
-        invoice_series,
-        total_quantity,
-        ROUND(total_quantity / 30.0, 2) AS total_cofrage,
-        total_without_vat,
-        total_with_vat,
-        CASE
-            WHEN collected_amount <= 0 THEN 'unpaid'
-            WHEN collected_amount < total_without_vat THEN 'partial'
-            ELSE 'paid'
-        END AS payment_section
-    FROM invoice_data
-    WHERE 1 = 1"
+        WHERE 1 = 1"
         .to_string();
 
     let mut params: Vec<String> = Vec::new();
 
     if let Some(start) = start_date {
-        query.push_str(" AND created_at >= ?");
+        query.push_str(" AND i.created_at >= ?");
         params.push(format!("{}T00:00:00", start));
     }
 
     if let Some(end) = end_date {
-        query.push_str(" AND created_at <= ?");
+        query.push_str(" AND i.created_at <= ?");
         params.push(format!("{}T23:59:59", end));
     }
 
-    query.push_str(" ORDER BY CASE payment_section WHEN 'unpaid' THEN 1 WHEN 'partial' THEN 2 ELSE 3 END, total_with_vat DESC");
+    query.push_str(
+        "
+    ),
+    partner_data AS (
+        SELECT
+            partner_name,
+            CASE
+                WHEN collected_amount >= total_without_vat THEN 'paid'
+                ELSE 'unpaid'
+            END AS payment_section,
+            COUNT(*) AS invoice_count,
+            SUM(total_quantity) AS total_quantity,
+            SUM(total_without_vat) AS total_without_vat,
+            SUM(total_with_vat - total_without_vat) AS total_vat,
+            SUM(total_with_vat) AS total_with_vat
+        FROM invoice_data
+        GROUP BY partner_name, payment_section
+    )
+    SELECT
+        partner_name,
+        invoice_count,
+        total_quantity,
+        ROUND(total_quantity / 30.0, 2) AS total_cofrage,
+        total_without_vat,
+        total_vat,
+        total_with_vat,
+        payment_section
+    FROM partner_data
+    WHERE 1 = 1"
+    );
+
+    query.push_str(" ORDER BY CASE payment_section WHEN 'unpaid' THEN 1 ELSE 2 END, total_with_vat DESC");
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
 
@@ -4676,11 +4962,11 @@ pub fn get_sales_print_report(
         .query_map(rusqlite::params_from_iter(params.iter()), |row| {
             Ok(SalesPrintItem {
                 partner_name: row.get(0)?,
-                invoice_number: row.get(1)?,
-                invoice_series: row.get(2)?,
-                total_quantity: row.get(3)?,
-                total_cofrage: row.get(4)?,
-                total_without_vat: row.get(5)?,
+                invoice_count: row.get(1)?,
+                total_quantity: row.get(2)?,
+                total_cofrage: row.get(3)?,
+                total_without_vat: row.get(4)?,
+                total_vat: row.get(5)?,
                 total_with_vat: row.get(6)?,
                 payment_section: row.get(7)?,
             })
@@ -4817,6 +5103,140 @@ pub fn get_collections_report(
     }
     
     Ok(result)
+}
+
+#[tauri::command]
+pub fn get_daily_collections_report(
+    db: State<'_, Database>,
+    date: Option<String>,
+) -> Result<DailyCollectionsReport, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    let target_date = date.unwrap_or_else(|| Local::now().format("%Y-%m-%d").to_string());
+    let previous_date = chrono::NaiveDate::parse_from_str(&target_date, "%Y-%m-%d")
+        .map_err(|e| format!("Dată invalidă: {}", e))?
+        .pred_opt()
+        .ok_or_else(|| "Nu s-a putut calcula ziua precedentă".to_string())?
+        .format("%Y-%m-%d")
+        .to_string();
+
+    let mut stmt = conn
+        .prepare(
+            r#"
+            SELECT
+                COALESCE(NULLIF(TRIM(p.cod_extern), ''), c.partner_name, p.name, 'Partener') AS partner_name,
+                SUM(
+                    CASE
+                        WHEN i.id IS NOT NULL AND substr(i.created_at, 1, 10) = ?1 THEN c.valoare
+                        ELSE 0
+                    END
+                ) AS amount_from_today_sales,
+                SUM(
+                    CASE
+                        WHEN i.id IS NULL OR substr(i.created_at, 1, 10) <> ?1 THEN c.valoare
+                        ELSE 0
+                    END
+                ) AS amount_from_previous_debt,
+                SUM(c.valoare) AS total_amount
+            FROM collections c
+            LEFT JOIN partners p ON p.id = c.id_partener
+            LEFT JOIN invoices i ON i.partner_id = c.id_partener
+                AND (
+                    CAST(i.invoice_number AS TEXT) = COALESCE(c.numar_factura, '')
+                    OR CAST(i.invoice_number AS TEXT) = COALESCE(c.cod_document, '')
+                )
+            WHERE substr(c.data_incasare, 1, 10) = ?1
+              AND c.status IN ('pending', 'sending', 'synced')
+                        GROUP BY COALESCE(NULLIF(TRIM(p.cod_extern), ''), c.partner_name, p.name, 'Partener')
+            ORDER BY total_amount DESC
+            "#,
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map([&target_date], |row| {
+            Ok(DailyCollectionsPartnerItem {
+                partner_name: row.get(0)?,
+                amount_from_today_sales: row.get(1)?,
+                amount_from_previous_debt: row.get(2)?,
+                total_amount: row.get(3)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut items = Vec::new();
+    for row in rows {
+        items.push(row.map_err(|e| e.to_string())?);
+    }
+
+    let current_day_collections_total: f64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(valoare), 0) FROM collections WHERE substr(data_incasare, 1, 10) = ?1 AND status IN ('pending', 'sending', 'synced')",
+            [&target_date],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let previous_day_collections_total: f64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(valoare), 0) FROM collections WHERE substr(data_incasare, 1, 10) = ?1 AND status IN ('pending', 'sending', 'synced')",
+            [&previous_date],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let current_day_receipts_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT COALESCE(receipt_group_id, id)) FROM collections WHERE substr(data_incasare, 1, 10) = ?1 AND status IN ('pending', 'sending', 'synced')",
+            [&target_date],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let previous_day_receipts_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT COALESCE(receipt_group_id, id)) FROM collections WHERE substr(data_incasare, 1, 10) = ?1 AND status IN ('pending', 'sending', 'synced')",
+            [&previous_date],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let (receipts_today_invoices_count, receipts_previous_debt_count): (i64, i64) = conn
+        .query_row(
+            r#"
+            SELECT
+                COUNT(DISTINCT CASE
+                    WHEN i.id IS NOT NULL AND substr(i.created_at, 1, 10) = ?1
+                    THEN COALESCE(c.receipt_group_id, c.id)
+                END) AS receipts_today_invoices_count,
+                COUNT(DISTINCT CASE
+                    WHEN i.id IS NULL OR substr(i.created_at, 1, 10) <> ?1
+                    THEN COALESCE(c.receipt_group_id, c.id)
+                END) AS receipts_previous_debt_count
+            FROM collections c
+            LEFT JOIN invoices i ON i.partner_id = c.id_partener
+                AND (
+                    CAST(i.invoice_number AS TEXT) = COALESCE(c.numar_factura, '')
+                    OR CAST(i.invoice_number AS TEXT) = COALESCE(c.cod_document, '')
+                )
+            WHERE substr(c.data_incasare, 1, 10) = ?1
+              AND c.status IN ('pending', 'sending', 'synced')
+            "#,
+            [&target_date],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?;
+
+    Ok(DailyCollectionsReport {
+        items,
+        receipts_today_invoices_count,
+        receipts_previous_debt_count,
+        current_day_receipts_count,
+        previous_day_receipts_count,
+        current_day_collections_total,
+        previous_day_collections_total,
+        total_day_collections: current_day_collections_total,
+    })
 }
 
 #[tauri::command]

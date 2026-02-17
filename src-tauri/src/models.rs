@@ -207,6 +207,10 @@ pub struct AgentSettings {
     pub invoice_number_start: Option<i32>,
     pub invoice_number_end: Option<i32>,
     pub invoice_number_current: Option<i32>,
+    pub receipt_series: Option<String>,
+    pub receipt_number_start: Option<i32>,
+    pub receipt_number_end: Option<i32>,
+    pub receipt_number_current: Option<i32>,
     pub marca_agent: Option<String>,
     pub nume_casa: Option<String>,
     pub auto_sync_collections_enabled: Option<bool>,
@@ -314,11 +318,11 @@ pub struct SalesReportItem {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SalesPrintItem {
     pub partner_name: String,
-    pub invoice_number: i64,
-    pub invoice_series: String,
+    pub invoice_count: i64,
     pub total_quantity: f64,
     pub total_cofrage: f64,
     pub total_without_vat: f64,
+    pub total_vat: f64,
     pub total_with_vat: f64,
     pub payment_section: String,
 }
@@ -344,4 +348,24 @@ pub struct CollectionsReportItem {
     pub collection_count: i64,
     pub total_amount: f64,
     pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyCollectionsPartnerItem {
+    pub partner_name: String,
+    pub amount_from_today_sales: f64,
+    pub amount_from_previous_debt: f64,
+    pub total_amount: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyCollectionsReport {
+    pub items: Vec<DailyCollectionsPartnerItem>,
+    pub receipts_today_invoices_count: i64,
+    pub receipts_previous_debt_count: i64,
+    pub current_day_receipts_count: i64,
+    pub previous_day_receipts_count: i64,
+    pub current_day_collections_total: f64,
+    pub previous_day_collections_total: f64,
+    pub total_day_collections: f64,
 }

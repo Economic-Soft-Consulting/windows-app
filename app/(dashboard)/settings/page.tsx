@@ -55,6 +55,10 @@ export default function SettingsPage() {
     nume_casa: null,
     auto_sync_collections_enabled: null,
     auto_sync_collections_time: null,
+    receipt_series: null,
+    receipt_number_start: null,
+    receipt_number_end: null,
+    receipt_number_current: null,
   });
   const [savingAgent, setSavingAgent] = useState(false);
   const [loadingAgentSettings, setLoadingAgentSettings] = useState(true);
@@ -146,7 +150,11 @@ export default function SettingsPage() {
         normalizedMarcaAgent,
         agentSettings.nume_casa || null,
         agentSettings.auto_sync_collections_enabled,
-        agentSettings.auto_sync_collections_time || null
+        agentSettings.auto_sync_collections_time || null,
+        agentSettings.receipt_series || null,
+        agentSettings.receipt_number_start,
+        agentSettings.receipt_number_end,
+        agentSettings.receipt_number_current
       );
 
       const marcaChanged = oldMarcaAgent !== newMarcaAgent;
@@ -599,6 +607,81 @@ export default function SettingsPage() {
 
               <p className="text-sm text-muted-foreground">
                 Setează intervalul de numerotare pentru facturi. Numărul curent se actualizează automat la fiecare factură creată.
+              </p>
+            </div>
+
+            {/* Receipt Numbering */}
+            <div className="space-y-4 pt-4 border-t">
+              <h3 className="font-semibold">Numerotare Chitanțe</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="receiptSeries">Serie Chitanțe</Label>
+                <Input
+                  id="receiptSeries"
+                  type="text"
+                  placeholder="Ex: CH"
+                  value={agentSettings.receipt_series || ""}
+                  onChange={(e) =>
+                    setAgentSettings((prev) => ({
+                      ...prev,
+                      receipt_series: e.target.value,
+                    }))
+                  }
+                />
+                <p className="text-sm text-muted-foreground">
+                  Seria folosită pentru chitanțe (ex: CH). Dacă nu este setată, se va folosi Seria Carnet.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="receiptStart">Număr Start</Label>
+                  <Input
+                    id="receiptStart"
+                    type="number"
+                    min="1"
+                    placeholder="1"
+                    value={agentSettings.receipt_number_start || ''}
+                    onChange={(e) =>
+                      setAgentSettings((prev) => ({
+                        ...prev,
+                        receipt_number_start: parseInt(e.target.value) || null,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="receiptEnd">Număr Final</Label>
+                  <Input
+                    id="receiptEnd"
+                    type="number"
+                    min="1"
+                    placeholder="99999"
+                    value={agentSettings.receipt_number_end || ''}
+                    onChange={(e) =>
+                      setAgentSettings((prev) => ({
+                        ...prev,
+                        receipt_number_end: parseInt(e.target.value) || null,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="receiptCurrent">Număr Curent</Label>
+                  <Input
+                    id="receiptCurrent"
+                    type="number"
+                    value={agentSettings.receipt_number_current || 1}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Setează intervalul de numerotare pentru chitanțe. Numărul curent se actualizează automat la fiecare chitanță emisă.
               </p>
             </div>
 

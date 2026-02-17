@@ -15,6 +15,7 @@ import type {
   SalesPrintItem,
   SalesProductReportItem,
   CollectionsReportItem,
+  DailyCollectionsReport,
 } from "./types";
 
 // ==================== SYNC COMMANDS ====================
@@ -115,6 +116,10 @@ export async function printInvoiceToHtml(invoiceId: string, printerName?: string
   return invoke<string>("print_invoice_to_html", { invoiceId, printerName });
 }
 
+export async function printInvoiceCertificate(invoiceId: string, printerName?: string): Promise<string> {
+  return invoke<string>("print_invoice_certificate", { invoiceId, printerName });
+}
+
 export async function previewInvoiceCertificate(invoiceId: string): Promise<string> {
   return invoke<string>("preview_invoice_certificate", { invoiceId });
 }
@@ -147,7 +152,11 @@ export async function saveAgentSettings(
   marcaAgent: string | null,
   numeCasa: string | null,
   autoSyncCollectionsEnabled: boolean | null,
-  autoSyncCollectionsTime: string | null
+  autoSyncCollectionsTime: string | null,
+  receiptSeries: string | null,
+  receiptNumberStart: number | null,
+  receiptNumberEnd: number | null,
+  receiptNumberCurrent: number | null
 ): Promise<AgentSettings> {
   return invoke<AgentSettings>("save_agent_settings", {
     agentName,
@@ -168,6 +177,10 @@ export async function saveAgentSettings(
     numeCasa,
     autoSyncCollectionsEnabled,
     autoSyncCollectionsTime,
+    receiptSeries,
+    receiptNumberStart,
+    receiptNumberEnd,
+    receiptNumberCurrent,
   });
 }
 
@@ -191,6 +204,10 @@ export async function recordCollectionGroup(request: CreateCollectionGroupReques
 
 export async function recordCollectionFromInvoice(invoiceId: string, paidAmount: number): Promise<string> {
   return invoke<string>("record_collection_from_invoice", { invoiceId, paidAmount });
+}
+
+export async function getInvoiceRemainingForCollection(invoiceId: string): Promise<number> {
+  return invoke<number>("get_invoice_remaining_for_collection", { invoiceId });
 }
 
 export async function getCollections(statusFilter?: string): Promise<Collection[]> {
@@ -223,6 +240,10 @@ export async function getSalesProductsReport(startDate?: string, endDate?: strin
 
 export async function getCollectionsReport(startDate?: string, endDate?: string): Promise<CollectionsReportItem[]> {
   return invoke<CollectionsReportItem[]>("get_collections_report", { startDate, endDate });
+}
+
+export async function getDailyCollectionsReport(date?: string): Promise<DailyCollectionsReport> {
+  return invoke<DailyCollectionsReport>("get_daily_collections_report", { date });
 }
 
 export async function printDailyReport(date?: string, printerName?: string): Promise<string> {

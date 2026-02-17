@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { FileText, Plus, Database, TrendingUp, DollarSign, Globe, Settings, ExternalLink, ArrowRight, BarChart3, Receipt } from "lucide-react";
+import { FileText, Plus, Database, TrendingUp, DollarSign, Globe, Settings, ExternalLink, ArrowRight, BarChart3, Receipt, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useInvoices } from "@/hooks/useInvoices";
@@ -14,8 +15,14 @@ import { formatCurrency } from "@/lib/utils";
 
 export default function HomePage() {
   const { invoices } = useInvoices();
-  const { isAdmin, isAgent } = useAuth();
+  const { isAdmin, isAgent, logout } = useAuth();
+  const router = useRouter();
   const [totalQuantity, setTotalQuantity] = useState(0);
+
+  const handleSwitchUser = () => {
+    logout();
+    router.push("/login");
+  };
 
   // Filter invoices based on role
   const today = new Date();
@@ -308,6 +315,23 @@ export default function HomePage() {
               <CardFooter className="pt-0 pb-1.5 px-2">
                 <span className="text-sm text-blue-700 font-medium flex items-center gap-1 group-hover:underline">
                   Vizitează <ExternalLink className="h-3.5 w-3.5" />
+                </span>
+              </CardFooter>
+            </Card>
+          </div>
+
+          <div onClick={handleSwitchUser} className="group cursor-pointer w-full">
+            <Card className="h-full border-amber-200 bg-amber-50/50 hover:bg-amber-100/60 hover:border-amber-400 transition-all group-hover:-translate-y-1 flex flex-col">
+              <CardHeader className="pb-1.5 p-3 flex-1">
+                <CardTitle className="flex items-center gap-2 text-amber-800 text-base">
+                  <LogOut className="h-5 w-5" />
+                  Schimbă user
+                </CardTitle>
+                <CardDescription className="text-amber-700/80 text-sm">Ieșire și autentificare alt utilizator</CardDescription>
+              </CardHeader>
+              <CardFooter className="pt-0 pb-1.5 px-2">
+                <span className="text-sm text-amber-700 font-medium flex items-center gap-1 group-hover:underline">
+                  Deschide <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </CardFooter>
             </Card>

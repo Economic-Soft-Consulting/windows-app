@@ -264,6 +264,7 @@ pub fn generate_invoice_html(
             display: block;
             margin: 0 auto 5px auto;
         }}
+
     </style>
 </head>
 <body>

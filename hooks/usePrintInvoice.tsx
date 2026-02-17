@@ -6,6 +6,7 @@ import {
   printInvoiceToHtml,
   printCollectionToHtml,
   recordCollectionFromInvoice,
+  getInvoiceRemainingForCollection,
   sendCollection,
 } from "@/lib/tauri/commands";
 import { toast } from "sonner";
@@ -128,10 +129,24 @@ export function usePrintInvoice() {
         return;
       }
 
+      const remaining = await getInvoiceRemainingForCollection(invoiceId);
+      if (remaining <= 0.0001) {
+        toast.info("Factura este deja încasată integral.");
+        if (onAfterReceipt) {
+          onAfterReceipt();
+        }
+        setAfterReceiptAction(null);
+        return;
+      }
+
+      if (remaining + 0.0001 < total) {
+        toast.info(`Factura are deja încasări. Rest disponibil: ${remaining.toFixed(2)} RON.`);
+      }
+
       setReceiptInvoiceId(invoiceId);
-      setInvoiceTotal(total);
+      setInvoiceTotal(remaining);
       setPaymentMode("full");
-      setPartialAmount(total.toFixed(2));
+      setPartialAmount(remaining.toFixed(2));
       setShowReceiptDialog(true);
     } catch (error) {
       console.error("Print error:", error);

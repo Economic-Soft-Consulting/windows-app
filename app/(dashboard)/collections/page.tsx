@@ -11,15 +11,13 @@ import {
     MoreHorizontal,
     Send,
     RotateCcw,
-    CheckCircle2,
-    AlertCircle,
     Printer,
     Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { CollectionStatusBadge } from "@/app/components/collections/CollectionStatusBadge";
 import {
     Table,
     TableBody,
@@ -38,7 +36,6 @@ import {
 import { getCollections, sendCollection, printCollectionToHtml, deleteCollection } from "@/lib/tauri/commands";
 import type { Collection, CollectionStatus } from "@/lib/tauri/types";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ro } from "date-fns/locale";
 import { useAuth } from "@/app/contexts/AuthContext";
@@ -80,14 +77,14 @@ const formatCollectionErrorMessage = (rawError?: string | null): string => {
 };
 
 export default function CollectionsPage() {
-        const [collections, setCollections] = useState<Collection[]>([]);
-        const [countsSource, setCountsSource] = useState<Collection[]>([]);
-        const [loading, setLoading] = useState(true);
-        const [activeTab, setActiveTab] = useState<TabValue>("all");
-        const [viewMode, setViewMode] = useState<ViewMode>("grid");
+    const [collections, setCollections] = useState<Collection[]>([]);
+    const [countsSource, setCountsSource] = useState<Collection[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<TabValue>("all");
+    const [viewMode, setViewMode] = useState<ViewMode>("grid");
     const [actionId, setActionId] = useState<string | null>(null);
     const [actionType, setActionType] = useState<"send" | "print" | "delete" | null>(null);
-        const { isAgent, isAdmin } = useAuth();
+    const { isAgent, isAdmin } = useAuth();
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -104,7 +101,7 @@ export default function CollectionsPage() {
 
     useEffect(() => {
         loadData();
-        }, [activeTab]);
+    }, [activeTab]);
 
     // Auto-refresh when there are sending collections
     useEffect(() => {
@@ -214,13 +211,6 @@ export default function CollectionsPage() {
 
     const formatAmount = (value: number) =>
         new Intl.NumberFormat("ro-RO", { style: "currency", currency: "RON" }).format(value);
-
-    const formatCollectionStatus = (status: CollectionStatus) => {
-        if (status === "synced") return "Sincronizat";
-        if (status === "failed") return "Eșuat";
-        if (status === "sending") return "Se trimite";
-        return "În așteptare";
-    };
 
     return (
         <div className="space-y-4 h-full flex flex-col">
@@ -348,24 +338,7 @@ export default function CollectionsPage() {
                                         </TableCell>
                                         <TableCell className="text-right font-medium">{formatAmount(collection.valoare)}</TableCell>
                                         <TableCell>
-                                            <Badge
-                                                variant={
-                                                    collection.status === "synced"
-                                                        ? "default"
-                                                        : collection.status === "failed"
-                                                            ? "destructive"
-                                                            : "secondary"
-                                                }
-                                                className={cn(
-                                                    "capitalize",
-                                                    collection.status === "synced" && "bg-green-600 hover:bg-green-700"
-                                                )}
-                                            >
-                                                {collection.status === "synced" && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                                                {collection.status === "failed" && <AlertCircle className="h-3 w-3 mr-1" />}
-                                                {collection.status === "sending" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                                                {formatCollectionStatus(collection.status)}
-                                            </Badge>
+                                            <CollectionStatusBadge status={collection.status} />
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
@@ -437,8 +410,11 @@ export default function CollectionsPage() {
                                 <CardHeader className="pb-2 pt-3 px-3">
                                     <div className="space-y-2">
                                         <h3 className="font-semibold text-base leading-tight">{collection.partner_name || "Nume Partener"}</h3>
-                                        <div className="text-xs text-muted-foreground">
-                                            {collection.serie_factura} {collection.numar_factura}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="text-xs text-muted-foreground min-w-0 flex-1 truncate">
+                                                {collection.serie_factura} {collection.numar_factura}
+                                            </div>
+                                            <CollectionStatusBadge status={collection.status} />
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -451,25 +427,7 @@ export default function CollectionsPage() {
                                         <div className="text-xs text-muted-foreground">
                                             {format(new Date(collection.data_incasare), "dd MMM yyyy", { locale: ro })}
                                         </div>
-                                        <Badge
-                                            variant={
-                                                collection.status === "synced"
-                                                    ? "default"
-                                                    : collection.status === "failed"
-                                                        ? "destructive"
-                                                        : "secondary"
-                                            }
-                                            className={cn(
-                                                "capitalize w-fit",
-                                                collection.status === "synced" && "bg-green-600 hover:bg-green-700"
-                                            )}
-                                        >
-                                            {collection.status === "synced" && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                                            {collection.status === "failed" && <AlertCircle className="h-3 w-3 mr-1" />}
-                                            {collection.status === "sending" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                                            {formatCollectionStatus(collection.status)}
-                                        </Badge>
-                                        {collection.error_message && (
+                                        {collection.status === "failed" && collection.error_message && (
                                             <div
                                                 className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-1.5 rounded leading-tight"
                                                 title={collection.error_message}
@@ -477,12 +435,17 @@ export default function CollectionsPage() {
                                                 {formatCollectionErrorMessage(collection.error_message)}
                                             </div>
                                         )}
+                                        {collection.status === "synced" && collection.synced_at && (
+                                            <div className="text-xs text-green-600 dark:text-green-400">
+                                                Trimisă: {format(new Date(collection.synced_at), "dd.MM.yyyy HH:mm", { locale: ro })}
+                                            </div>
+                                        )}
                                     </div>
                                 </CardContent>
                                 <CardFooter className="pt-2 px-3 pb-3 border-t gap-2 justify-center flex-wrap">
                                     <Button
                                         variant="outline"
-                                        className="h-9 w-[110px] px-3 text-xs justify-center"
+                                        className="h-9 px-3 text-xs"
                                         disabled={actionId === collection.id}
                                         onClick={() => handlePrintCollection(collection.id)}
                                     >
@@ -496,7 +459,7 @@ export default function CollectionsPage() {
                                     {(collection.status === "pending" || collection.status === "failed") && (
                                         <Button
                                             variant={collection.status === "failed" ? "outline" : "default"}
-                                            className="h-9 w-[110px] px-3 text-xs justify-center"
+                                            className="h-9 px-3 text-xs"
                                             disabled={actionId === collection.id}
                                             onClick={() => handleSendCollection(collection.id)}
                                         >
@@ -520,17 +483,17 @@ export default function CollectionsPage() {
                                     )}
                                     {isAdmin && (collection.status === "pending" || collection.status === "failed") && (
                                         <Button
-                                            variant="outline"
-                                            className="h-9 w-[110px] px-3 text-xs text-red-600 justify-center"
+                                            variant="ghost"
+                                            className="h-9 w-9 p-0 flex-shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                                             disabled={actionId === collection.id}
                                             onClick={() => handleDeleteCollection(collection.id)}
+                                            title="Șterge chitanța"
                                         >
                                             {actionId === collection.id && actionType === "delete" ? (
-                                                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                             ) : (
-                                                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                                <Trash2 className="h-3.5 w-3.5" />
                                             )}
-                                            Șterge
                                         </Button>
                                     )}
                                 </CardFooter>

@@ -22,9 +22,11 @@ pub fn generate_receipt_html(
         .unwrap_or("N/A");
 
     let factura_ref = match (&collection.serie_factura, &collection.numar_factura) {
-        (Some(serie), Some(numar)) if !serie.trim().is_empty() || !numar.trim().is_empty() => {
-            format!("{} {}", serie, numar).trim().to_string()
+        (Some(serie), Some(numar)) if !serie.trim().is_empty() && !numar.trim().is_empty() => {
+            format!("{}/{}", serie.trim(), numar.trim())
         }
+        (Some(serie), _) if !serie.trim().is_empty() => serie.trim().to_string(),
+        (_, Some(numar)) if !numar.trim().is_empty() => numar.trim().to_string(),
         _ => "N/A".to_string(),
     };
 
@@ -64,7 +66,7 @@ pub fn generate_receipt_html(
     let sediu_line = format!("{}, {} CP.{}", city, KARIN.address, KARIN.cod_postal);
 
     format!(
-        r#"<!DOCTYPE html>
+        r####"<!DOCTYPE html>
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
@@ -73,7 +75,7 @@ pub fn generate_receipt_html(
         @media print {{
             @page {{
                 size: 80mm 297mm;
-                margin: 3mm 4mm 3mm 3mm;
+                margin: 3mm 6mm 3mm 0.5mm;
             }}
             body {{
                 margin: 0;
@@ -86,22 +88,22 @@ pub fn generate_receipt_html(
 
         body {{
             font-family: Arial, Helvetica, sans-serif;
+            width: 68mm;
+            margin: 0 auto;
+            padding: 2mm;
             font-size: 10.5px;
             font-weight: bold;
             color: #000000;
-            line-height: 1.2;
+            line-height: 1.15;
             background: white;
+            box-sizing: border-box;
         }}
 
         .page {{
             width: 100%;
-            min-height: 291mm;
-            box-sizing: border-box;
-            padding: 3mm;
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
-            margin: 0 auto;
         }}
 
         .top {{
@@ -109,6 +111,9 @@ pub fn generate_receipt_html(
             flex-direction: column;
             align-items: stretch;
             gap: 3mm;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
         }}
 
         .left-meta, .right-meta {{
@@ -128,26 +133,34 @@ pub fn generate_receipt_html(
         .title-wrap {{
             margin-top: 4px;
             margin-bottom: 6px;
-        }}
-
-        .title {{
-            font-size: 15px;
-            letter-spacing: 0.3px;
-            margin: 0;
             text-align: center;
         }}
 
+        .title {{
+            font-size: 18px;
+            text-align: center;
+            margin: 0 0 5px 0;
+            border-bottom: 2px solid #000;
+            text-transform: uppercase;
+            display: inline-block;
+            width: 100%;
+        }}
+
         .section {{
-            margin-top: 6mm;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 5px;
+            word-wrap: break-word;
         }}
 
         .row-label {{
-            margin-bottom: 2mm;
+            margin-bottom: 2px;
             text-decoration: underline;
+            font-size: 14px;
         }}
 
         .details {{
-            margin-top: 2mm;
+            margin-top: 2px;
             white-space: pre-line;
             word-break: break-word;
         }}
@@ -172,9 +185,14 @@ pub fn generate_receipt_html(
 
         .printed-by {{
             margin-top: 2mm;
-            font-size: 9px;
+            font-size: 14px;
             font-weight: bold;
             text-align: center;
+        }}
+
+        .underlined {{
+            border-bottom: 1px dotted #000;
+            padding: 0 4px;
         }}
     </style>
 </head>
@@ -182,18 +200,16 @@ pub fn generate_receipt_html(
     <div class="page">
         <div>
             <div class="top">
-                <div class="right-meta">Seria: {}
-Numar: {}
-
+                <div class="right-meta">
                     <div class="title-wrap">
                         <p class="title">CHITANTA</p>
                     </div>
 
 Seria: {}
 Numar: {}
-DATA: {}</div>
+DATA: <span class="underlined">{}</span></div>
 
-                <div class="left-meta"><span style="text-decoration: underline;">FURNIZOR:</span>
+                <div class="left-meta"><span style="text-decoration: underline; font-size: 14px;">FURNIZOR:</span>
 {}
 NR..INM. {}
 C.U.I.: {}
@@ -205,13 +221,13 @@ E-mail: {}</div>
             </div>
 
             <div class="section">
-                <div class="row-label">AM PRIMIT DE LA: {}</div>
-
-                <div class="details">Adresa: {}
+                <div class="row-label">AM PRIMIT DE LA:</div>
+                <div class="details"><span class="underlined">{}</span>
+Adresa: {}
 Localitatea {}, Judetul {}
 CUI: {}
 Nr. Inm. {}
-SUMA DE: {} ({})
+SUMA DE: <span class="underlined">{} LEI</span>
 Reprezentand: {}</div>
             </div>
 
@@ -229,22 +245,20 @@ Reprezentand: {}</div>
             window.print();
         }}
 
-        if (document.readyState === 'loading') {{
-            document.addEventListener('DOMContentLoaded', function() {{
+        if (document.readyState === "loading") {{
+            document.addEventListener("DOMContentLoaded", function() {{
                 setTimeout(triggerPrint, 300);
             }});
         }} else {{
             triggerPrint();
         }}
 
-        window.addEventListener('load', function() {{
+        window.addEventListener("load", function() {{
             setTimeout(triggerPrint, 100);
         }});
     </script>
 </body>
-</html>"#,
-        doc_series,
-        doc_number,
+</html>"####,
         doc_series,
         doc_number,
         issue_date,
@@ -263,7 +277,6 @@ Reprezentand: {}</div>
         partner_cui_display,
         partner_reg_com_display,
         amount_display,
-        "-",
         format!("Încasare factură {}", factura_ref),
         cashier_display,
         if let Some(logo) = logo_base64 {

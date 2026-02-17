@@ -26,6 +26,7 @@ import {
     getPartners,
     getClientBalances,
     recordCollectionGroup,
+    printCollectionToHtml,
     sendCollection
 } from "@/lib/tauri/commands";
 import type { PartnerWithLocations, ClientBalance, CreateCollectionGroupRequest } from "@/lib/tauri/types";
@@ -221,6 +222,17 @@ export default function NewCollectionPage() {
 
             const collectionId = await recordCollectionGroup(request);
             toast.success("Chitanță salvată cu succes");
+
+            try {
+                const selectedPrinter = typeof window !== "undefined"
+                    ? localStorage.getItem("selectedPrinter")
+                    : null;
+                await printCollectionToHtml(collectionId, selectedPrinter || undefined);
+                toast.success("Chitanța a fost trimisă la imprimantă.");
+            } catch (printError) {
+                console.error("Auto-print collection failed:", printError);
+                toast.warning("Chitanța a fost salvată, dar printarea automată a eșuat.");
+            }
 
             try {
                 const sentCollection = await sendCollection(collectionId);

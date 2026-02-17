@@ -584,6 +584,17 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         info!("Migration 15 completed");
     }
 
+    // Migration 16: Add receipt numbering fields (v0.9.2)
+    if current_version < 16 {
+        info!("Applying migration 16: Add receipt numbering fields");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN receipt_series TEXT;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN receipt_number_start INTEGER DEFAULT 1;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN receipt_number_end INTEGER DEFAULT 99999;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN receipt_number_current INTEGER DEFAULT 1;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (16, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 16 completed");
+    }
+
     info!("All migrations completed successfully");
     Ok(())
 }
