@@ -287,6 +287,8 @@ pub struct Collection {
     pub synced_at: Option<String>,
     pub error_message: Option<String>,
     pub created_at: String,
+    pub receipt_series: Option<String>,
+    pub receipt_number: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

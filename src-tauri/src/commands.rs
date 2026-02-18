@@ -3083,6 +3083,8 @@ pub async fn print_collection_to_html(
         synced_at: first.12.clone(),
         error_message: first.13.clone(),
         created_at: first.14.clone(),
+        receipt_series: first.2.clone(),
+        receipt_number: first.3.clone(),
     };
 
     info!(
@@ -4517,7 +4519,7 @@ pub fn get_collections(
             };
 
             let serie_factura = if invoice_count > 1 {
-                receipt_series
+                receipt_series.clone()
             } else {
                 first_serie_factura
             };
@@ -4528,13 +4530,15 @@ pub fn get_collections(
                 partner_name: row.get(2)?,
                 numar_factura,
                 serie_factura,
-                cod_document: receipt_number.or(first_cod_document),
+                cod_document: receipt_number.clone().or(first_cod_document),
                 valoare: row.get(6)?,
                 data_incasare: row.get(7)?,
                 status,
                 synced_at: row.get(11)?,
                 error_message: row.get(12)?,
                 created_at: row.get(13)?,
+                receipt_series,
+                receipt_number,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -4672,6 +4676,8 @@ pub async fn send_collection(
         synced_at: None,
         error_message: None,
         created_at: rows[0].14.clone(),
+        receipt_series: Some(receipt_series.clone()),
+        receipt_number: Some(receipt_number.clone()),
     };
 
     let now = Utc::now();

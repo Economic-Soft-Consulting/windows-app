@@ -165,6 +165,8 @@ export interface Collection {
   synced_at?: string;
   error_message?: string;
   created_at: string;
+  receipt_series?: string;
+  receipt_number?: string;
 }
 
 export interface CollectionAllocationRequest {
