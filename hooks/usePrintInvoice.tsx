@@ -119,8 +119,17 @@ export function usePrintInvoice() {
       await printInvoiceToHtml(invoiceId, selectedPrinter || undefined);
       toast.success("Factura s-a trimis la imprimantă!");
       const detail = await getInvoiceDetail(invoiceId);
-      const total = detail.invoice.total_amount;
-      if (total <= 0) {
+      const netTotal = detail.invoice.total_amount;
+
+      // Calculate Gross Total (Total with VAT) from items
+      const grossTotal = detail.items.reduce((sum, item) => {
+        const itemNet = item.total_price;
+        const tvaPercent = item.tva_percent || 0;
+        const itemVat = itemNet * (tvaPercent / 100);
+        return sum + itemNet + itemVat;
+      }, 0);
+
+      if (netTotal <= 0) {
         toast.error("Factura are total 0. Nu se poate genera chitanță.");
         if (onAfterReceipt) {
           onAfterReceipt();
@@ -129,8 +138,18 @@ export function usePrintInvoice() {
         return;
       }
 
-      const remaining = await getInvoiceRemainingForCollection(invoiceId);
-      if (remaining <= 0.0001) {
+      const remainingNet = await getInvoiceRemainingForCollection(invoiceId);
+
+      // Calculate remaining Gross based on ratio if partial payment exists, otherwise defaults to Gross Total
+      // If remainingNet ~= netTotal, then remainingGross = grossTotal.
+      // If remainingNet < netTotal, we can estimate: remainingGross = remainingNet * (grossTotal / netTotal)
+
+      let remainingGross = grossTotal;
+      if (netTotal > 0) {
+        remainingGross = remainingNet * (grossTotal / netTotal);
+      }
+
+      if (remainingGross <= 0.01) { // generic epsilon
         toast.info("Factura este deja încasată integral.");
         if (onAfterReceipt) {
           onAfterReceipt();
@@ -139,14 +158,15 @@ export function usePrintInvoice() {
         return;
       }
 
-      if (remaining + 0.0001 < total) {
-        toast.info(`Factura are deja încasări. Rest disponibil: ${remaining.toFixed(2)} RON.`);
+      if (remainingGross + 0.01 < grossTotal) {
+        // Displaying formatted Gross remaining
+        toast.info(`Factura are deja încasări. Rest disponibil (estimat cu TVA): ${remainingGross.toFixed(2)} RON.`);
       }
 
       setReceiptInvoiceId(invoiceId);
-      setInvoiceTotal(remaining);
+      setInvoiceTotal(remainingGross);
       setPaymentMode("full");
-      setPartialAmount(remaining.toFixed(2));
+      setPartialAmount(remainingGross.toFixed(2));
       setShowReceiptDialog(true);
     } catch (error) {
       console.error("Print error:", error);

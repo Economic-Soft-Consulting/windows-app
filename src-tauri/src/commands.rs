@@ -60,6 +60,21 @@ fn build_invoice_key(id_partener: &str, serie_factura: &Option<String>, numar_fa
     )
 }
 
+fn get_receipt_series(conn: &rusqlite::Connection) -> Result<String, String> {
+    let (receipt_series_opt, carnet_series_opt): (Option<String>, Option<String>) = conn
+        .query_row(
+            "SELECT receipt_series, carnet_series FROM agent_settings WHERE id = 1",
+            [],
+            |row| Ok((row.get(0).ok(), row.get(1).ok()))
+        )
+        .map_err(|e| e.to_string())?;
+
+    Ok(receipt_series_opt
+        .filter(|s| !s.trim().is_empty())
+        .or(carnet_series_opt)
+        .unwrap_or_else(|| "CH".to_string()))
+}
+
 fn generate_receipt_number(conn: &rusqlite::Connection) -> Result<String, String> {
     let (current, end): (Option<i64>, Option<i64>) = conn.query_row(
         "SELECT receipt_number_current, receipt_number_end FROM agent_settings WHERE id = 1",
@@ -2835,9 +2850,9 @@ pub async fn print_invoice_certificate(
     invoice_id: String,
     printer_name: Option<String>,
 ) -> Result<String, String> {
-    let (html_path, pdf_path, target) = save_invoice_certificate_file(&invoice_id)?;
+    let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&invoice_id)?;
     let print_file = target.clone();
-    let is_pdf = print_file.ends_with(".pdf");
+    let _is_pdf = print_file.ends_with(".pdf");
 
     info!("[CERT][PRINT] Printing certificate for invoice {} (file: {})", invoice_id, print_file);
 
@@ -3951,10 +3966,26 @@ pub fn get_client_balances(
                 COALESCE((SELECT carnet_series FROM agent_settings WHERE id = 1), 'FACTURA') AS serie,
                 CAST(i.invoice_number AS TEXT) AS numar,
                 i.created_at AS data,
-                i.total_amount AS valoare,
+                -- Calculate Gross Total (Total + VAT) for internal invoices
+                (
+                    SELECT COALESCE(SUM(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0)), 0)
+                    FROM invoice_items ii
+                    JOIN products p ON p.id = ii.product_id
+                    WHERE ii.invoice_id = i.id
+                ) AS valoare,
                 CASE
-                    WHEN i.total_amount - COALESCE(c2.total_collected, 0) > 0
-                        THEN i.total_amount - COALESCE(c2.total_collected, 0)
+                    WHEN (
+                        SELECT COALESCE(SUM(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0)), 0)
+                        FROM invoice_items ii
+                        JOIN products p ON p.id = ii.product_id
+                        WHERE ii.invoice_id = i.id
+                    ) - COALESCE(c2.total_collected, 0) > 0.01
+                        THEN (
+                            SELECT COALESCE(SUM(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0)), 0)
+                            FROM invoice_items ii
+                            JOIN products p ON p.id = ii.product_id
+                            WHERE ii.invoice_id = i.id
+                        ) - COALESCE(c2.total_collected, 0)
                     ELSE 0
                 END AS rest,
                 replace(
@@ -4289,29 +4320,49 @@ pub fn record_collection_from_invoice(
         )
         .map_err(|e| format!("Factura nu a fost găsită: {}", e))?;
 
-    if paid_amount > total_amount {
+    // Calculate Gross Total (Total with VAT)
+    let mut stmt_items = conn
+        .prepare(
+            "SELECT ii.total_price, p.procent_tva \
+             FROM invoice_items ii \
+             JOIN products p ON ii.product_id = p.id \
+             WHERE ii.invoice_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let gross_total: f64 = stmt_items
+        .query_map([&invoice_id], |row| {
+            let price: f64 = row.get(0)?;
+            let tva_str: Option<String> = row.get(1)?;
+            let tva_percent = tva_str
+                .and_then(|s| s.parse::<f64>().ok())
+                .unwrap_or(0.0);
+            
+            let vat_amount = price * (tva_percent / 100.0);
+            Ok(price + vat_amount)
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .sum();
+
+    // Drop the statement to release the borrow on conn
+    drop(stmt_items);
+
+    // Allow a small epsilon for floating point comparison
+    const EPSILON: f64 = 0.01;
+
+    // Use gross_total for validation instead of total_amount (which is net)
+    if paid_amount > (gross_total + EPSILON) {
         return Err(format!(
-            "Suma încasată ({:.2}) nu poate depăși totalul facturii ({:.2})",
+            "Suma încasată ({:.2}) nu poate depăși totalul facturii cu TVA ({:.2})",
             paid_amount,
-            total_amount
+            gross_total
         ));
     }
 
     let invoice_number_str = invoice_number.to_string();
+    let receipt_series = get_receipt_series(&conn)?;
     let series = carnet_series.unwrap_or_else(|| "FACTURA".to_string());
-    let (receipt_series_opt, carnet_series_opt): (Option<String>, Option<String>) = conn
-        .query_row(
-            "SELECT receipt_series, carnet_series FROM agent_settings WHERE id = 1",
-            [],
-            |row| Ok((row.get(0).ok(), row.get(1).ok()))
-        )
-        .unwrap_or_default();
-
-    let receipt_series = receipt_series_opt
-        .clone()
-        .filter(|s| !s.trim().is_empty())
-        .or(carnet_series_opt)
-        .unwrap_or_else(|| "CH".to_string());
 
     let receipt_number = generate_receipt_number(&conn)?;
 
@@ -4325,13 +4376,14 @@ pub fn record_collection_from_invoice(
         )
         .map_err(|e| e.to_string())?;
 
-    let remaining = (total_amount - collected_total).max(0.0);
+    // Calculate remaining based on Gross Total
+    let remaining = (gross_total - collected_total).max(0.0);
 
-    if remaining <= 0.0 {
+    if remaining <= EPSILON {
         return Err("Factura este deja încasată integral".to_string());
     }
 
-    if paid_amount > remaining {
+    if paid_amount > (remaining + EPSILON) {
         return Err(format!(
             "Suma încasată ({:.2}) depășește restul disponibil ({:.2})",
             paid_amount,
@@ -4677,11 +4729,20 @@ pub async fn send_collection(
 
     {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
-        conn.execute(
-            "UPDATE collections SET status = 'sending' WHERE COALESCE(receipt_group_id, id) = ?1",
+        
+        // Check if we can transition to sending state
+        // Only allow if not already sending or synced
+        // This prevents race conditions when multiple sync triggers happen
+        let affected = conn.execute(
+            "UPDATE collections SET status = 'sending' WHERE COALESCE(receipt_group_id, id) = ?1 AND status != 'sending' AND status != 'synced'",
             [&receipt_group_id],
         )
         .map_err(|e| e.to_string())?;
+
+        if affected == 0 {
+            info!("[CHITANTE][SEND] Collection group {} is already sending or synced. Skipping duplicate send.", receipt_group_id);
+            return Ok(collection_for_print);
+        }
     }
 
     let api = api_client::ApiClient::from_default()?;
@@ -4707,7 +4768,7 @@ pub async fn send_collection(
             obiect_tranzactie: "Client".to_string(),
             data: doc_date,
             curs: 1.0,
-            id_partener: partner_id,
+            id_partener: partner_id.clone(),
             valoare: total_value,
             obs: "".to_string(),
             anulat: "NU".to_string(),
@@ -4727,6 +4788,97 @@ pub async fn send_collection(
     }
 
     let now_str = Utc::now().to_rfc3339();
+
+    // DUPLICATE PREVENTION: Check if invoice is already paid in WME before sending receipt
+    // This handles the case where a previous attempt succeeded on server but failed to return OK to client
+    let _start_check = std::time::Instant::now();
+    // ApiClient already created above
+    
+    // We need to check the balance for the partner to see if the invoice is still unpaid
+    // Filters for get_solduri_clienti
+    let check_filter = api_client::SolduriFilterRequest {
+        id_partener: Some(partner_id.clone()),
+        marca_agent: None,
+        paginare: None,
+    };
+    
+    let mut already_paid = false;
+    
+    // Only perform this check if we are retrying (status was pending/failed) or just always to be safe?
+    // Always checking is safer but adds latency. Given this is "Send" action initiated by user or sync, latency is acceptable for safety.
+    info!("[CHITANTE][SEND] Checking WME balance for partner {} to prevent duplicates...", partner_id);
+    
+    match api.get_solduri_clienti(check_filter).await {
+        Ok(response) => {
+            // Check if our invoices exist in the balance list with remaining amount
+            // If they are missing or have rest=0, they are paid.
+            
+            // Collect all invoice numbers from this receipt group
+            let invoice_numbers: std::collections::HashSet<String> = rows.iter()
+                .filter_map(|r| r.6.clone()) // numar_factura
+                .collect();
+            
+            if !invoice_numbers.is_empty() {
+                // Find these invoices in the response
+                let mut found_unpaid_amount = 0.0;
+                let mut found_invoices_count = 0;
+                
+                for sold in &response.info_solduri {
+                    let sold_numar = sold.numar.as_deref().unwrap_or_default().trim();
+                    if invoice_numbers.contains(sold_numar) {
+                        let rest = api_client::parse_f64(&sold.rest);
+                        if rest > 0.01 {
+                            found_unpaid_amount += rest;
+                            found_invoices_count += 1;
+                        }
+                    }
+                }
+                
+                info!("[CHITANTE][SEND] Balance check: Found {} matching unpaid invoices with total rest {:.2}. Receipt total: {:.2}", 
+                    found_invoices_count, found_unpaid_amount, total_value);
+                
+                // If we found NO matching unpaid invoices (count=0) OR the total unpaid amount is significantly less than receipt value
+                // Then we assume it's already paid.
+                // Note: It's possible partial payment exists. 
+                // Strict check: if found_unpaid_amount < (total_value - 0.5) { ... }
+                // Giving 0.5 RON buffer for rounding differences
+                 if found_unpaid_amount < (total_value - 0.5) {
+                    warn!("[CHITANTE][SEND] DETECTED DUPLICATE! WME Rest ({:.2}) < Receipt Value ({:.2}). Marking as synced.", found_unpaid_amount, total_value);
+                    already_paid = true;
+                }
+            } else {
+                 info!("[CHITANTE][SEND] No specific invoice numbers to check (advance payment?). Proceeding with send.");
+            }
+        },
+        Err(e) => {
+            warn!("[CHITANTE][SEND] Failed to check balance before sending: {}. Proceeding with send to be safe.", e);
+            // If check fails (e.g. timeout), we proceed with send. 
+            // Worst case: duplicate. 
+            // Better than blocking payment if check API is down.
+        }
+    }
+    
+    if already_paid {
+         // Skip sending to API, just mark as synced
+         let conn = db.conn.lock().map_err(|e| e.to_string())?;
+         conn.execute(
+            "UPDATE collections SET status = 'synced', synced_at = ?1, error_message = NULL WHERE COALESCE(receipt_group_id, id) = ?2",
+            params![now_str, receipt_group_id],
+        )
+        .map_err(|e| e.to_string())?;
+        
+        // Return updated collection
+        drop(conn); // Drop lock
+        let grouped = get_collections(db.clone(), None)?;
+        let updated = grouped
+            .into_iter()
+            .find(|c| c.id == receipt_group_id)
+            .ok_or_else(|| "Nu s-a putut încărca chitanța actualizată".to_string())?;
+            
+        return Ok(updated);
+    }
+    
+    // Actually send the request (previously missing variable 'request' is now defined above)
     let api_result = api.send_collections_to_wme(request).await;
 
     match api_result {

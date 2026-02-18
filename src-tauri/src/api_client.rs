@@ -577,7 +577,7 @@ pub fn parse_f64(s: &Option<String>) -> f64 {
 }
 
 #[derive(Debug, Serialize)]
-struct SolduriPaginationRequest {
+pub struct SolduriPaginationRequest {
     #[serde(rename = "Pagina")]
     pub pagina: i32,
     #[serde(rename = "Inregistrari")]
@@ -585,7 +585,7 @@ struct SolduriPaginationRequest {
 }
 
 #[derive(Debug, Serialize)]
-struct SolduriFilterRequest {
+pub struct SolduriFilterRequest {
     #[serde(rename = "IDPartener", skip_serializing_if = "Option::is_none")]
     pub id_partener: Option<String>,
     #[serde(rename = "MarcaAgent", skip_serializing_if = "Option::is_none")]
@@ -1002,7 +1002,7 @@ impl ApiClient {
     }
 
     // Send invoice to WME
-    pub async fn send_invoice_to_wme(&self, mut request: WmeInvoiceRequest) -> Result<WmeInvoiceResponse, String> {
+    pub async fn send_invoice_to_wme(&self, request: WmeInvoiceRequest) -> Result<WmeInvoiceResponse, String> {
         let url = format!("{}/IesiriClienti", self.config.base_url);
         
         info!("Sending invoice to WME API: {}", url);

@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ro } from "date-fns/locale";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { CollectionDetailDialog } from "@/app/components/collections/CollectionDetailDialog";
 
 type TabValue = "all" | CollectionStatus;
 type ViewMode = "grid" | "table";
@@ -85,6 +86,9 @@ export default function CollectionsPage() {
     const [actionId, setActionId] = useState<string | null>(null);
     const [actionType, setActionType] = useState<"send" | "print" | "delete" | null>(null);
     const { isAgent, isAdmin } = useAuth();
+
+    const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+    const [detailsOpen, setDetailsOpen] = useState(false);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -200,6 +204,11 @@ export default function CollectionsPage() {
             setActionId(null);
             setActionType(null);
         }
+    };
+
+    const handleViewDetails = (collection: Collection) => {
+        setSelectedCollection(collection);
+        setDetailsOpen(true);
     };
 
     const counts = {
@@ -349,6 +358,15 @@ export default function CollectionsPage() {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" side="bottom" sideOffset={5}>
                                                     <DropdownMenuItem
+                                                        onSelect={(e) => {
+                                                            e.preventDefault();
+                                                            handleViewDetails(collection);
+                                                        }}
+                                                    >
+                                                        <FileText className="mr-2 h-4 w-4" />
+                                                        Detalii
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
                                                         disabled={actionId === collection.id}
                                                         onSelect={(e) => {
                                                             e.preventDefault();
@@ -446,19 +464,29 @@ export default function CollectionsPage() {
                                     <Button
                                         variant="outline"
                                         className="h-9 px-3 text-xs"
+                                        onClick={() => handleViewDetails(collection)}
+                                    >
+                                        <FileText className="h-3.5 w-3.5 mr-1" />
+                                        Detalii
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 w-9 p-0 flex-shrink-0"
                                         disabled={actionId === collection.id}
                                         onClick={() => handlePrintCollection(collection.id)}
+                                        title="Imprimare"
                                     >
                                         {actionId === collection.id && actionType === "print" ? (
-                                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                         ) : (
-                                            <Printer className="h-3.5 w-3.5 mr-1" />
+                                            <Printer className="h-3.5 w-3.5" />
                                         )}
-                                        Printează
                                     </Button>
+
                                     {(collection.status === "pending" || collection.status === "failed") && (
                                         <Button
-                                            variant={collection.status === "failed" ? "outline" : "default"}
+                                            variant="default" // Always default (black) for both Trimite and Retrimite
                                             className="h-9 px-3 text-xs"
                                             disabled={actionId === collection.id}
                                             onClick={() => handleSendCollection(collection.id)}
@@ -502,6 +530,12 @@ export default function CollectionsPage() {
                     </div>
                 )}
             </div>
+
+            <CollectionDetailDialog
+                collection={selectedCollection}
+                open={detailsOpen}
+                onOpenChange={setDetailsOpen}
+            />
         </div>
     );
 }

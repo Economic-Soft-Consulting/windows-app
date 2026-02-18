@@ -37,6 +37,17 @@ export function ReviewStep({
     0
   );
 
+  const totalVat = cartItems.reduce(
+    (sum, item) => {
+      const tvaPercent = item.product.tva_percent || 0;
+      const itemTotal = item.product.price * item.quantity;
+      return sum + (itemTotal * tvaPercent) / 100;
+    },
+    0
+  );
+
+  const grandTotal = totalAmount + totalVat;
+
   return (
     <div className="space-y-2">
       <div>
@@ -98,9 +109,18 @@ export function ReviewStep({
               </span>
             </div>
             <Separator />
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Total fără TVA:</span>
+              <span className="font-medium">{formatCurrency(totalAmount)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Total TVA:</span>
+              <span className="font-medium">{formatCurrency(totalVat)}</span>
+            </div>
+            <Separator />
             <div className="flex justify-between">
-              <span className="text-sm font-semibold">Total:</span>
-              <span className="text-base font-bold">{formatCurrency(totalAmount)}</span>
+              <span className="text-sm font-semibold">Total de plată:</span>
+              <span className="text-base font-bold">{formatCurrency(grandTotal)}</span>
             </div>
           </CardContent>
         </Card>
@@ -122,42 +142,78 @@ export function ReviewStep({
                   <TableHead className="min-w-0 text-xs h-8">Produs</TableHead>
                   <TableHead className="text-right whitespace-nowrap text-xs h-8">Cantitate</TableHead>
                   <TableHead className="text-right whitespace-nowrap hidden sm:table-cell text-xs h-8">Preț unitar</TableHead>
-                  <TableHead className="text-right whitespace-nowrap text-xs h-8">Total</TableHead>
+                  <TableHead className="text-right whitespace-nowrap hidden lg:table-cell text-xs h-8">P.U. cu TVA</TableHead>
+                  <TableHead className="text-right whitespace-nowrap text-xs h-8">Total f. TVA</TableHead>
+                  <TableHead className="text-right whitespace-nowrap text-xs h-8">Total cu TVA</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {cartItems.map((item) => (
-                  <TableRow key={item.product.id}>
-                    <TableCell className="text-xs font-medium min-w-0 py-2">
-                      <span className="line-clamp-2">{item.product.name}</span>
-                      {item.product.tva_percent != null && (
-                        <span className="text-[10px] text-muted-foreground block mt-0.5">
-                          TVA: {item.product.tva_percent}%
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right whitespace-nowrap text-xs py-2">
-                      {item.quantity} {item.product.unit_of_measure}
-                    </TableCell>
-                    <TableCell className="text-right whitespace-nowrap hidden sm:table-cell text-xs py-2">
-                      {formatCurrency(item.product.price)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium whitespace-nowrap text-xs py-2">
-                      {formatCurrency(item.product.price * item.quantity)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {cartItems.map((item) => {
+                  const tvaPercent = item.product.tva_percent || 0;
+                  const priceWithVat = item.product.price * (1 + tvaPercent / 100);
+                  const totalWithVat = item.product.price * item.quantity * (1 + tvaPercent / 100);
+
+                  return (
+                    <TableRow key={item.product.id}>
+                      <TableCell className="text-xs font-medium min-w-0 py-2">
+                        <span className="line-clamp-2">{item.product.name}</span>
+                        {item.product.tva_percent != null && (
+                          <span className="text-[10px] text-muted-foreground block mt-0.5">
+                            TVA: {item.product.tva_percent}%
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap text-xs py-2">
+                        {item.quantity} {item.product.unit_of_measure}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap hidden sm:table-cell text-xs py-2">
+                        {formatCurrency(item.product.price)}
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap hidden lg:table-cell text-xs py-2">
+                        {formatCurrency(priceWithVat)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium whitespace-nowrap text-xs py-2">
+                        {formatCurrency(item.product.price * item.quantity)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium whitespace-nowrap text-xs py-2">
+                        {formatCurrency(totalWithVat)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
               <TableFooter>
                 <TableRow>
                   <TableCell colSpan={2} className="text-right text-xs font-semibold sm:hidden py-2">
                     Total
                   </TableCell>
-                  <TableCell colSpan={3} className="text-right text-xs font-semibold hidden sm:table-cell py-2">
-                    Total
+                  <TableCell colSpan={5} className="text-right text-xs font-semibold hidden sm:table-cell py-2">
+                    Total fără TVA
                   </TableCell>
                   <TableCell className="text-right font-bold text-sm whitespace-nowrap py-2">
                     {formatCurrency(totalAmount)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell colSpan={2} className="text-right text-xs font-semibold sm:hidden py-2">
+                    TVA
+                  </TableCell>
+                  <TableCell colSpan={5} className="text-right text-xs font-semibold hidden sm:table-cell py-2">
+                    TVA
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-sm whitespace-nowrap py-2">
+                    {formatCurrency(totalVat)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell colSpan={2} className="text-right text-xs font-semibold sm:hidden py-2">
+                    Total de plată
+                  </TableCell>
+                  <TableCell colSpan={5} className="text-right text-xs font-semibold hidden sm:table-cell py-2">
+                    Total de plată
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-sm whitespace-nowrap py-2">
+                    {formatCurrency(grandTotal)}
                   </TableCell>
                 </TableRow>
               </TableFooter>
@@ -179,6 +235,6 @@ export function ReviewStep({
           className="min-h-[80px] text-sm"
         />
       </div>
-    </div>
+    </div >
   );
 }
