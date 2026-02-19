@@ -433,8 +433,8 @@ export default function ReportsPage() {
                         <TableHead>Cod ext</TableHead>
                         <TableHead className="text-right">Nr ouă</TableHead>
                         <TableHead className="text-right">Nr Cofraje</TableHead>
-                        <TableHead className="text-right">Preț fără TVA</TableHead>
-                        <TableHead className="text-right">Preț cu TVA</TableHead>
+                        <TableHead className="text-right">Valoare fără TVA</TableHead>
+                        <TableHead className="text-right">Valoare cu TVA</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

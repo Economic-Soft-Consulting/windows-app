@@ -6,11 +6,23 @@ import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
 import { FirstRunOverlay } from "../components/sync/FirstRunOverlay";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
-import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { OnlineStatusProvider, useOnlineStatus } from "@/app/contexts/OnlineStatusContext";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { toast } from "sonner";
 
 export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <OnlineStatusProvider>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </OnlineStatusProvider>
+  );
+}
+
+function DashboardLayoutInner({
   children,
 }: {
   children: React.ReactNode;

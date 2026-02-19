@@ -1542,19 +1542,22 @@ pub fn create_invoice(
             info!("No offer price found for product {} (partner {}), using standard price {}", product_name, request.partner_id, price);
         }
 
-        let item_total = price * item.quantity;
+        let price_r = (price * 100.0).round() / 100.0;
+        let quantity_r = (item.quantity * 100.0).round() / 100.0;
+        let item_total = (price_r * quantity_r * 100.0).round() / 100.0;
         total_amount += item_total;
 
         items_to_insert.push((
             Uuid::new_v4().to_string(),
             item.product_id.clone(),
             product_name,
-            item.quantity,
-            price,
+            quantity_r,
+            price_r,
             um,
             item_total,
         ));
     }
+    let total_amount = (total_amount * 100.0).round() / 100.0;
 
     // Get invoice number from agent settings (settings-based numbering)
     let (invoice_number, invoice_end): (i64, i64) = conn
@@ -1953,6 +1956,93 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         return Err(err_msg);
     }
 
+    // -------------------------------------------------------------------------
+    // DUPLICATE PREVENTION CHECKS
+    // -------------------------------------------------------------------------
+
+    // 1. Check local status
+    if invoice.status == InvoiceStatus::Sending || invoice.status == InvoiceStatus::Sent {
+        return Err(format!("Factura are deja statusul '{:?}'. Nu poate fi trimisă din nou.", invoice.status));
+    }
+
+    // 2. Check WME for existence (Anti-Double-Send) using current Series/Number
+    // Only check if we have a partner code (which is required anyway)
+    if let Some(cod_intern) = &partner_cod {
+        // We create a temporary API client just for this check
+        if let Ok(api) = api_client::ApiClient::from_default() {
+            let filter = api_client::SolduriFilterRequest {
+                id_partener: Some(cod_intern.clone()),
+                marca_agent: None,
+                paginare: None,
+            };
+
+            // We make a best-effort check. If this fails (e.g. network), we assume it's NOT sent and proceed.
+            if let Ok(response) = api.get_solduri_clienti(filter).await {
+                let current_series = agent_settings.carnet_series.as_deref().unwrap_or("").trim();
+                let current_number = invoice_number.to_string();
+
+                let already_exists = response.info_solduri.iter().any(|sold| {
+                    let sold_series = sold.serie.as_deref().unwrap_or("").trim();
+                    let sold_number = sold.numar.as_deref().unwrap_or("");
+                    sold_series == current_series && sold_number == current_number
+                });
+
+                if already_exists {
+                    let info_msg = format!("Factura {}{} există deja în WME. Actualizez statusul local.", current_series, current_number);
+                    info!("DUPLICATE PREVENTION: {}", info_msg);
+                    
+                    let now = Utc::now().to_rfc3339();
+                    let doc_info = format!("WME: {} {} (Recuperat)", current_series, current_number);
+                    
+                    // Update DB to 'Sent'/Synced
+                    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+                    conn.execute(
+                        "UPDATE invoices SET status = 'sent', sent_at = ?1, error_message = ?2 WHERE id = ?3",
+                        [&now, &doc_info, &invoice_id],
+                    ).map_err(|e| e.to_string())?;
+                    
+                     // Fetch the updated invoice to return proper state
+                     let invoice: Invoice = conn.query_row(
+                        r#"
+                        SELECT
+                            i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
+                            i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
+                            (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
+                            p.cod
+                        FROM invoices i
+                        JOIN partners p ON i.partner_id = p.id
+                        JOIN locations l ON i.location_id = l.id
+                        WHERE i.id = ?1
+                        "#,
+                        [&invoice_id],
+                        |row| {
+                            Ok(Invoice {
+                                id: row.get(0)?,
+                                partner_id: row.get(1)?,
+                                partner_name: row.get(2)?,
+                                partner_cif: row.get(3)?,
+                                partner_reg_com: row.get(4)?,
+                                location_id: row.get(5)?,
+                                location_name: row.get(6)?,
+                                location_address: row.get(7)?,
+                                status: InvoiceStatus::from(row.get::<_, String>(8)?),
+                                total_amount: row.get(9)?,
+                                notes: row.get(10)?,
+                                created_at: row.get(11)?,
+                                sent_at: row.get(12)?,
+                                error_message: row.get(13)?,
+                                item_count: row.get(14)?,
+                                partner_payment_term: None,
+                            })
+                        },
+                    ).map_err(|e| format!("Invoice not found after update: {}", e))?;
+
+                    return Ok(invoice);
+                }
+            }
+        }
+    }
+
     // After validations, mark as sending
     {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
@@ -1997,17 +2087,21 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         .unwrap_or_else(|| "valoare".to_string());
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
-        .map(|(product_id, quantity, price, um)| api_client::WmeInvoiceItem {
-            id_articol: product_id,
-            cant: quantity,
-            pret: price,
-            um: Some(um),
-            gestiune: Some(gestiune.clone()),
-            tip_contabil: Some(tip_contabil.clone()),
-            pret_inreg: 0.0,
-            pret_achiz: 0.0,
-            observatii: None,
-            tva: None,
+        .map(|(product_id, quantity, price, um)| {
+            let quantity_r = (quantity * 100.0).round() / 100.0;
+            let price_r = (price * 100.0).round() / 100.0;
+            api_client::WmeInvoiceItem {
+                id_articol: product_id,
+                cant: quantity_r,
+                pret: price_r,
+                um: Some(um),
+                gestiune: Some(gestiune.clone()),
+                tip_contabil: Some(tip_contabil.clone()),
+                pret_inreg: 0.0,
+                pret_achiz: 0.0,
+                observatii: None,
+                tva: None,
+            }
         })
         .collect();
 
@@ -2342,47 +2436,63 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
 
 #[tauri::command]
 pub async fn send_all_pending_invoices(db: State<'_, Database>) -> Result<Vec<String>, String> {
-    // Get all pending invoices
+    use std::sync::atomic::Ordering;
+
+    // Prevent concurrent runs — if already sending, return immediately
+    if db.is_sending_invoices.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        return Ok(vec![]);
+    }
+
+    struct LockGuard<'a>(&'a std::sync::atomic::AtomicBool);
+    impl Drop for LockGuard<'_> {
+        fn drop(&mut self) {
+            self.0.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    let _guard = LockGuard(&db.is_sending_invoices);
+
+    // Get all pending/failed invoices
     let pending_ids: Vec<String> = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare("SELECT id FROM invoices WHERE status = 'pending' OR status = 'failed' ORDER BY created_at ASC")
             .map_err(|e| e.to_string())?;
 
-        let ids: Vec<String> = stmt.query_map([], |row| row.get(0))
+        let x: Vec<String> = stmt.query_map([], |row| row.get(0))
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
             .collect();
-        
-        ids
+        x
     };
 
     if pending_ids.is_empty() {
         return Ok(vec![]);
     }
 
-    info!("Found {} pending/failed invoices to send", pending_ids.len());
+    info!("[SYNC] Trimitere {} facturi in asteptare...", pending_ids.len());
     let mut sent_ids = Vec::new();
 
-    // Try to send each pending invoice
-    for invoice_id in pending_ids {
+    for invoice_id in &pending_ids {
         match send_invoice(db.clone(), invoice_id.clone()).await {
+            Ok(invoice) if invoice.status == InvoiceStatus::Sent => {
+                sent_ids.push(invoice_id.clone());
+            }
             Ok(invoice) => {
-                if invoice.status == InvoiceStatus::Sent {
-                    info!("Successfully sent invoice {}", invoice_id);
-                    sent_ids.push(invoice_id);
-                } else {
-                    info!("Invoice {} failed to send: {:?}", invoice_id, invoice.error_message);
-                }
+                warn!("[SYNC] Factura {} esuata — status={:?}", invoice_id, invoice.status);
             }
             Err(e) => {
-                info!("Error sending invoice {}: {}", invoice_id, e);
+                warn!("[SYNC] Factura {} eroare: {}", invoice_id, e);
             }
         }
     }
 
+    if !sent_ids.is_empty() {
+        info!("[SYNC] Facturi trimise: {}/{}", sent_ids.len(), pending_ids.len());
+    }
+
     Ok(sent_ids)
 }
+
 
 #[tauri::command]
 pub fn cancel_invoice_sending(db: State<'_, Database>, invoice_id: String) -> Result<Invoice, String> {
@@ -4561,13 +4671,45 @@ pub fn get_collections(
 pub async fn sync_collections(
     db: State<'_, Database>,
 ) -> Result<SyncStatus, String> {
-    let pending_collections = get_collections(db.clone(), Some("pending".to_string()))?;
+    use std::sync::atomic::Ordering;
 
-    for collection in pending_collections {
-        let _ = send_collection(db.clone(), collection.id).await;
+    // Prevent concurrent runs
+    if db.is_syncing_collections.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+        return get_sync_status(db);
     }
 
-    get_sync_status(db)
+    struct LockGuard<'a>(&'a std::sync::atomic::AtomicBool);
+    impl Drop for LockGuard<'_> {
+        fn drop(&mut self) {
+            self.0.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    let _guard = LockGuard(&db.is_syncing_collections);
+
+    // Only retry pending — failed must be retried manually
+    let pending_collections = get_collections(db.clone(), Some("pending".to_string()))?;
+
+    if pending_collections.is_empty() {
+        return get_sync_status(db.clone());
+    }
+
+    info!("[SYNC] Trimitere {} chitante in asteptare...", pending_collections.len());
+
+    let mut sent = 0;
+    let mut errors = 0;
+
+    for collection in pending_collections {
+        match send_collection(db.clone(), collection.id.clone()).await {
+            Ok(_) => sent += 1,
+            Err(_) => errors += 1,
+        }
+    }
+
+    if sent > 0 || errors > 0 {
+        info!("[SYNC] Chitante: {} trimise, {} esuate", sent, errors);
+    }
+
+    get_sync_status(db.clone())
 }
 
 #[tauri::command]
@@ -4843,15 +4985,17 @@ pub async fn send_collection(
                 info!("[CHITANTE][SEND] Balance check: Found {} matching unpaid invoices with total rest {:.2}. Receipt total: {:.2}", 
                     found_invoices_count, found_unpaid_amount, total_value);
                 
-                // If we found NO matching unpaid invoices (count=0) OR the total unpaid amount is significantly less than receipt value
-                // Then we assume it's already paid.
-                // Note: It's possible partial payment exists. 
-                // Strict check: if found_unpaid_amount < (total_value - 0.5) { ... }
-                // Giving 0.5 RON buffer for rounding differences
-                 if found_unpaid_amount < (total_value - 0.5) {
+                // IMPORTANT: Only mark as duplicate if we FOUND matching invoices in WME AND they appear already paid.
+                // If found_invoices_count == 0, the invoice might be a LOCAL invoice (not in WME solduri yet),
+                // so we MUST NOT assume it's paid — we should proceed with sending.
+                if found_invoices_count > 0 && found_unpaid_amount < (total_value - 0.5) {
                     warn!("[CHITANTE][SEND] DETECTED DUPLICATE! WME Rest ({:.2}) < Receipt Value ({:.2}). Marking as synced.", found_unpaid_amount, total_value);
                     already_paid = true;
+                } else if found_invoices_count == 0 {
+                    info!("[CHITANTE][SEND] No matching invoices found in WME solduri — likely a local invoice. Proceeding with send.");
                 }
+
+
             } else {
                  info!("[CHITANTE][SEND] No specific invoice numbers to check (advance payment?). Proceeding with send.");
             }

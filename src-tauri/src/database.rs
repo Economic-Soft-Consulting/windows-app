@@ -1,12 +1,16 @@
 use log::info;
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Mutex, atomic::AtomicBool};
 use tauri::{AppHandle, Manager};
 use chrono::Utc;
 
 pub struct Database {
     pub conn: Mutex<Connection>,
+    /// Global lock to prevent concurrent batch invoice sends
+    pub is_sending_invoices: AtomicBool,
+    /// Global lock to prevent concurrent sync_collections runs
+    pub is_syncing_collections: AtomicBool,
 }
 
 impl Database {
@@ -27,6 +31,8 @@ impl Database {
 
         Ok(Self {
             conn: Mutex::new(conn),
+            is_sending_invoices: AtomicBool::new(false),
+            is_syncing_collections: AtomicBool::new(false),
         })
     }
 

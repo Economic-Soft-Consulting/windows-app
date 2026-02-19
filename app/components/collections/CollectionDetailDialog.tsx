@@ -12,7 +12,7 @@ import { CollectionStatusBadge } from "./CollectionStatusBadge";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Loader2, Printer, FileText, Calendar, CreditCard, AlertCircle, FileCheck2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { ro } from "date-fns/locale";
 import type { Collection } from "@/lib/tauri/types";
 import { printCollectionToHtml } from "@/lib/tauri/commands";
@@ -52,12 +52,38 @@ export function CollectionDetailDialog({
 
     const formatDate = (dateStr?: string) => {
         if (!dateStr) return "-";
-        return format(new Date(dateStr), "dd MMMM yyyy", { locale: ro });
+        try {
+            let d = new Date(dateStr);
+            if (!isNaN(d.getTime())) return format(d, "dd MMMM yyyy", { locale: ro });
+
+            // Try parsing "dd.MM.yyyy"
+            if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
+                d = parse(dateStr, "dd.MM.yyyy", new Date());
+                if (!isNaN(d.getTime())) return format(d, "dd MMMM yyyy", { locale: ro });
+            }
+
+            return "Data invalidă";
+        } catch {
+            return "-";
+        }
     };
 
     const formatDateTime = (dateStr?: string) => {
         if (!dateStr) return "-";
-        return format(new Date(dateStr), "dd.MM.yyyy HH:mm", { locale: ro });
+        try {
+            let d = new Date(dateStr);
+            if (!isNaN(d.getTime())) return format(d, "dd.MM.yyyy HH:mm", { locale: ro });
+
+            // Try parsing "dd.MM.yyyy"
+            if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
+                d = parse(dateStr, "dd.MM.yyyy", new Date());
+                if (!isNaN(d.getTime())) return format(d, "dd.MM.yyyy HH:mm", { locale: ro });
+            }
+
+            return "Data invalidă";
+        } catch {
+            return "-";
+        }
     };
 
     // Helper to clean up error messages

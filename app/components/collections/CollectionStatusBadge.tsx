@@ -42,6 +42,16 @@ const statusConfig: Record<CollectionStatus, {
 
 export function CollectionStatusBadge({ status }: CollectionStatusBadgeProps) {
     const config = statusConfig[status];
+
+    if (!config) {
+        return (
+            <Badge variant="outline" className="gap-1.5 bg-gray-100 text-gray-800 border-gray-200">
+                <span className="h-2 w-2 rounded-full bg-gray-400" />
+                Unknown ({status})
+            </Badge>
+        );
+    }
+
     const Icon = config.icon;
 
     return (
