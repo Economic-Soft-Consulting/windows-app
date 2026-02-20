@@ -18,9 +18,8 @@ impl ApiConfig {
         }
     }
 
-    pub fn from_env_or_default() -> Self {
-        // Default configuration - can be changed via settings
-        Self::new("10.200.1.94", 8089, None)
+    pub fn from_settings(host: &str, port: u16) -> Self {
+        Self::new(host, port, None)
     }
 }
 
@@ -269,8 +268,9 @@ impl ApiClient {
         Ok(Self { config, client })
     }
 
+    #[deprecated(note = "Use get_wme_api_client() in commands.rs which reads host/port from DB settings")]
     pub fn from_default() -> Result<Self, String> {
-        Self::new(ApiConfig::from_env_or_default())
+        Err("Server WME neconfigurat. Configurează adresa IP în Setări.".to_string())
     }
 
     // Get partners using GET-only flow (legacy signature kept for compatibility)

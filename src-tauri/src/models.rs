@@ -215,6 +215,8 @@ pub struct AgentSettings {
     pub nume_casa: Option<String>,
     pub auto_sync_collections_enabled: Option<bool>,
     pub auto_sync_collections_time: Option<String>,
+    pub wme_host: Option<String>,
+    pub wme_port: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

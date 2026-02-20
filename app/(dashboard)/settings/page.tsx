@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Loader2, Printer, FileText, User, RefreshCw } from "lucide-react";
+import { Settings, Loader2, Printer, FileText, User, RefreshCw, Server, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -59,6 +59,8 @@ export default function SettingsPage() {
     receipt_number_start: null,
     receipt_number_end: null,
     receipt_number_current: null,
+    wme_host: null,
+    wme_port: null,
   });
   const [savingAgent, setSavingAgent] = useState(false);
   const [loadingAgentSettings, setLoadingAgentSettings] = useState(true);
@@ -154,7 +156,9 @@ export default function SettingsPage() {
         agentSettings.receipt_series || null,
         agentSettings.receipt_number_start,
         agentSettings.receipt_number_end,
-        agentSettings.receipt_number_current
+        agentSettings.receipt_number_current,
+        agentSettings.wme_host?.trim() || null,
+        agentSettings.wme_port ?? null
       );
 
       const marcaChanged = oldMarcaAgent !== newMarcaAgent;
@@ -297,6 +301,67 @@ export default function SettingsPage() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto min-h-0 space-y-6">
+        {/* WME Server Config */}
+        <Card className={!agentSettings.wme_host?.trim() ? "border-amber-400 dark:border-amber-600" : ""}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Server className="h-5 w-5" />
+              Server WME
+              {!agentSettings.wme_host?.trim() && (
+                <span className="flex items-center gap-1 ml-auto text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-1 rounded-full">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Neconfigurat
+                </span>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Adresa IP și portul serverului WME Winmentor — necesare pentru sincronizare și trimiterea documentelor
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="wmeHost">Adresă IP Server WME</Label>
+                <Input
+                  id="wmeHost"
+                  type="text"
+                  placeholder="Ex: 192.168.1.100"
+                  value={agentSettings.wme_host || ""}
+                  onChange={(e) =>
+                    setAgentSettings((prev) => ({
+                      ...prev,
+                      wme_host: e.target.value,
+                    }))
+                  }
+                />
+                <p className="text-sm text-muted-foreground">
+                  Adresa IP a serverului unde rulează WME/Winmentor
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wmePort">Port</Label>
+                <Input
+                  id="wmePort"
+                  type="number"
+                  placeholder="8089"
+                  min={1}
+                  max={65535}
+                  value={agentSettings.wme_port ?? ""}
+                  onChange={(e) =>
+                    setAgentSettings((prev) => ({
+                      ...prev,
+                      wme_port: e.target.value ? parseInt(e.target.value, 10) : null,
+                    }))
+                  }
+                />
+                <p className="text-sm text-muted-foreground">
+                  Implicit: 8089
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Agent Settings */}
         <Card>
           <CardHeader>

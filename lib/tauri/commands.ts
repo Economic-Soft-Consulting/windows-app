@@ -156,7 +156,9 @@ export async function saveAgentSettings(
   receiptSeries: string | null,
   receiptNumberStart: number | null,
   receiptNumberEnd: number | null,
-  receiptNumberCurrent: number | null
+  receiptNumberCurrent: number | null,
+  wmeHost: string | null,
+  wmePort: number | null
 ): Promise<AgentSettings> {
   return invoke<AgentSettings>("save_agent_settings", {
     agentName,
@@ -181,6 +183,8 @@ export async function saveAgentSettings(
     receiptNumberStart,
     receiptNumberEnd,
     receiptNumberCurrent,
+    wmeHost,
+    wmePort,
   });
 }
 

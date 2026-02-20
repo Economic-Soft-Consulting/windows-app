@@ -142,6 +142,8 @@ export interface AgentSettings {
   receipt_number_start: number | null;
   receipt_number_end: number | null;
   receipt_number_current: number | null;
+  wme_host: string | null;
+  wme_port: number | null;
 }
 
 // Cart item for invoice creation wizard

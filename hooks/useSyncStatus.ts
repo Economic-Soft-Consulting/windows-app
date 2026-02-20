@@ -35,14 +35,35 @@ export function useSyncStatus() {
     window.dispatchEvent(new CustomEvent('sync-started'));
     try {
       await syncAllData();
-      await sendAllPendingInvoices();
+
+      // Send invoices and show a summary toast
+      const invoiceResults = await sendAllPendingInvoices();
+      if (invoiceResults.length > 0) {
+        const failed = invoiceResults.filter((r) => r.toLowerCase().includes("eroare") || r.toLowerCase().includes("error") || r.toLowerCase().includes("eșuat")).length;
+        const sent = invoiceResults.length - failed;
+        if (failed > 0) {
+          toast.warning(`Facturi: ${sent} trimise, ${failed} eșuate.`);
+        } else {
+          toast.success(`${sent} factur${sent === 1 ? "ă trimisă" : "i trimise"} cu succes.`);
+        }
+      }
+
+      // Sync balances (non-blocking)
       try {
         await syncClientBalances();
       } catch (balanceError) {
         console.warn("Sync solduri eșuat, continuăm cu sincronizarea chitanțelor.", balanceError);
         toast.warning("Soldurile nu au putut fi sincronizate acum. Chitanțele continuă să se sincronizeze.");
       }
-      await syncCollections();
+
+      // Sync collections and show toast
+      try {
+        await syncCollections();
+        toast.success("Chitanțele au fost sincronizate.");
+      } catch (collErr) {
+        console.warn("Sync chitante eșuat:", collErr);
+        toast.warning("Chitanțele nu au putut fi sincronizate acum.");
+      }
 
       const newStatus = await getSyncStatus();
       setStatus(newStatus);

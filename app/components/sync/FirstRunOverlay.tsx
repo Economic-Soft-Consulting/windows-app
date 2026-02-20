@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, WifiOff, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, WifiOff, RefreshCw, Settings } from "lucide-react";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { getAgentSettings } from "@/lib/tauri/commands";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -14,23 +16,40 @@ interface FirstRunOverlayProps {
 export function FirstRunOverlay({ onComplete }: FirstRunOverlayProps) {
   const { triggerSync, isSyncing, error } = useSyncStatus();
   const { isOnline } = useOnlineStatus();
+  const router = useRouter();
   const [hasAttempted, setHasAttempted] = useState(false);
+  const [wmeNotConfigured, setWmeNotConfigured] = useState(false);
 
   useEffect(() => {
     if (isOnline && !hasAttempted && !isSyncing) {
       setHasAttempted(true);
-      triggerSync()
-        .then(() => {
-          onComplete();
+      // Check WME host before attempting sync
+      getAgentSettings()
+        .then((settings) => {
+          const host = settings.wme_host?.trim();
+          if (!host) {
+            setWmeNotConfigured(true);
+            return;
+          }
+          // Host is configured — proceed with normal sync
+          triggerSync()
+            .then(() => {
+              onComplete();
+            })
+            .catch(() => {
+              // Error is handled by the component via `error`
+            });
         })
         .catch(() => {
-          // Error is handled by the component
+          // Can't read settings — show WME not configured message
+          setWmeNotConfigured(true);
         });
     }
   }, [isOnline, hasAttempted, isSyncing, triggerSync, onComplete]);
 
   const handleRetry = () => {
     setHasAttempted(false);
+    setWmeNotConfigured(false);
   };
 
   return (
@@ -58,6 +77,23 @@ export function FirstRunOverlay({ onComplete }: FirstRunOverlayProps) {
               <Button onClick={handleRetry} variant="outline" className="gap-2">
                 <RefreshCw className="h-4 w-4" />
                 Reîncearcă
+              </Button>
+            </>
+          ) : wmeNotConfigured ? (
+            <>
+              <div className="h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <Settings className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="text-center space-y-2">
+                <p className="font-medium text-lg">Server WME neconfigurat</p>
+                <p className="text-muted-foreground text-sm">
+                  Înainte de prima sincronizare trebuie să configurezi adresa IP
+                  a serverului WME în Setări.
+                </p>
+              </div>
+              <Button onClick={() => router.push("/settings")} className="gap-2">
+                <Settings className="h-4 w-4" />
+                Mergi la Setări
               </Button>
             </>
           ) : error ? (

@@ -60,8 +60,6 @@ function DashboardLayoutInner({
       return;
     }
 
-    const AUTO_SYNC_HOUR = 23;
-    const AUTO_SYNC_MINUTE = 59;
     const RETRY_INTERVAL_MS = 5 * 60 * 1000;
 
     const toLocalDayKey = (date: Date) => {
@@ -81,6 +79,20 @@ function DashboardLayoutInner({
         return;
       }
 
+      // Check WME host before syncing — skip silently if not configured
+      try {
+        const { getAgentSettings } = await import("@/lib/tauri/commands");
+        const settings = await getAgentSettings();
+        if (!settings.wme_host?.trim()) {
+          console.warn("Auto-sync skipped: WME host not configured.");
+          pendingRetryRef.current = false;
+          return;
+        }
+      } catch {
+        // If we can't read settings, skip sync
+        return;
+      }
+
       autoSyncRunningRef.current = true;
       try {
         await triggerSync();
@@ -96,11 +108,38 @@ function DashboardLayoutInner({
     };
 
     const checkAutoSync = async () => {
+      // First, get settings dynamically to check if enabled and get the time
+      let syncEnabled = false;
+      let syncHour = 23;
+      let syncMinute = 59;
+
+      try {
+        const { getAgentSettings } = await import("@/lib/tauri/commands");
+        const settings = await getAgentSettings();
+        syncEnabled = settings.auto_sync_collections_enabled || false;
+
+        if (settings.auto_sync_collections_time) {
+          const [h, m] = settings.auto_sync_collections_time.split(":");
+          if (h && m) {
+            syncHour = parseInt(h, 10);
+            syncMinute = parseInt(m, 10);
+          }
+        }
+      } catch (e) {
+        console.warn("Could not read auto-sync settings", e);
+      }
+
+      // If user disabled it in settings, don't queue a sync
+      if (!syncEnabled) {
+        pendingRetryRef.current = false;
+        return;
+      }
+
       const now = new Date();
       const todayKey = toLocalDayKey(now);
 
       const target = new Date(now);
-      target.setHours(AUTO_SYNC_HOUR, AUTO_SYNC_MINUTE, 0, 0);
+      target.setHours(syncHour, syncMinute, 0, 0);
 
       const dueToday =
         now.getTime() >= target.getTime() &&

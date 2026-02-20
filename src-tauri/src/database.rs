@@ -601,6 +601,15 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         info!("Migration 16 completed");
     }
 
+    // Migration 17: Add wme_host and wme_port to agent_settings (v0.9.3)
+    if current_version < 17 {
+        info!("Applying migration 17: Add wme_host and wme_port to agent_settings");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN wme_host TEXT;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN wme_port INTEGER DEFAULT 8089;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (17, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 17 completed");
+    }
+
     info!("All migrations completed successfully");
     Ok(())
 }

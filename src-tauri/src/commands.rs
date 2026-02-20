@@ -612,9 +612,11 @@ pub fn get_sync_status(db: State<'_, Database>) -> Result<SyncStatus, String> {
 
 #[tauri::command]
 pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String> {
-    // Try real API first
-    // Try real API first - Strict mode for Release (No Mock Data)
-    let api = api_client::ApiClient::from_default().map_err(|e| format!("Failed to initialize API: {}", e))?;
+    // Build API client from settings — errors if WME host is not configured
+    let api = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        get_wme_api_client(&conn)?
+    };
 
     let agent_settings = get_agent_settings(db.clone())?;
     let marca_agent = agent_settings
@@ -1148,10 +1150,15 @@ pub fn check_online_status() -> Result<bool, String> {
 // ==================== API TEST COMMANDS ====================
 
 #[tauri::command]
-pub async fn test_api_partners() -> Result<String, String> {
+pub async fn test_api_partners(db: State<'_, Database>) -> Result<String, String> {
     info!("Testing API GET partners...");
     
-    match api_client::ApiClient::from_default() {
+    let wme_client = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        get_wme_api_client(&conn)
+    };
+
+    match wme_client {
         Ok(api) => {
             match api.get_all_partners(None).await {
                 Ok(partners) => {
@@ -1187,10 +1194,15 @@ pub async fn test_api_partners() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn test_api_articles() -> Result<String, String> {
+pub async fn test_api_articles(db: State<'_, Database>) -> Result<String, String> {
     info!("Testing API GET articles...");
     
-    match api_client::ApiClient::from_default() {
+    let wme_client = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        get_wme_api_client(&conn)
+    };
+
+    match wme_client {
         Ok(api) => {
             match api.get_all_articles().await {
                 Ok(articles) => {
@@ -1969,7 +1981,10 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     // Only check if we have a partner code (which is required anyway)
     if let Some(cod_intern) = &partner_cod {
         // We create a temporary API client just for this check
-        if let Ok(api) = api_client::ApiClient::from_default() {
+        if let Ok(api) = {
+            let conn = db.conn.lock().map_err(|e| e.to_string())?;
+            get_wme_api_client(&conn)
+        } {
             let filter = api_client::SolduriFilterRequest {
                 id_partener: Some(cod_intern.clone()),
                 marca_agent: None,
@@ -2150,8 +2165,14 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     }
     info!("===============================");
 
-    // Send to WME API
-    let result = match api_client::ApiClient::from_default() {
+    // Create the ApiClient in a separate block to ensure MutexGuard is dropped before await
+    let api_client_result = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        get_wme_api_client(&conn)
+    };
+
+    // Send to WME API 
+    let result = match api_client_result {
         Ok(client) => client.send_invoice_to_wme(wme_request).await,
         Err(e) => Err(format!("Failed to create API client: {}", e)),
     };
@@ -3440,12 +3461,37 @@ fn get_invoice_for_print(
 
 // ==================== AGENT SETTINGS COMMANDS ====================
 
+// Helper: Build an ApiClient from DB settings, returning a descriptive error if host is not set
+fn get_wme_api_client(conn: &rusqlite::Connection) -> Result<api_client::ApiClient, String> {
+    let (wme_host, wme_port): (Option<String>, Option<i64>) = conn
+        .query_row(
+            "SELECT wme_host, wme_port FROM agent_settings WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap_or((None, None));
+
+    let host = wme_host
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| "Server WME neconfigurat. Mergi la Setări și completează adresa IP a serverului WME înainte de sincronizare.".to_string())?;
+
+    let port = wme_port
+        .and_then(|p| if p > 0 && p <= 65535 { Some(p as u16) } else { None })
+        .unwrap_or(8089);
+
+    info!("Connecting to WME at {}:{}", host, port);
+    api_client::ApiClient::new(api_client::ApiConfig::from_settings(host, port))
+        .map_err(|e| format!("Failed to initialize API client: {}", e))
+}
+
 #[tauri::command]
 pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let result = conn.query_row(
-        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current FROM agent_settings WHERE id = 1",
+        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, wme_host, wme_port FROM agent_settings WHERE id = 1",
         [],
         |row| {
             let auto_sync_enabled: Option<i32> = row.get(16)?;
@@ -3472,6 +3518,8 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
                 receipt_number_start: row.get(19)?,
                 receipt_number_end: row.get(20)?,
                 receipt_number_current: row.get(21)?,
+                wme_host: row.get(22)?,
+                wme_port: row.get::<_, Option<i64>>(23)?.map(|v| v as i32),
             })
         },
     );
@@ -3501,6 +3549,8 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
             receipt_number_start: Some(1),
             receipt_number_end: Some(99999),
             receipt_number_current: Some(1),
+            wme_host: None,
+            wme_port: None,
         }),
     }
 }
@@ -3530,6 +3580,8 @@ pub fn save_agent_settings(
     receipt_number_start: Option<i64>,
     receipt_number_end: Option<i64>,
     receipt_number_current: Option<i64>,
+    wme_host: Option<String>,
+    wme_port: Option<i64>,
 ) -> Result<AgentSettings, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
@@ -3570,15 +3622,24 @@ pub fn save_agent_settings(
         .filter(|value| !value.is_empty())
         .or(Some("valoare".to_string()));
 
+    let normalized_wme_host = wme_host
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let normalized_wme_port = wme_port
+        .and_then(|p| if p > 0 && p <= 65535 { Some(p) } else { None })
+        .or(Some(8089));
+
     conn.execute(
-        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23) \
-         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, tip_contabil = excluded.tip_contabil, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, cod_delegat = excluded.cod_delegat, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, marca_agent = excluded.marca_agent, nume_casa = excluded.nume_casa, auto_sync_collections_enabled = excluded.auto_sync_collections_enabled, auto_sync_collections_time = excluded.auto_sync_collections_time, receipt_series = excluded.receipt_series, receipt_number_start = excluded.receipt_number_start, receipt_number_end = excluded.receipt_number_end, receipt_number_current = excluded.receipt_number_current, updated_at = excluded.updated_at",
+        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, wme_host, wme_port, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25) \
+         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, tip_contabil = excluded.tip_contabil, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, cod_delegat = excluded.cod_delegat, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, marca_agent = excluded.marca_agent, nume_casa = excluded.nume_casa, auto_sync_collections_enabled = excluded.auto_sync_collections_enabled, auto_sync_collections_time = excluded.auto_sync_collections_time, receipt_series = excluded.receipt_series, receipt_number_start = excluded.receipt_number_start, receipt_number_end = excluded.receipt_number_end, receipt_number_current = excluded.receipt_number_current, wme_host = excluded.wme_host, wme_port = excluded.wme_port, updated_at = excluded.updated_at",
         params![
             agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare,
             normalized_tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name,
             delegate_act, car_number, invoice_number_start, invoice_number_end, final_invoice_current,
             marca_agent, nume_casa, auto_sync_enabled_int, auto_sync_collections_time,
             receipt_series, receipt_number_start, receipt_number_end, final_receipt_current,
+            normalized_wme_host, normalized_wme_port,
             now
         ],
     )
@@ -3607,6 +3668,8 @@ pub fn save_agent_settings(
         receipt_number_start: receipt_number_start.map(|v| v as i32),
         receipt_number_end: receipt_number_end.map(|v| v as i32),
         receipt_number_current: final_receipt_current.map(|v| v as i32),
+        wme_host: normalized_wme_host,
+        wme_port: normalized_wme_port.map(|v| v as i32),
     })
 }
 
@@ -3938,7 +4001,10 @@ pub async fn sync_client_balances(
         .collect();
 
     // Use ApiClient to fetch balances
-    let api = api_client::ApiClient::from_default()?;
+    let api = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        get_wme_api_client(&conn)?
+    };
 
     // Fetch all balances from WME for the configured agent, then keep only local partners
     let solduri = api
@@ -4410,7 +4476,7 @@ pub fn record_collection_from_invoice(
 
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    let (partner_id, partner_name, invoice_number, total_amount, carnet_series): (String, String, i64, f64, Option<String>) = conn
+    let (partner_id, partner_name, invoice_number, _total_amount, carnet_series): (String, String, i64, f64, Option<String>) = conn
         .query_row(
             r#"
             SELECT i.partner_id, p.name, i.invoice_number, i.total_amount,
@@ -4893,7 +4959,10 @@ pub async fn send_collection(
         }
     }
 
-    let api = api_client::ApiClient::from_default()?;
+    let api = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        get_wme_api_client(&conn)?
+    };
     let an_lucru = now.year();
     let luna_lucru = now.month() as i32;
 
