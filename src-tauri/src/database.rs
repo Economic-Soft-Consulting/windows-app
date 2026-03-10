@@ -27,6 +27,18 @@ impl Database {
         // Run migrations for new columns
         run_migrations(&conn)?;
 
+        // Reset any records stuck in 'sending' state from a previous crash
+        let invoices_reset = conn.execute(
+            "UPDATE invoices SET status = 'pending' WHERE status = 'sending'", []
+        ).unwrap_or(0);
+        let collections_reset = conn.execute(
+            "UPDATE collections SET status = 'pending' WHERE status = 'sending'", []
+        ).unwrap_or(0);
+        if invoices_reset > 0 || collections_reset > 0 {
+            info!("Startup cleanup: reset {} invoices + {} collections from 'sending' to 'pending'",
+                invoices_reset, collections_reset);
+        }
+
         info!("Database initialized successfully");
 
         Ok(Self {
@@ -258,6 +270,7 @@ const SCHEMA: &str = r#"
     CREATE TABLE IF NOT EXISTS invoices (
         id TEXT PRIMARY KEY,
         invoice_number INTEGER UNIQUE,
+        invoice_series TEXT,
         partner_id TEXT NOT NULL,
         location_id TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
@@ -608,6 +621,14 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN wme_port INTEGER DEFAULT 8089;", []).ok();
         conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (17, ?1)", [&Utc::now().to_rfc3339()])?;
         info!("Migration 17 completed");
+    }
+
+    // Migration 18: Add invoice_series to invoices table
+    if current_version < 18 {
+        info!("Applying migration 18: Add invoice_series to invoices");
+        let _ = conn.execute("ALTER TABLE invoices ADD COLUMN invoice_series TEXT;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (18, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 18 completed");
     }
 
     info!("All migrations completed successfully");

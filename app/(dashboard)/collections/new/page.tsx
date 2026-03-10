@@ -150,8 +150,9 @@ export default function NewCollectionPage() {
     const isAllocationValid = (balance: ClientBalance) => {
         const key = getBalanceKey(balance);
         const value = parseAllocated(key);
-        const rest = balance.rest || 0;
-        return value > 0 && value <= rest;
+        const rest = Math.round((balance.rest || 0) * 100) / 100;
+        const valueRounded = Math.round(value * 100) / 100;
+        return valueRounded > 0 && valueRounded <= rest + 0.005;
     };
 
     const canGoNext = () => {
@@ -542,7 +543,7 @@ export default function NewCollectionPage() {
                                                         #{index + 1} • {balance.serie} {balance.numar}
                                                     </div>
                                                     <div className="text-xs text-muted-foreground">
-                                                        Sold disponibil: {new Intl.NumberFormat('ro-RO', { style: 'currency', currency: balance.moneda || 'RON' }).format(rest)}
+                                                        Sold disponibil: {new Intl.NumberFormat('ro-RO', { style: 'currency', currency: balance.moneda || 'RON' }).format(Math.round(rest * 100) / 100)}
                                                     </div>
                                                 </div>
                                                 <div className="w-full sm:w-52">
@@ -553,8 +554,14 @@ export default function NewCollectionPage() {
                                                         step="0.01"
                                                         value={value}
                                                         onChange={(e) => {
-                                                            const next = e.target.value;
-                                                            setAllocatedAmounts((prev) => ({ ...prev, [key]: next }));
+                                                            const raw = e.target.value;
+                                                            const parsed = parseFloat(raw.replace(",", "."));
+                                                            const restRounded = Math.round(rest * 100) / 100;
+                                                            if (isFinite(parsed) && parsed > restRounded + 0.005) {
+                                                                setAllocatedAmounts((prev) => ({ ...prev, [key]: restRounded.toFixed(2) }));
+                                                            } else {
+                                                                setAllocatedAmounts((prev) => ({ ...prev, [key]: raw }));
+                                                            }
                                                         }}
                                                         className="h-10 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                     />

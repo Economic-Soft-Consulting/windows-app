@@ -422,9 +422,9 @@ export default function CollectionsPage() {
                         </Table>
                     </div>
                 ) : (
-                    <div className="grid gap-3 pb-4 min-h-full content-start" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+                    <div className="grid gap-3 pb-4 min-h-full content-start" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gridAutoRows: "1fr" }}>
                         {collections.map((collection) => (
-                            <Card key={collection.id} className="flex flex-col text-sm">
+                            <Card key={collection.id} className="flex flex-col text-sm h-full">
                                 <CardHeader className="pb-2 pt-3 px-3">
                                     <div className="space-y-2">
                                         <h3 className="font-semibold text-base leading-tight">{collection.partner_name || "Nume Partener"}</h3>
@@ -460,7 +460,7 @@ export default function CollectionsPage() {
                                         )}
                                     </div>
                                 </CardContent>
-                                <CardFooter className="pt-2 px-3 pb-3 border-t gap-2 justify-center flex-wrap">
+                                <CardFooter className="pt-2 px-3 pb-3 border-t gap-2 justify-center flex-wrap mt-auto">
                                     <Button
                                         variant="outline"
                                         className="h-9 px-3 text-xs"

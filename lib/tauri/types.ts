@@ -66,6 +66,8 @@ export type InvoiceStatus = "pending" | "sending" | "sent" | "failed";
 
 export interface Invoice {
   id: string;
+  invoice_number: number;
+  invoice_series?: string | null;
   partner_id: string;
   partner_name: string;
   partner_cif?: string;

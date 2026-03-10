@@ -133,6 +133,8 @@ impl From<String> for InvoiceStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Invoice {
     pub id: String,
+    pub invoice_number: i32,
+    pub invoice_series: Option<String>,
     pub partner_id: String,
     pub partner_name: String,
     pub partner_cif: Option<String>,

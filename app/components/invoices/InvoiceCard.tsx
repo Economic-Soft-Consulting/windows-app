@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { InvoiceStatusBadge } from "./InvoiceStatusBadge";
-import { Send, Trash2, Eye, RotateCcw, MapPin, Package, Printer, Loader2, XCircle } from "lucide-react";
+import { Send, Trash2, Eye, RotateCcw, MapPin, Package, Printer, Loader2, XCircle, FileText } from "lucide-react";
 import type { Invoice } from "@/lib/tauri/types";
 import { cancelInvoiceSending } from "@/lib/tauri/commands";
 import { toast } from "sonner";
@@ -57,8 +57,12 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdm
     <>
       <Card className="flex flex-col text-sm">
         <CardHeader className="pb-2 pt-3 px-3">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <h3 className="font-semibold text-base leading-tight">{invoice.partner_name}</h3>
+            <div className="flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400">
+              <FileText className="h-3 w-3" />
+              <span>Factura: {invoice.invoice_series ? `${invoice.invoice_series} ` : ""}{invoice.invoice_number}</span>
+            </div>
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0 flex-1">
                 <MapPin className="h-3 w-3 flex-shrink-0" />

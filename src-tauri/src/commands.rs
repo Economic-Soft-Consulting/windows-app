@@ -289,7 +289,7 @@ fn save_receipt_html_file(
     ))
 }
 
-fn generate_quality_certificate_html() -> String {
+fn generate_quality_certificate_html(car_number: &str) -> String {
     use base64::{engine::general_purpose, Engine as _};
 
     let epc_img = general_purpose::STANDARD.encode(include_bytes!("../../public/EPC 16 EC.png"));
@@ -336,7 +336,7 @@ fn generate_quality_certificate_html() -> String {
             <div class="header-line">PO 7.5-03-F01Rev. 8/12012021</div>
             <div class="header-line">SC KARIN SRL</div>
             <div class="header-line">J24/380/1994, SEINI, N.BALCESCU, 43</div>
-            <div class="header-line">Jud. MM, Tel. 0262-491317</div>
+            <div class="header-line">Jud. MM</div>
         </div>
 
         <div class="logos">
@@ -382,7 +382,7 @@ fn generate_quality_certificate_html() -> String {
 
         <div class="cert-body">
             <p>Ambalate la data de 05.02.2026. Livrate beneficiarului: Rețea Magazine. Conform facturii/avizului nr. ______ din 05.02.2026.</p>
-            <p>Transport auto: MM44KRN, MM66KRN, MM56KAR, MM99KRN sau ______ indeplinesc parametri de calitate specificati conform BAnr.77/29.01.2026(salmonella negativ).</p>
+            <p>Transport auto: {} indeplinesc parametri de calitate specificati conform BAnr.77/29.01.2026(salmonella negativ).</p>
             <p>Caracteristici tehnice de livrare: SALUBRE; Rasa LOHMANN BROWN, LOHMANN SANDY; Aspectul cojii intactă, curată de formă normală, uscată;</p> 
             <p>Camera de aer: imobilă, cu înălțimea maximă 5 mm. Albușul: clar, translucid, consistență gelatinoasă si lipsit de corpuri străine de orice natura.</p> 
             <p>Gălbenuș vizibil, în fascicol de lumina sub formă de umbră. Mirosul și gust caracteristic oului proaspăt, fără miros și gust străin.</p>
@@ -392,22 +392,19 @@ fn generate_quality_certificate_html() -> String {
             <p>Produs fragil! A se manipula cu atenție la transport și depozitare.</p> 
             <p>Prezentul certificat întocmit conform Reg.(CE) nr.1234/22.10.2007 de instituire a unei organizari comune a pietelor agricole si privind</p>
             <p>dispozitii specifice referitoare la anumite produse agricole ("Regulamentul unic OCP"). Regulamentul (CE)NR.589/2008 al Comisiei din 23.06.2008</p>
-            <p>de stabilire a noremlor de aplicare a Reg.(CE)nr.1234/2007 al Consiliului privind standardele de comercializare a oualelor, modificat de Regulamentul </p>
+            <p>de stabilire a normelor de aplicare a Reg.(CE)nr.1234/2007 al Consiliului privind standardele de comercializare a oualelor, modificat de Regulamentul </p>
             <p>CE 598/2008. Mentionam ca ouale produse de noi cu cod pro.3RO MM 013 provin de la gaini crescute in custi imbunatatie si cu cod producator</p>
-            <p>2RO MM 040 provin de la gaini cresute in sistem volier. conform standardelor U.E. in vigoare. </p>
+            <p>2RO MM 040 provin de la gaini cresute in sistem volieră. conform standardelor U.E. in vigoare. </p>
         </div>
 
         <div class="cert-footer">
             <div class="footer-col">
-                Administrator,<br>
-                Dr. Meseșan Dan
             </div>
             <div class="footer-col footer-right">
                 Țara de origine:România<br>
                 Cod stație sortare RO MM 023<br>
                 Cod producător 3RO MM 013<br>
-                Cod producător 2RO MM 040<br>
-                Șef compartiment
+                Cod producător 2RO MM 040
             </div>
         </div>
 
@@ -420,12 +417,13 @@ fn generate_quality_certificate_html() -> String {
         epc_img,
         iso_img,
         cert_date,
+        car_number,
         stamp_img,
     )
 }
 
-fn save_invoice_certificate_file(invoice_id: &str) -> Result<(String, String, String), String> {
-    let html = generate_quality_certificate_html();
+fn save_invoice_certificate_file(invoice_id: &str, car_number: &str) -> Result<(String, String, String), String> {
+    let html = generate_quality_certificate_html(car_number);
 
     let app_data_dir = dirs::config_dir()
         .ok_or("Could not find app data directory")?
@@ -1572,13 +1570,13 @@ pub fn create_invoice(
     let total_amount = (total_amount * 100.0).round() / 100.0;
 
     // Get invoice number from agent settings (settings-based numbering)
-    let (invoice_number, invoice_end): (i64, i64) = conn
+    let (invoice_number, invoice_end, carnet_series): (i64, i64, Option<String>) = conn
         .query_row(
-            "SELECT COALESCE(invoice_number_current, 1), COALESCE(invoice_number_end, 99999) FROM agent_settings WHERE id = 1",
+            "SELECT COALESCE(invoice_number_current, 1), COALESCE(invoice_number_end, 99999), carnet_series FROM agent_settings WHERE id = 1",
             [],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
-        .unwrap_or((1, 99999));
+        .unwrap_or((1, 99999, None));
 
     // Validate we haven't exceeded the end number
     if invoice_number > invoice_end {
@@ -1588,12 +1586,12 @@ pub fn create_invoice(
         ));
     }
 
-    info!("Using invoice number {} from settings (max: {})", invoice_number, invoice_end);
+    info!("Using invoice number {} and series {:?} from settings (max: {})", invoice_number, carnet_series, invoice_end);
 
     // Insert invoice with number from settings
     conn.execute(
-        "INSERT INTO invoices (id, invoice_number, partner_id, location_id, status, total_amount, notes, created_at) VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?6, ?7)",
-        (&invoice_id, invoice_number, &request.partner_id, &request.location_id, total_amount, &request.notes, &now),
+        "INSERT INTO invoices (id, invoice_number, invoice_series, partner_id, location_id, status, total_amount, notes, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8)",
+        (&invoice_id, invoice_number, &carnet_series, &request.partner_id, &request.location_id, total_amount, &request.notes, &now),
     )
     .map_err(|e| e.to_string())?;
 
@@ -1619,6 +1617,8 @@ pub fn create_invoice(
 
     Ok(Invoice {
         id: invoice_id,
+        invoice_number: invoice_number as i32,
+        invoice_series: carnet_series,
         partner_id: request.partner_id,
         partner_name,
         partner_cif: None,
@@ -1651,7 +1651,7 @@ pub fn get_invoices(
                 i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
                 (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
-                p.scadenta_la_vanzare
+                p.scadenta_la_vanzare, i.invoice_number, i.invoice_series
             FROM invoices i
             JOIN partners p ON i.partner_id = p.id
             JOIN locations l ON i.location_id = l.id
@@ -1665,7 +1665,7 @@ pub fn get_invoices(
                 i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
                 (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
-                p.scadenta_la_vanzare
+                p.scadenta_la_vanzare, i.invoice_number, i.invoice_series
             FROM invoices i
             JOIN partners p ON i.partner_id = p.id
             JOIN locations l ON i.location_id = l.id
@@ -1695,6 +1695,8 @@ pub fn get_invoices(
                 error_message: row.get(13)?,
                 item_count: row.get(14)?,
                 partner_payment_term: row.get(15)?,
+                invoice_number: row.get(16)?,
+                invoice_series: row.get(17)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -1719,7 +1721,7 @@ pub fn get_invoice_detail(
                 i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
                 i.status, i.total_amount, i.notes, i.created_at, i.sent_at, i.error_message,
                 (SELECT COUNT(*) FROM invoice_items WHERE invoice_id = i.id),
-                p.scadenta_la_vanzare
+                p.scadenta_la_vanzare, i.invoice_number, i.invoice_series
             FROM invoices i
             JOIN partners p ON i.partner_id = p.id
             JOIN locations l ON i.location_id = l.id
@@ -1744,6 +1746,8 @@ pub fn get_invoice_detail(
                     error_message: row.get(13)?,
                     item_count: row.get(14)?,
                     partner_payment_term: row.get(15)?,
+                    invoice_number: row.get(16)?,
+                    invoice_series: row.get(17)?,
                 })
             },
         )
@@ -1828,10 +1832,20 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                         error_message: row.get(13)?,
                         item_count: row.get(14)?,
                         partner_payment_term: None,
+                        invoice_number: 0,
+                        invoice_series: None,
                     })
                 },
             )
-            .map_err(|e| format!("Invoice not found: {}", e))?;
+            .map_err(|e| {
+                // Mark as failed so it won't be retried endlessly
+                let err_msg = format!("Date lipsă (partener/locație șters?): {}", e);
+                let _ = conn.execute(
+                    "UPDATE invoices SET status = 'failed', error_message = ?1 WHERE id = ?2 AND status = 'pending'",
+                    rusqlite::params![&err_msg, &invoice_id],
+                );
+                format!("Invoice not found: {}", e)
+            })?;
 
         let (partner_cod, partner_moneda, partner_payment_term): (Option<String>, Option<String>, Option<String>) = conn
             .query_row(
@@ -2048,6 +2062,8 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                                 error_message: row.get(13)?,
                                 item_count: row.get(14)?,
                                 partner_payment_term: None,
+                                invoice_number: 0,
+                                invoice_series: None,
                             })
                         },
                     ).map_err(|e| format!("Invoice not found after update: {}", e))?;
@@ -2271,6 +2287,8 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                     error_message: row.get(13)?,
                     item_count: row.get(14)?,
                     partner_payment_term: None,
+                    invoice_number: 0,
+                    invoice_series: None,
                 })
             },
         )
@@ -2574,6 +2592,8 @@ pub fn cancel_invoice_sending(db: State<'_, Database>, invoice_id: String) -> Re
                     error_message: row.get(13)?,
                     item_count: row.get(14)?,
                     partner_payment_term: None,
+                    invoice_number: 0,
+                    invoice_series: None,
                 })
             },
         )
@@ -2920,7 +2940,12 @@ pub async fn print_invoice_to_html(
                 Err(e) => warn!("Invoice SumatraPDF print failed: {}", e),
             }
 
-            match save_invoice_certificate_file(&invoice_id) {
+            match save_invoice_certificate_file(&invoice_id, {
+                    let car_nr: String = conn.query_row(
+                        "SELECT COALESCE(car_number, '') FROM agent_settings WHERE id = 1",
+                        [], |row| row.get(0)).unwrap_or_default();
+                    car_nr
+                }.as_str()) {
                 Ok((_cert_html_path, _cert_pdf_path, cert_print_file)) => {
                     std::thread::sleep(std::time::Duration::from_millis(400));
 
@@ -2978,10 +3003,19 @@ pub async fn print_invoice_to_html(
 
 #[tauri::command]
 pub async fn print_invoice_certificate(
+    db: State<'_, Database>,
     invoice_id: String,
     printer_name: Option<String>,
 ) -> Result<String, String> {
-    let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&invoice_id)?;
+    let car_number = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT COALESCE(car_number, '') FROM agent_settings WHERE id = 1",
+            [],
+            |row| row.get::<_, String>(0),
+        ).unwrap_or_default()
+    };
+    let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&invoice_id, &car_number)?;
     let print_file = target.clone();
     let _is_pdf = print_file.ends_with(".pdf");
 
@@ -3069,9 +3103,18 @@ pub async fn print_invoice_certificate(
 
 #[tauri::command]
 pub async fn preview_invoice_certificate(
+        db: State<'_, Database>,
         invoice_id: String,
 ) -> Result<String, String> {
-        let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&invoice_id)?;
+        let car_number = {
+            let conn = db.conn.lock().map_err(|e| e.to_string())?;
+            conn.query_row(
+                "SELECT COALESCE(car_number, '') FROM agent_settings WHERE id = 1",
+                [],
+                |row| row.get::<_, String>(0),
+            ).unwrap_or_default()
+        };
+        let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&invoice_id, &car_number)?;
 
         open::that(&target).map_err(|e| format!("Failed to open certificate preview: {}", e))?;
         Ok(target)
@@ -3440,6 +3483,8 @@ fn get_invoice_for_print(
                 error_message: row.get(13)?,
                 item_count: row.get(14)?,
                 partner_payment_term: None,
+                invoice_number: 0,
+                invoice_series: None,
             };
             
             // Parse scadenta_la_vanzare to i64 (days)
@@ -4104,36 +4149,45 @@ pub fn get_client_balances(
         q.serie, q.numar, q.data, q.valoare, q.rest, q.termen, q.moneda,
         q.sediu, q.id_sediu, q.curs, q.observatii, q.cod_obligatie, q.marca_agent, q.synced_at
         FROM (
+            -- WME invoices (from client_balances), excluding ones we created locally
             SELECT 
                 cb.id, cb.id_partener, cb.cod_fiscal, cb.denumire, cb.tip_document, cb.cod_document,
                 cb.serie, cb.numar, cb.data, cb.valoare,
                 CASE
-                    WHEN COALESCE(cb.rest, 0) - COALESCE(c.total_collected, 0) > 0
-                        THEN COALESCE(cb.rest, 0) - COALESCE(c.total_collected, 0)
+                    WHEN COALESCE(cb.rest, 0) - (
+                        SELECT COALESCE(SUM(c.valoare), 0)
+                        FROM collections c
+                        WHERE c.id_partener = cb.id_partener
+                          AND COALESCE(c.serie_factura, '') = COALESCE(cb.serie, '')
+                          AND COALESCE(c.numar_factura, '') = COALESCE(cb.numar, '')
+                          AND COALESCE(c.cod_document, '') = COALESCE(cb.cod_document, '')
+                          AND (c.status IN ('pending', 'sending') OR (c.status = 'synced' AND c.synced_at > cb.synced_at))
+                    ) > 0.01
+                        THEN COALESCE(cb.rest, 0) - (
+                            SELECT COALESCE(SUM(c.valoare), 0)
+                            FROM collections c
+                            WHERE c.id_partener = cb.id_partener
+                              AND COALESCE(c.serie_factura, '') = COALESCE(cb.serie, '')
+                              AND COALESCE(c.numar_factura, '') = COALESCE(cb.numar, '')
+                              AND COALESCE(c.cod_document, '') = COALESCE(cb.cod_document, '')
+                              AND (c.status IN ('pending', 'sending') OR (c.status = 'synced' AND c.synced_at > cb.synced_at))
+                        )
                     ELSE 0
                 END AS rest,
                 cb.termen, cb.moneda,
                 cb.sediu, cb.id_sediu, cb.curs, cb.observatii, cb.cod_obligatie, cb.marca_agent, cb.synced_at
             FROM client_balances cb
-            LEFT JOIN (
-                SELECT
-                    id_partener,
-                    COALESCE(serie_factura, '') AS serie_factura,
-                    COALESCE(numar_factura, '') AS numar_factura,
-                    COALESCE(cod_document, '') AS cod_document,
-                    SUM(valoare) AS total_collected
-                FROM collections
-                WHERE status IN ('pending', 'sending', 'synced')
-                GROUP BY id_partener, COALESCE(serie_factura, ''), COALESCE(numar_factura, ''), COALESCE(cod_document, '')
-            ) c ON (
-                cb.id_partener = c.id_partener AND
-                COALESCE(cb.serie, '') = c.serie_factura AND
-                COALESCE(cb.numar, '') = c.numar_factura AND
-                COALESCE(cb.cod_document, '') = c.cod_document
+            -- Exclude invoices that exist locally — those are handled by the invoices branch
+            WHERE NOT EXISTS (
+                SELECT 1 FROM invoices i_local
+                WHERE i_local.partner_id = cb.id_partener
+                  AND i_local.invoice_number = CAST(COALESCE(cb.numar, '0') AS INTEGER)
+                  AND COALESCE(i_local.invoice_series, '') = COALESCE(cb.serie, '')
             )
 
             UNION ALL
 
+            -- Local invoices (created in this app) — always use local collection data
             SELECT
                 NULL AS id,
                 i.partner_id AS id_partener,
@@ -4141,10 +4195,9 @@ pub fn get_client_balances(
                 p.name AS denumire,
                 'FACTURA' AS tip_document,
                 CAST(i.invoice_number AS TEXT) AS cod_document,
-                COALESCE((SELECT carnet_series FROM agent_settings WHERE id = 1), 'FACTURA') AS serie,
+                i.invoice_series AS serie,
                 CAST(i.invoice_number AS TEXT) AS numar,
                 i.created_at AS data,
-                -- Calculate Gross Total (Total + VAT) for internal invoices
                 (
                     SELECT COALESCE(SUM(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0)), 0)
                     FROM invoice_items ii
@@ -4189,23 +4242,17 @@ pub fn get_client_balances(
                 SELECT
                     id_partener,
                     COALESCE(numar_factura, '') AS numar_factura,
-                    COALESCE(cod_document, '') AS cod_document,
+                    COALESCE(serie_factura, '') AS serie_factura,
                     SUM(valoare) AS total_collected
                 FROM collections
                 WHERE status IN ('pending', 'sending', 'synced')
-                GROUP BY id_partener, COALESCE(numar_factura, ''), COALESCE(cod_document, '')
+                GROUP BY id_partener, COALESCE(numar_factura, ''), COALESCE(serie_factura, '')
             ) c2 ON (
                 c2.id_partener = i.partner_id AND
                 c2.numar_factura = CAST(i.invoice_number AS TEXT) AND
-                c2.cod_document = CAST(i.invoice_number AS TEXT)
+                COALESCE(c2.serie_factura, '') = COALESCE(i.invoice_series, '')
             )
             WHERE i.status IN ('pending', 'sending', 'sent', 'failed')
-              AND NOT EXISTS (
-                SELECT 1
-                FROM client_balances cb2
-                WHERE cb2.id_partener = i.partner_id
-                  AND COALESCE(cb2.numar, '') = CAST(i.invoice_number AS TEXT)
-              )
         ) q
         WHERE COALESCE(q.rest, 0) > 0".to_string();
     
@@ -4274,19 +4321,6 @@ pub fn record_collection(
         .unwrap_or_else(|| "CH".to_string());
 
     let receipt_number = generate_receipt_number(&conn)?;
-    
-    // Check if there's already a pending or sending collection for this invoice
-    let existing_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM collections WHERE 
-         id_partener = ?1 AND serie_factura = ?2 AND numar_factura = ?3 AND cod_document = ?4 AND
-         (status = 'pending' OR status = 'sending')",
-        params![&collection.id_partener, &collection.serie_factura, &collection.numar_factura, &collection.cod_document],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
-    
-    if existing_count > 0 {
-        return Err("Există deja o încasare în curs de procesare pentru această factură".to_string());
-    }
     
     // Ensure ID is generated if not provided (though frontend should provide UUID)
     let id = if collection.id.is_empty() {
@@ -4404,33 +4438,6 @@ pub fn record_collection_group(
         .map_err(|e| e.to_string())?;
 
     for allocation in &request.allocations {
-        let existing_count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM collections WHERE
-                 id_partener = ?1 AND serie_factura = ?2 AND numar_factura = ?3 AND cod_document = ?4 AND
-                 (status = 'pending' OR status = 'sending')",
-                params![
-                    &partner_id,
-                    &allocation.serie_factura,
-                    &allocation.numar_factura,
-                    &allocation.cod_document
-                ],
-                |row| row.get(0),
-            )
-            .map_err(|e| {
-                let _ = conn.execute("ROLLBACK", []);
-                e.to_string()
-            })?;
-
-        if existing_count > 0 {
-            let _ = conn.execute("ROLLBACK", []);
-            return Err(format!(
-                "Există deja o încasare în curs pentru factura {} {}",
-                allocation.serie_factura.clone().unwrap_or_default(),
-                allocation.numar_factura.clone().unwrap_or_default()
-            ));
-        }
-
         let row_id = Uuid::new_v4().to_string();
         if let Err(e) = conn.execute(
             "INSERT INTO collections (
@@ -5660,6 +5667,8 @@ pub fn print_daily_report(
             error_message: row.get(13)?,
             item_count: row.get(14)?,
             partner_payment_term: row.get(15)?,
+            invoice_number: 0,
+            invoice_series: None,
         })
     }).map_err(|e| e.to_string())?;
 
