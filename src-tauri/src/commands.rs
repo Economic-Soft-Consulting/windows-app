@@ -89,12 +89,12 @@ fn generate_receipt_number(conn: &rusqlite::Connection) -> Result<String, String
                  return Err(format!("S-a atins limita de numere pentru chitanțe ({})", limit));
             }
         }
-        
+
         // Update DB with next value
         let next_val = val + 1;
         conn.execute("UPDATE agent_settings SET receipt_number_current = ?1 WHERE id = 1", [next_val])
             .map_err(|e| e.to_string())?;
-            
+
         Ok(val.to_string())
     } else {
         // Fallback to timestamp if not configured
@@ -108,7 +108,7 @@ fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
         Some(s) => s.parse::<f64>().ok(),
         None => None,
     };
-    
+
     Ok(Product {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -383,13 +383,13 @@ fn generate_quality_certificate_html(car_number: &str) -> String {
         <div class="cert-body">
             <p>Ambalate la data de 05.02.2026. Livrate beneficiarului: Rețea Magazine. Conform facturii/avizului nr. ______ din 05.02.2026.</p>
             <p>Transport auto: {} indeplinesc parametri de calitate specificati conform BAnr.77/29.01.2026(salmonella negativ).</p>
-            <p>Caracteristici tehnice de livrare: SALUBRE; Rasa LOHMANN BROWN, LOHMANN SANDY; Aspectul cojii intactă, curată de formă normală, uscată;</p> 
-            <p>Camera de aer: imobilă, cu înălțimea maximă 5 mm. Albușul: clar, translucid, consistență gelatinoasă si lipsit de corpuri străine de orice natura.</p> 
+            <p>Caracteristici tehnice de livrare: SALUBRE; Rasa LOHMANN BROWN, LOHMANN SANDY; Aspectul cojii intactă, curată de formă normală, uscată;</p>
+            <p>Camera de aer: imobilă, cu înălțimea maximă 5 mm. Albușul: clar, translucid, consistență gelatinoasă si lipsit de corpuri străine de orice natura.</p>
             <p>Gălbenuș vizibil, în fascicol de lumina sub formă de umbră. Mirosul și gust caracteristic oului proaspăt, fără miros și gust străin.</p>
             <p>Data durabilității minime este de 28 zile iar data recomandata pentru vanzare este de 28 de zile de la momentul ouatului.</p>
             <p>Temperatura de păstrare: 5-18 grade Celsius,În magazine, ferite de razele soarelui si sursa de caldura.</p>
             <p>In magazinele de desfacere, ouale se pastreaza in locuri racoroase, curate, ferite de alte produse ale caror miros le pot imprumuta.</p>
-            <p>Produs fragil! A se manipula cu atenție la transport și depozitare.</p> 
+            <p>Produs fragil! A se manipula cu atenție la transport și depozitare.</p>
             <p>Prezentul certificat întocmit conform Reg.(CE) nr.1234/22.10.2007 de instituire a unei organizari comune a pietelor agricole si privind</p>
             <p>dispozitii specifice referitoare la anumite produse agricole ("Regulamentul unic OCP"). Regulamentul (CE)NR.589/2008 al Comisiei din 23.06.2008</p>
             <p>de stabilire a normelor de aplicare a Reg.(CE)nr.1234/2007 al Consiliului privind standardele de comercializare a oualelor, modificat de Regulamentul </p>
@@ -636,7 +636,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
 
     // Get full partners list via GET, then apply all filters locally
     let api_partners = api.get_partners_full_get().await.map_err(|e| format!("Failed to fetch partners: {}", e))?;
-                    
+
     // Try to get articles from API
     let api_articles = api.get_all_articles().await.map_err(|e| format!("Failed to fetch products: {}", e))?;
 
@@ -677,10 +677,10 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
             conn.execute(
                 "INSERT OR REPLACE INTO partners (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
                 params![
-                    &partner.id, 
-                    &partner.name, 
-                    &partner.cif, 
-                    &partner.reg_com, 
+                    &partner.id,
+                    &partner.name,
+                    &partner.cif,
+                    &partner.reg_com,
                     &partner.cod,
                     &partner.blocat,
                     &partner.tva_la_incasare,
@@ -689,7 +689,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                     &partner.cod_intern,
                     &partner.observatii,
                     &partner.data_adaugarii,
-                    &partner.created_at, 
+                    &partner.created_at,
                     &partner.updated_at,
                     &partner.clasa,
                     &partner.simbol_clasa,
@@ -720,9 +720,9 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                 conn.execute(
                     "INSERT OR REPLACE INTO locations (id, partner_id, name, address, cod_sediu, localitate, strada, numar, judet, tara, cod_postal, telefon, email, inactiv) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                     (
-                        &location.id, 
-                        &location.partner_id, 
-                        &location.name, 
+                        &location.id,
+                        &location.partner_id,
+                        &location.name,
                         &location.address,
                         &location.cod_sediu,
                         &location.localitate,
@@ -744,7 +744,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
         for product in &products {
             // Convert Option<f64> to Option<String> for database storage
             let tva_str = product.tva_percent.map(|t| t.to_string());
-            
+
             conn.execute(
                 "INSERT INTO products (id, name, unit_of_measure, price, class, procent_tva) VALUES (?1, ?2, ?3, ?4, ?5, ?6) \
                  ON CONFLICT(id) DO UPDATE SET name = excluded.name, unit_of_measure = excluded.unit_of_measure, price = excluded.price, class = excluded.class, procent_tva = excluded.procent_tva",
@@ -931,7 +931,7 @@ fn convert_api_partners_to_model(
             } else {
                 api_partner.id.clone()
             };
-            
+
             let now = Utc::now().to_rfc3339();
 
             let mut seen_location_keys: HashSet<String> = HashSet::new();
@@ -985,12 +985,12 @@ fn convert_api_partners_to_model(
 
                     // Keep location IDs unique across all partners to avoid cross-partner overwrite
                     let location_id = format!("{}:{}", partner_id, base_location_id);
-                    
+
                     // Build address smartly: if we have street info, include it; otherwise just city and county
                     let address = if sediu.strada.is_some() || sediu.numar.is_some() {
                         // Has street info - build full address
                         let mut parts = Vec::new();
-                        
+
                         // Combine street and number
                         let mut street_part = String::new();
                         if let Some(strada) = &sediu.strada {
@@ -1009,38 +1009,38 @@ fn convert_api_partners_to_model(
                         if !street_part.is_empty() {
                             parts.push(street_part);
                         }
-                        
+
                         // Add city
                         if let Some(localitate) = &sediu.localitate {
                             if !localitate.trim().is_empty() {
                                 parts.push(localitate.trim().to_string());
                             }
                         }
-                        
+
                         // Add county
                         if let Some(judet) = &sediu.judet {
                             if !judet.trim().is_empty() {
                                 parts.push(judet.trim().to_string());
                             }
                         }
-                        
+
                         parts.join(", ")
                     } else {
                         // No street info - just show city and county
                         let mut parts = Vec::new();
-                        
+
                         if let Some(localitate) = &sediu.localitate {
                             if !localitate.trim().is_empty() {
                                 parts.push(localitate.trim().to_string());
                             }
                         }
-                        
+
                         if let Some(judet) = &sediu.judet {
                             if !judet.trim().is_empty() {
                                 parts.push(judet.trim().to_string());
                             }
                         }
-                        
+
                         parts.join(", ")
                     };
 
@@ -1117,10 +1117,10 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
             } else {
                 api_article.id.clone()
             };
-            
+
             // Parse price from string
             let price = parse_price(&api_article.pret_vanzare).unwrap_or(0.0);
-            
+
             // Parse TVA percentage from string
             let tva_percent = match &api_article.procent_tva {
                 Some(tva_str) => tva_str.parse::<f64>().ok(),
@@ -1150,7 +1150,7 @@ pub fn check_online_status() -> Result<bool, String> {
 #[tauri::command]
 pub async fn test_api_partners(db: State<'_, Database>) -> Result<String, String> {
     info!("Testing API GET partners...");
-    
+
     let wme_client = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
         get_wme_api_client(&conn)
@@ -1162,7 +1162,7 @@ pub async fn test_api_partners(db: State<'_, Database>) -> Result<String, String
                 Ok(partners) => {
                     let count = partners.len();
                     info!("Successfully fetched {} partners from API", count);
-                    
+
                     // Return summary with first 3 partners
                     let summary = if count > 0 {
                         let sample: Vec<String> = partners.iter()
@@ -1173,7 +1173,7 @@ pub async fn test_api_partners(db: State<'_, Database>) -> Result<String, String
                     } else {
                         "✅ API works but returned 0 partners".to_string()
                     };
-                    
+
                     Ok(summary)
                 }
                 Err(e) => {
@@ -1194,7 +1194,7 @@ pub async fn test_api_partners(db: State<'_, Database>) -> Result<String, String
 #[tauri::command]
 pub async fn test_api_articles(db: State<'_, Database>) -> Result<String, String> {
     info!("Testing API GET articles...");
-    
+
     let wme_client = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
         get_wme_api_client(&conn)
@@ -1206,13 +1206,13 @@ pub async fn test_api_articles(db: State<'_, Database>) -> Result<String, String
                 Ok(articles) => {
                     let count = articles.len();
                     info!("Successfully fetched {} articles from API", count);
-                    
+
                     // Return summary with first 3 articles
                     let summary = if count > 0 {
                         let sample: Vec<String> = articles.iter()
                             .take(3)
-                            .map(|a| format!("{} - {} {} (Preț: {})", 
-                                a.denumire, 
+                            .map(|a| format!("{} - {} {} (Preț: {})",
+                                a.denumire,
                                 a.um,
                                 a.clasa.as_deref().unwrap_or(""),
                                 a.pret_vanzare.as_deref().unwrap_or("N/A")
@@ -1222,7 +1222,7 @@ pub async fn test_api_articles(db: State<'_, Database>) -> Result<String, String
                     } else {
                         "✅ API works but returned 0 articles".to_string()
                     };
-                    
+
                     Ok(summary)
                 }
                 Err(e) => {
@@ -1496,7 +1496,7 @@ pub fn create_invoice(
     request: CreateInvoiceRequest,
 ) -> Result<Invoice, String> {
     info!("Creating invoice - Partner ID received: {}", request.partner_id);
-    
+
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = Utc::now().to_rfc3339();
     let invoice_id = Uuid::new_v4().to_string();
@@ -1545,7 +1545,7 @@ pub fn create_invoice(
 
         // Use offer price if available, otherwise use product price
         let price = offer_price.unwrap_or(product_price);
-        
+
         if offer_price.is_some() {
             info!("Using offer price {} for product {} (partner {})", price, product_name, request.partner_id);
         } else {
@@ -1598,7 +1598,7 @@ pub fn create_invoice(
     // Increment the current invoice number in settings for next invoice
     // Using UPSERT to handle case when agent_settings has no rows
     conn.execute(
-        "INSERT INTO agent_settings (id, invoice_number_current) VALUES (1, ?1) 
+        "INSERT INTO agent_settings (id, invoice_number_current) VALUES (1, ?1)
          ON CONFLICT(id) DO UPDATE SET invoice_number_current = invoice_number_current + 1",
         [invoice_number + 1],
     )
@@ -1773,7 +1773,7 @@ pub fn get_invoice_detail(
                 Some(s) => s.parse::<f64>().ok(),
                 None => None,
             };
-            
+
             Ok(InvoiceItem {
                 id: row.get(0)?,
                 invoice_id: row.get(1)?,
@@ -1795,10 +1795,33 @@ pub fn get_invoice_detail(
 
 #[tauri::command]
 pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result<Invoice, String> {
+    // Lock the invoice to prevent concurrent sending
+    {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let affected = conn.execute(
+            "UPDATE invoices SET status = 'sending' WHERE id = ?1 AND status IN ('pending', 'failed')",
+            [&invoice_id],
+        ).map_err(|e| format!("Failed to lock invoice for sending: {}", e))?;
+
+        if affected == 0 {
+            // Check current status to give a meaningful error
+            let current_status: Result<String, _> = conn.query_row(
+                "SELECT status FROM invoices WHERE id = ?1",
+                [&invoice_id],
+                |row| row.get(0)
+            );
+            if let Ok(status) = current_status {
+                return Err(format!("Factura are deja statusul '{}'. Nu poate fi trimisă din nou.", status));
+            } else {
+                return Err("Factura nu a fost găsită.".to_string());
+            }
+        }
+    }
+
     // Get invoice details and items
     let (invoice, items, partner_cod, location_id_sediu, invoice_number, partner_moneda, partner_payment_term): (Invoice, Vec<(String, f64, f64, String)>, Option<String>, Option<String>, i64, Option<String>, Option<String>) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
-        
+
         // Get invoice with partner cod
         let invoice: Invoice = conn
             .query_row(
@@ -1986,11 +2009,6 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     // DUPLICATE PREVENTION CHECKS
     // -------------------------------------------------------------------------
 
-    // 1. Check local status
-    if invoice.status == InvoiceStatus::Sending || invoice.status == InvoiceStatus::Sent {
-        return Err(format!("Factura are deja statusul '{:?}'. Nu poate fi trimisă din nou.", invoice.status));
-    }
-
     // 2. Check WME for existence (Anti-Double-Send) using current Series/Number
     // Only check if we have a partner code (which is required anyway)
     if let Some(cod_intern) = &partner_cod {
@@ -2019,17 +2037,17 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                 if already_exists {
                     let info_msg = format!("Factura {}{} există deja în WME. Actualizez statusul local.", current_series, current_number);
                     info!("DUPLICATE PREVENTION: {}", info_msg);
-                    
+
                     let now = Utc::now().to_rfc3339();
                     let doc_info = format!("WME: {} {} (Recuperat)", current_series, current_number);
-                    
+
                     // Update DB to 'Sent'/Synced
                     let conn = db.conn.lock().map_err(|e| e.to_string())?;
                     conn.execute(
                         "UPDATE invoices SET status = 'sent', sent_at = ?1, error_message = ?2 WHERE id = ?3",
                         [&now, &doc_info, &invoice_id],
                     ).map_err(|e| e.to_string())?;
-                    
+
                      // Fetch the updated invoice to return proper state
                      let invoice: Invoice = conn.query_row(
                         r#"
@@ -2074,19 +2092,10 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         }
     }
 
-    // After validations, mark as sending
-    {
-        let conn = db.conn.lock().map_err(|e| e.to_string())?;
-        conn.execute(
-            "UPDATE invoices SET status = 'sending' WHERE id = ?1",
-            [&invoice_id],
-        )
-        .map_err(|e| e.to_string())?;
-    }
     // Parse invoice date
     let invoice_date = chrono::DateTime::parse_from_rfc3339(&invoice.created_at)
         .map_err(|e| format!("Failed to parse invoice date: {}", e))?;
-    
+
     let an_lucru = invoice_date.year();
     let luna_lucru = invoice_date.month() as i32;
     let data_formatted = invoice_date.format("%d.%m.%Y").to_string();
@@ -2166,7 +2175,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             curs: Some("1".to_string()),
             operat: Some("D".to_string()),
             cod_delegat: Some(cod_delegat),
-            emisa_de: Some("1".to_string()),
+            emisa_de: None,
             scadenta: Some(scadenta),
             observatii: invoice.notes.clone(),
             items: Some(wme_items),
@@ -2187,7 +2196,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         get_wme_api_client(&conn)
     };
 
-    // Send to WME API 
+    // Send to WME API
     let result = match api_client_result {
         Ok(client) => client.send_invoice_to_wme(wme_request).await,
         Err(e) => Err(format!("Failed to create API client: {}", e)),
@@ -2197,20 +2206,20 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
 
     // Update based on result and return the invoice
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    
+
     match result {
         Ok(response) => {
             // Verify that document was actually created
             if let Some(doc) = response.documente_importate.first() {
                 // Check if document has a number (was actually created)
                 if doc.numar.is_some() && !doc.numar.as_ref().unwrap().is_empty() {
-                    let doc_info = format!("WME: {} {}", 
-                        doc.serie.clone().unwrap_or_default(), 
+                    let doc_info = format!("WME: {} {}",
+                        doc.serie.clone().unwrap_or_default(),
                         doc.numar.clone().unwrap_or_default()
                     );
-                    
+
                     info!("Invoice successfully created in WME: {}", doc_info);
-                    
+
                     conn.execute(
                         "UPDATE invoices SET status = 'sent', sent_at = ?1, error_message = ?2 WHERE id = ?3",
                         [&now, &doc_info, &invoice_id],
@@ -2220,7 +2229,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                     // API returned success but no document number - treat as error
                     let error_msg = format!("API responded OK but document was not created. Result: {:?}", response.result);
                     warn!("Invoice send failed - no document created: {}", error_msg);
-                    
+
                     conn.execute(
                         "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
                         [&error_msg, &invoice_id],
@@ -2231,7 +2240,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                 // No documents in response - treat as error
                 let error_msg = "API responded OK but returned no documents".to_string();
                 warn!("Invoice send failed - empty response: {}", error_msg);
-                
+
                 conn.execute(
                     "UPDATE invoices SET status = 'pending', error_message = ?1 WHERE id = ?2",
                     [&error_msg, &invoice_id],
@@ -2385,7 +2394,7 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
     // Parse invoice date
     let invoice_date = chrono::DateTime::parse_from_rfc3339(&created_at)
         .map_err(|e| format!("Failed to parse invoice date: {}", e))?;
-    
+
     let an_lucru = invoice_date.year();
     let luna_lucru = invoice_date.month() as i32;
     let data_formatted = invoice_date.format("%d.%m.%Y").to_string();
@@ -2461,7 +2470,7 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
             curs: Some("1".to_string()),
             operat: Some("D".to_string()),
             cod_delegat: Some(cod_delegat),
-            emisa_de: Some("1".to_string()),
+            emisa_de: None,
             scadenta: Some(scadenta),
             observatii: notes.clone(),
             items: Some(wme_items),
@@ -2690,7 +2699,7 @@ pub async fn print_invoice_to_html(
     printer_name: Option<String>,
 ) -> Result<String, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    
+
     // Get invoice number first
     let invoice_number: i64 = conn
         .query_row(
@@ -2702,16 +2711,16 @@ pub async fn print_invoice_to_html(
 
     // Fetch invoice details and payment term
     let (invoice, payment_term_days) = get_invoice_for_print(&conn, &invoice_id)?;
-    
+
     info!("📅 Payment term retrieved from database for partner '{}': {:?}", invoice.partner_name, payment_term_days);
-    
+
     // Get agent settings for delegate info
     let agent_settings_result = conn.query_row(
         "SELECT delegate_name, delegate_act FROM agent_settings WHERE id = 1",
         [],
         |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
     );
-    
+
     let (delegate_name, delegate_act) = agent_settings_result.unwrap_or((None, None));
 
     // Fetch invoice items
@@ -2733,7 +2742,7 @@ pub async fn print_invoice_to_html(
                 Some(s) => s.parse::<f64>().ok(),
                 None => None,
             };
-            
+
             Ok(InvoiceItem {
                 id: row.get(0)?,
                 invoice_id: invoice_id.clone(),
@@ -2752,11 +2761,11 @@ pub async fn print_invoice_to_html(
 
     // Read logo and convert to base64
     let logo_base64 = read_logo_to_base64();
-    
+
     // Use partner's payment term or default to 30 days
     let payment_days = payment_term_days.unwrap_or(30);
-    
-    info!("📅 Using payment term: {} days (partner: '{}', retrieved: {:?}, final: {})", 
+
+    info!("📅 Using payment term: {} days (partner: '{}', retrieved: {:?}, final: {})",
         payment_days, invoice.partner_name, payment_term_days, payment_days);
 
     // Get carnet series from agent settings
@@ -2775,9 +2784,9 @@ pub async fn print_invoice_to_html(
 
     // Generate HTML
     let html = print_invoice::generate_invoice_html(
-        &invoice, 
-        &items, 
-        invoice_number, 
+        &invoice,
+        &items,
+        invoice_number,
         logo_base64.as_deref(),
         payment_days,
         delegate_name.as_deref(),
@@ -2791,38 +2800,38 @@ pub async fn print_invoice_to_html(
         .ok_or("Could not find app data directory")?
         .join("facturi.softconsulting.com")
         .join("invoices");
-    
+
     std::fs::create_dir_all(&app_data_dir)
         .map_err(|e| format!("Failed to create invoices directory: {}", e))?;
 
     let html_file_path = app_data_dir.join(format!("factura_{}.html", invoice_id));
     let pdf_file_path = app_data_dir.join(format!("factura_{}.pdf", invoice_id));
-    
+
     std::fs::write(&html_file_path, &html)
         .map_err(|e| format!("Failed to write HTML file: {}", e))?;
 
     let html_path_str = html_file_path.to_string_lossy().to_string();
     let pdf_path_str = pdf_file_path.to_string_lossy().to_string();
-    
+
     info!("Generated invoice HTML at: {}", html_path_str);
-    
+
     // Convert HTML to PDF using Edge (headless)
     #[cfg(target_os = "windows")]
     {
         // Try to generate PDF using available tools
         let mut pdf_generated = false;
         let mut print_file = html_path_str.clone();
-        
+
         // Try Edge first (Windows 10+)
         let edge_paths = vec![
             "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
             "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
         ];
-        
+
         for edge_path in edge_paths {
             if std::path::Path::new(edge_path).exists() {
                 let file_url = format!("file:///{}", html_path_str.replace('\\', "/"));
-                
+
                 let output = std::process::Command::new(edge_path)
                     .args(&[
                         "--headless",
@@ -2833,7 +2842,7 @@ pub async fn print_invoice_to_html(
                         &file_url,
                     ])
                     .output();
-                
+
                 match output {
                     Ok(result) => {
                         info!("Edge command executed. Status: {}", result.status);
@@ -2841,7 +2850,7 @@ pub async fn print_invoice_to_html(
                             let stderr = String::from_utf8_lossy(&result.stderr);
                             info!("Edge stderr: {}", stderr);
                         }
-                        
+
                         // Give Edge time to write the file (poll until fully written)
                         let mut waited = 0;
                         while waited < 5000 {
@@ -2864,35 +2873,35 @@ pub async fn print_invoice_to_html(
                 }
             }
         }
-        
+
         // If PDF generation failed, use HTML directly for printing
         if !pdf_generated {
             info!("PDF generation failed, will print HTML directly");
             print_file = html_path_str.clone();
         }
-        
+
         // Print PDF using SumatraPDF
         let printer = printer_name.unwrap_or_else(|| String::from(""));
-        
+
         // Check standard installation paths first
         let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
-        
+
         // Also check bundled resources path
         let bundled_path = std::env::current_exe()
             .ok()
             .and_then(|exe| exe.parent().map(|p| p.join("resources").join("SumatraPDF.exe")));
-        
+
         let mut sumatra_paths = vec![
             format!(r"{}\AppData\Local\SumatraPDF\SumatraPDF.exe", user_profile),
             r"C:\Program Files\SumatraPDF\SumatraPDF.exe".to_string(),
             r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe".to_string(),
         ];
-        
+
         // Add bundled path if exists
         if let Some(bundled) = bundled_path {
             sumatra_paths.insert(0, bundled.to_string_lossy().to_string());
         }
-        
+
         let mut sumatra_exe = None;
         for path in &sumatra_paths {
             if std::path::Path::new(path).exists() {
@@ -2901,20 +2910,20 @@ pub async fn print_invoice_to_html(
                 break;
             }
         }
-        
+
         // If not in standard paths, check portable version in app data
         if sumatra_exe.is_none() {
             let app_data_dir = dirs::data_dir()
                 .ok_or("Could not get app data directory")?
                 .join("facturi.softconsulting.com");
             let sumatra_portable = app_data_dir.join("tools").join("SumatraPDF.exe");
-            
+
             if sumatra_portable.exists() {
                 sumatra_exe = Some(sumatra_portable.to_string_lossy().to_string());
                 info!("Found portable SumatraPDF");
             }
         }
-        
+
         // Use SumatraPDF for printing
         if let Some(sumatra_path) = sumatra_exe {
             info!("Printing to '{}' using SumatraPDF", printer);
@@ -2975,11 +2984,11 @@ pub async fn print_invoice_to_html(
         } else {
             info!("SumatraPDF not found. PDF saved at: {}", print_file);
         }
-        
+
         let file_type = if pdf_generated { "PDF" } else { "HTML" };
         info!("Print dispatched ({}) to printer '{}': {}", file_type, printer, invoice_id);
     }
-    
+
     #[cfg(target_os = "macos")]
     {
         // Use macOS print command on PDF or HTML
@@ -2988,7 +2997,7 @@ pub async fn print_invoice_to_html(
             .spawn()
             .ok();
     }
-    
+
     #[cfg(target_os = "linux")]
     {
         // Use Linux print command on PDF or HTML
@@ -2997,7 +3006,7 @@ pub async fn print_invoice_to_html(
             .spawn()
             .map_err(|e| format!("Failed to print: {}", e))?;
     }
-    
+
     Ok(pdf_path_str)
 }
 
@@ -3075,7 +3084,7 @@ pub async fn print_invoice_certificate(
                 .arg("-exit-on-print")
                 .spawn()
                 .map_err(|e| format!("Failed to start print with SumatraPDF: {}", e))?;
-                
+
             info!("[CERT][PRINT] Sent to SumatraPDF");
         } else {
             return Err("SumatraPDF not found. Instalează SumatraPDF sau configurează calea aplicației de printare.".to_string());
@@ -3235,7 +3244,7 @@ pub async fn print_collection_to_html(
         })
         .filter(|s| !s.is_empty())
         .collect();
-    
+
     let invoice_ref_str = if invoice_refs.is_empty() {
         "Avans".to_string()
     } else {
@@ -3295,7 +3304,7 @@ pub async fn print_collection_to_html(
     let doc_series = first.2.clone()
         .or(carnet_series)
         .unwrap_or_else(|| "CH".to_string());
-    
+
     // Prioritize receipt_number from DB
     let doc_number = first.3.clone()
         .or_else(|| Some(collection.id.chars().take(8).collect::<String>()))
@@ -3486,18 +3495,18 @@ fn get_invoice_for_print(
                 invoice_number: 0,
                 invoice_series: None,
             };
-            
+
             // Parse scadenta_la_vanzare to i64 (days)
             let scadenta_str: Option<String> = row.get(15)?;
             info!("🔍 Raw scadenta_la_vanzare from DB for partner '{}': {:?}", invoice.partner_name, scadenta_str);
-            
+
             let scadenta: Option<i64> = scadenta_str
                 .and_then(|s| {
                     let parsed = s.trim().parse::<i64>().ok();
                     info!("🔍 Parsed scadenta_la_vanzare: '{}' -> {:?}", s.trim(), parsed);
                     parsed
                 });
-            
+
             Ok((invoice, scadenta))
         },
     )
@@ -3723,15 +3732,15 @@ pub fn save_agent_settings(
 #[tauri::command]
 pub fn debug_db_counts(db: State<'_, Database>) -> Result<String, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    
+
     let partners_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM partners", [], |row| row.get(0))
         .unwrap_or(0);
-    
+
     let products_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM products", [], |row| row.get(0))
         .unwrap_or(0);
-    
+
     let partners_list: Vec<(String, String, Option<String>)> = conn
         .prepare("SELECT id, name, inactiv FROM partners ORDER BY name")
         .map_err(|e| e.to_string())?
@@ -3739,7 +3748,7 @@ pub fn debug_db_counts(db: State<'_, Database>) -> Result<String, String> {
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
-    
+
     let products_list: Vec<(String, String)> = conn
         .prepare("SELECT id, name FROM products ORDER BY name")
         .map_err(|e| e.to_string())?
@@ -3747,7 +3756,7 @@ pub fn debug_db_counts(db: State<'_, Database>) -> Result<String, String> {
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
-    
+
     let mut result = format!("Database counts:\nPartners: {}\nProducts: {}\n\n", partners_count, products_count);
     result.push_str("Partners:\n");
     for (id, name, inactiv) in partners_list {
@@ -3757,20 +3766,20 @@ pub fn debug_db_counts(db: State<'_, Database>) -> Result<String, String> {
     for (id, name) in products_list {
         result.push_str(&format!("  - {} | {}\n", id, name));
     }
-    
+
     Ok(result)
 }
 
 #[tauri::command]
 pub fn debug_partner_payment_terms(db: State<'_, Database>, partner_id: String) -> Result<String, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    
+
     let result: Result<(String, Option<String>, Option<String>, Option<String>), _> = conn.query_row(
         "SELECT name, cif, reg_com, scadenta_la_vanzare FROM partners WHERE id = ?1",
         [&partner_id],
         |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
     );
-    
+
     match result {
         Ok((name, cif, reg_com, scadenta)) => {
             let mut output = format!("🔍 Partner Debug Info\n\n");
@@ -3780,7 +3789,7 @@ pub fn debug_partner_payment_terms(db: State<'_, Database>, partner_id: String) 
             output.push_str(&format!("Reg.Com: {}\n", reg_com.unwrap_or("N/A".to_string())));
             output.push_str(&format!("\n📅 Payment Terms (scadenta_la_vanzare):\n"));
             output.push_str(&format!("  Raw value: {:?}\n", scadenta));
-            
+
             if let Some(s) = &scadenta {
                 match s.trim().parse::<i64>() {
                     Ok(days) => output.push_str(&format!("  Parsed: {} days ✅\n", days)),
@@ -3789,7 +3798,7 @@ pub fn debug_partner_payment_terms(db: State<'_, Database>, partner_id: String) 
             } else {
                 output.push_str("  Value: NULL (will use default 10 days) ⚠️\n");
             }
-            
+
             Ok(output)
         }
         Err(e) => Err(format!("Partner not found: {}", e))
@@ -3802,16 +3811,16 @@ pub async fn update_all_partners_payment_terms(
     new_days: String,
 ) -> Result<String, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    
+
     info!("🔄 Updating all partners payment terms to {} days", new_days);
-    
+
     let updated = conn.execute(
         "UPDATE partners SET scadenta_la_vanzare = ?1",
         [&new_days],
     ).map_err(|e| e.to_string())?;
-    
+
     info!("✅ Updated {} partners with new payment term: {} days", updated, new_days);
-    
+
     Ok(format!("Successfully updated {} partners to {} days payment term", updated, new_days))
 }
 
@@ -4085,8 +4094,8 @@ pub async fn sync_client_balances(
 
     let mut stmt = conn.prepare(
         "INSERT INTO client_balances (
-            id_partener, cod_fiscal, denumire, tip_document, cod_document, 
-            serie, numar, data, valoare, rest, termen, moneda, 
+            id_partener, cod_fiscal, denumire, tip_document, cod_document,
+            serie, numar, data, valoare, rest, termen, moneda,
             sediu, id_sediu, curs, observatii, cod_obligatie, marca_agent, synced_at
         ) VALUES (
             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19
@@ -4102,10 +4111,10 @@ pub async fn sync_client_balances(
         let valoare = api_client::parse_f64(&s.valoare);
         let rest = api_client::parse_f64(&s.rest);
         let curs = api_client::parse_f64(&s.curs);
-        
+
         // Parse date for sorting/display usage if needed, but we store as string
         // s.data is Option<String>
-        
+
         let id_partener_normalized = s.id_partener.map(|v| v.trim().to_string());
 
         stmt.execute(params![
@@ -4140,7 +4149,7 @@ pub fn get_client_balances(
     partner_id: Option<String>,
 ) -> Result<Vec<ClientBalance>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    
+
     // Combine synced balances from WME with local invoices from DB.
     // Local collections still in-flight (pending/sending) are subtracted from remaining amount.
     // An invoice disappears only when the local collected total reaches full amount.
@@ -4150,7 +4159,7 @@ pub fn get_client_balances(
         q.sediu, q.id_sediu, q.curs, q.observatii, q.cod_obligatie, q.marca_agent, q.synced_at
         FROM (
             -- WME invoices (from client_balances), excluding ones we created locally
-            SELECT 
+            SELECT
                 cb.id, cb.id_partener, cb.cod_fiscal, cb.denumire, cb.tip_document, cb.cod_document,
                 cb.serie, cb.numar, cb.data, cb.valoare,
                 CASE
@@ -4255,18 +4264,18 @@ pub fn get_client_balances(
             WHERE i.status IN ('pending', 'sending', 'sent', 'failed')
         ) q
         WHERE COALESCE(q.rest, 0) > 0".to_string();
-    
+
     let mut params: Vec<String> = Vec::new();
-    
+
     if let Some(pid) = partner_id {
         query.push_str(" AND TRIM(q.id_partener) = TRIM(?1)");
         params.push(pid);
     }
 
     query.push_str(" ORDER BY CASE WHEN date(q.termen) < date('now', 'start of day') THEN 0 ELSE 1 END, date(q.termen) ASC");
-    
+
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
-    
+
     let balances = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
         Ok(ClientBalance {
             id: row.get(0)?,
@@ -4291,12 +4300,12 @@ pub fn get_client_balances(
             synced_at: row.get(19)?,
         })
     }).map_err(|e| e.to_string())?;
-    
+
     let mut result = Vec::new();
     for b in balances {
         result.push(b.map_err(|e| e.to_string())?);
     }
-    
+
     Ok(result)
 }
 
@@ -4321,14 +4330,14 @@ pub fn record_collection(
         .unwrap_or_else(|| "CH".to_string());
 
     let receipt_number = generate_receipt_number(&conn)?;
-    
+
     // Ensure ID is generated if not provided (though frontend should provide UUID)
     let id = if collection.id.is_empty() {
         Uuid::new_v4().to_string()
     } else {
         collection.id
     };
-    
+
     conn.execute(
         "INSERT INTO collections (
             id, receipt_group_id, receipt_series, receipt_number,
@@ -4351,7 +4360,7 @@ pub fn record_collection(
             Utc::now().to_rfc3339()
         ]
     ).map_err(|e| e.to_string())?;
-    
+
     Ok(id)
 }
 
@@ -4522,7 +4531,7 @@ pub fn record_collection_from_invoice(
             let tva_percent = tva_str
                 .and_then(|s| s.parse::<f64>().ok())
                 .unwrap_or(0.0);
-            
+
             let vat_amount = price * (tva_percent / 100.0);
             Ok(price + vat_amount)
         })
@@ -4950,7 +4959,7 @@ pub async fn send_collection(
 
     {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
-        
+
         // Check if we can transition to sending state
         // Only allow if not already sending or synced
         // This prevents race conditions when multiple sync triggers happen
@@ -5017,7 +5026,7 @@ pub async fn send_collection(
     // This handles the case where a previous attempt succeeded on server but failed to return OK to client
     let _start_check = std::time::Instant::now();
     // ApiClient already created above
-    
+
     // We need to check the balance for the partner to see if the invoice is still unpaid
     // Filters for get_solduri_clienti
     let check_filter = api_client::SolduriFilterRequest {
@@ -5025,28 +5034,28 @@ pub async fn send_collection(
         marca_agent: None,
         paginare: None,
     };
-    
+
     let mut already_paid = false;
-    
+
     // Only perform this check if we are retrying (status was pending/failed) or just always to be safe?
     // Always checking is safer but adds latency. Given this is "Send" action initiated by user or sync, latency is acceptable for safety.
     info!("[CHITANTE][SEND] Checking WME balance for partner {} to prevent duplicates...", partner_id);
-    
+
     match api.get_solduri_clienti(check_filter).await {
         Ok(response) => {
             // Check if our invoices exist in the balance list with remaining amount
             // If they are missing or have rest=0, they are paid.
-            
+
             // Collect all invoice numbers from this receipt group
             let invoice_numbers: std::collections::HashSet<String> = rows.iter()
                 .filter_map(|r| r.6.clone()) // numar_factura
                 .collect();
-            
+
             if !invoice_numbers.is_empty() {
                 // Find these invoices in the response
                 let mut found_unpaid_amount = 0.0;
                 let mut found_invoices_count = 0;
-                
+
                 for sold in &response.info_solduri {
                     let sold_numar = sold.numar.as_deref().unwrap_or_default().trim();
                     if invoice_numbers.contains(sold_numar) {
@@ -5057,10 +5066,10 @@ pub async fn send_collection(
                         }
                     }
                 }
-                
-                info!("[CHITANTE][SEND] Balance check: Found {} matching unpaid invoices with total rest {:.2}. Receipt total: {:.2}", 
+
+                info!("[CHITANTE][SEND] Balance check: Found {} matching unpaid invoices with total rest {:.2}. Receipt total: {:.2}",
                     found_invoices_count, found_unpaid_amount, total_value);
-                
+
                 // IMPORTANT: Only mark as duplicate if we FOUND matching invoices in WME AND they appear already paid.
                 // If found_invoices_count == 0, the invoice might be a LOCAL invoice (not in WME solduri yet),
                 // so we MUST NOT assume it's paid — we should proceed with sending.
@@ -5078,12 +5087,12 @@ pub async fn send_collection(
         },
         Err(e) => {
             warn!("[CHITANTE][SEND] Failed to check balance before sending: {}. Proceeding with send to be safe.", e);
-            // If check fails (e.g. timeout), we proceed with send. 
-            // Worst case: duplicate. 
+            // If check fails (e.g. timeout), we proceed with send.
+            // Worst case: duplicate.
             // Better than blocking payment if check API is down.
         }
     }
-    
+
     if already_paid {
          // Skip sending to API, just mark as synced
          let conn = db.conn.lock().map_err(|e| e.to_string())?;
@@ -5092,7 +5101,7 @@ pub async fn send_collection(
             params![now_str, receipt_group_id],
         )
         .map_err(|e| e.to_string())?;
-        
+
         // Return updated collection
         drop(conn); // Drop lock
         let grouped = get_collections(db.clone(), None)?;
@@ -5100,10 +5109,10 @@ pub async fn send_collection(
             .into_iter()
             .find(|c| c.id == receipt_group_id)
             .ok_or_else(|| "Nu s-a putut încărca chitanța actualizată".to_string())?;
-            
+
         return Ok(updated);
     }
-    
+
     // Actually send the request (previously missing variable 'request' is now defined above)
     let api_result = api.send_collections_to_wme(request).await;
 
@@ -5182,10 +5191,10 @@ pub fn get_sales_report(
     end_date: Option<String>,
 ) -> Result<Vec<SalesReportItem>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    
-    let mut query = "SELECT 
+
+    let mut query = "SELECT
         p.name as partner_name,
-        COUNT(*) as count, 
+        COUNT(*) as count,
         SUM(i.total_amount) as total,
         COALESCE(SUM(inv_qty.total_quantity), 0) as total_quantity
         FROM invoices i
@@ -5196,23 +5205,23 @@ pub fn get_sales_report(
             GROUP BY invoice_id
         ) inv_qty ON inv_qty.invoice_id = i.id
         WHERE 1 = 1".to_string();
-        
+
     let mut params: Vec<String> = Vec::new();
-    
+
     if let Some(start) = start_date {
         query.push_str(" AND i.created_at >= ?");
         params.push(format!("{}T00:00:00", start));
     }
-    
+
     if let Some(end) = end_date {
         query.push_str(" AND i.created_at <= ?");
         params.push(format!("{}T23:59:59", end));
     }
-    
+
     query.push_str(" GROUP BY p.name ORDER BY total DESC");
-    
+
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
-    
+
     // Note: This is simplified. We might need better VAT calculation.
     let items = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
         let total: f64 = row.get(2)?;
@@ -5225,12 +5234,12 @@ pub fn get_sales_report(
             total_quantity,
         })
     }).map_err(|e| e.to_string())?;
-    
+
     let mut result = Vec::new();
     for i in items {
         result.push(i.map_err(|e| e.to_string())?);
     }
-    
+
     Ok(result)
 }
 
@@ -5435,14 +5444,14 @@ pub fn get_collections_report(
     end_date: Option<String>,
 ) -> Result<Vec<CollectionsReportItem>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    
-    let mut query = "SELECT 
-        partner_name, 
-        COUNT(*) as count, 
+
+    let mut query = "SELECT
+        partner_name,
+        COUNT(*) as count,
         SUM(valoare) as total,
         status
         FROM collections".to_string();
-        
+
     let mut params: Vec<String> = Vec::new();
 
     let mut where_started = false;
@@ -5461,11 +5470,11 @@ pub fn get_collections_report(
         }
         params.push(format!("{}T23:59:59", end));
     }
-    
+
     query.push_str(" GROUP BY partner_name, status ORDER BY total DESC");
-    
+
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
-    
+
     let items = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
         Ok(CollectionsReportItem {
             partner_name: row.get(0)?,
@@ -5474,12 +5483,12 @@ pub fn get_collections_report(
             status: row.get(3)?,
         })
     }).map_err(|e| e.to_string())?;
-    
+
     let mut result = Vec::new();
     for i in items {
         result.push(i.map_err(|e| e.to_string())?);
     }
-    
+
     Ok(result)
 }
 
@@ -5635,7 +5644,7 @@ pub fn print_daily_report(
     // Fetch invoices for this date
     // We assume created_at is ISO string, so we match YYYY-MM-DD%
     let param_date = format!("{}%", date_str);
-    
+
     let mut stmt = conn.prepare(
         r#"SELECT
                 i.id, i.partner_id, p.name, p.cif, p.reg_com, i.location_id, l.name, l.address,
@@ -5695,38 +5704,38 @@ pub fn print_daily_report(
         .ok_or("Could not find app data directory")?
         .join("facturi.softconsulting.com")
         .join("reports");
-    
+
     std::fs::create_dir_all(&app_data_dir)
         .map_err(|e| format!("Failed to create reports directory: {}", e))?;
 
     let file_name = format!("raport_{}", date_str);
     let html_file_path = app_data_dir.join(format!("{}.html", file_name));
     let pdf_file_path = app_data_dir.join(format!("{}.pdf", file_name));
-    
+
     std::fs::write(&html_file_path, &html)
         .map_err(|e| format!("Failed to write HTML file: {}", e))?;
 
     let html_path_str = html_file_path.to_string_lossy().to_string();
     let pdf_path_str = pdf_file_path.to_string_lossy().to_string();
-    
+
     info!("Generated report HTML at: {}", html_path_str);
-    
+
     // Convert HTML to PDF using Edge (headless)
     #[cfg(target_os = "windows")]
     {
         let mut pdf_generated = false;
         let mut print_file = html_path_str.clone();
-        
+
         // Try Edge first
         let edge_paths = vec![
             "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
             "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
         ];
-        
+
         for edge_path in edge_paths {
             if std::path::Path::new(edge_path).exists() {
                 let file_url = format!("file:///{}", html_path_str.replace('\\', "/"));
-                
+
                 let output = std::process::Command::new(edge_path)
                     .args(&[
                         "--headless",
@@ -5737,7 +5746,7 @@ pub fn print_daily_report(
                         &file_url,
                     ])
                     .output();
-                
+
                 match output {
                     Ok(result) => {
                         info!("Edge command executed. Status: {}", result.status);
@@ -5763,14 +5772,14 @@ pub fn print_daily_report(
                 }
             }
         }
-        
+
         if !pdf_generated {
             info!("PDF generation failed, will print HTML directly");
         }
-        
+
         // Print using SumatraPDF
         let printer = printer_name.unwrap_or_else(|| String::from(""));
-        
+
         // Check if a default printer is available when no specific printer is given
         if printer.is_empty() {
             #[cfg(target_os = "windows")]
@@ -5789,33 +5798,33 @@ pub fn print_daily_report(
                 }
             }
         }
-        
+
         let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
         let bundled_path = std::env::current_exe()
             .ok()
             .and_then(|exe| exe.parent().map(|p| p.join("resources").join("SumatraPDF.exe")));
-        
+
         let mut sumatra_paths = vec![
             format!(r"{}\AppData\Local\SumatraPDF\SumatraPDF.exe", user_profile),
             r"C:\Program Files\SumatraPDF\SumatraPDF.exe".to_string(),
             r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe".to_string(),
         ];
-        
+
         if let Some(p) = bundled_path {
             sumatra_paths.insert(0, p.to_string_lossy().to_string());
         }
-        
+
         let mut printed = false;
-        
+
         for sumatra_path in sumatra_paths {
             if std::path::Path::new(&sumatra_path).exists() {
                 info!("Found SumatraPDF at: {}", sumatra_path);
-                
+
                 let mut args = vec![
                     "-print-to-default".to_string(),
                     "-silent".to_string(),
                 ];
-                
+
                 if !printer.is_empty() {
                     args = vec![
                         "-print-to".to_string(),
@@ -5823,36 +5832,36 @@ pub fn print_daily_report(
                         "-silent".to_string(),
                     ];
                 }
-                
+
                 args.push(print_file.clone());
-                
+
                 // Log the full command for debugging
                 info!("Executing print command with args: {:?}", args);
-                
+
                 let output = std::process::Command::new(&sumatra_path)
                     .args(&args)
                     .output();
-                    
+
                 match output {
                     Ok(result) => {
                         info!("Print command executed. Status: {}", result.status);
                         let stdout = String::from_utf8_lossy(&result.stdout);
                         let stderr = String::from_utf8_lossy(&result.stderr);
-                        
+
                         if !stdout.is_empty() {
                             info!("Print stdout: {}", stdout);
                         }
                         if !stderr.is_empty() {
                             info!("Print stderr: {}", stderr);
                         }
-                        
+
                         if result.status.success() {
                             printed = true;
                             info!("✓ Document sent to printer successfully");
                             break;
                         } else {
                             warn!("✗ Print failed with exit code: {:?}", result.status.code());
-                            
+
                             // Check for specific printer initialization errors
                             if stdout.contains("CreateDCW") && stdout.contains("failed") {
                                 warn!("Printer driver error detected. The printer may be offline, disconnected, or have driver issues.");
@@ -5874,20 +5883,20 @@ pub fn print_daily_report(
                 }
             }
         }
-        
+
         if printed {
             info!("✓ Report printed successfully");
             Ok(format!("Report printed successfully. File saved at: {}", print_file))
         } else {
             let msg = format!(
-                "Could not print report. The printer may be offline or disconnected. PDF saved at: {}", 
+                "Could not print report. The printer may be offline or disconnected. PDF saved at: {}",
                 print_file
             );
             warn!("{}", msg);
             Ok(msg)
         }
     }
-    
+
     #[cfg(not(target_os = "windows"))]
     {
         Ok("Printing is only supported on Windows".to_string())
