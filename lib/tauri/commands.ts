@@ -40,6 +40,10 @@ export async function syncAllData(): Promise<SyncStatus> {
   return invoke<SyncStatus>("sync_all_data");
 }
 
+export async function syncCertificateCache(): Promise<string> {
+  return invoke<string>("sync_certificate_cache");
+}
+
 export async function checkOnlineStatus(): Promise<boolean> {
   return invoke<boolean>("check_online_status");
 }
@@ -140,6 +144,8 @@ export async function saveAgentSettings(
   simbolCarnetLivr: string | null,
   simbolGestiuneLivrare: string | null,
   tipContabil: string | null,
+  certComandaSerie: string | null,
+  certComandaIdClient: string | null,
   codCarnet: string | null,
   codCarnetLivr: string | null,
   codDelegat: string | null,
@@ -166,6 +172,8 @@ export async function saveAgentSettings(
     simbolCarnetLivr,
     simbolGestiuneLivrare,
     tipContabil,
+    certComandaSerie,
+    certComandaIdClient,
     codCarnet,
     codCarnetLivr,
     codDelegat,

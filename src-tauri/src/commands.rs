@@ -289,13 +289,432 @@ fn save_receipt_html_file(
     ))
 }
 
-fn generate_quality_certificate_html(car_number: &str) -> String {
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct QualityCertificateProductLine {
+    denumire: String,
+    lot: String,
+    data_productie: String,
+    data_expirare: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct CertificateCachePayload {
+    subtitle: String,
+    bon_analiza: String,
+    product_lines: Vec<QualityCertificateProductLine>,
+}
+
+struct QualityCertificateContext {
+    cert_date: String,
+    subtitle: String,
+    packed_date: String,
+    beneficiary: String,
+    invoice_display: String,
+    invoice_date: String,
+    car_number: String,
+    bon_analiza: String,
+    product_lines: Vec<QualityCertificateProductLine>,
+}
+
+fn parse_comanda_numar(value: Option<&String>) -> i64 {
+    let raw = value.map(|v| v.trim()).unwrap_or_default();
+    if raw.is_empty() {
+        return i64::MIN;
+    }
+
+    if let Ok(parsed) = raw.parse::<i64>() {
+        return parsed;
+    }
+
+    let digits: String = raw.chars().filter(|c| c.is_ascii_digit()).collect();
+    digits.parse::<i64>().unwrap_or(i64::MIN)
+}
+
+fn parse_comanda_data_score(value: Option<&String>) -> i64 {
+    let raw = value.map(|v| v.trim()).unwrap_or_default();
+    if raw.is_empty() {
+        return i64::MIN;
+    }
+
+    let date_part = raw.split_whitespace().next().unwrap_or(raw);
+    if let Ok(parsed) = chrono::NaiveDate::parse_from_str(date_part, "%d.%m.%Y") {
+        return i64::from(parsed.year()) * 10_000 + i64::from(parsed.month()) * 100 + i64::from(parsed.day());
+    }
+
+    i64::MIN
+}
+
+fn normalize_or_placeholder(value: Option<String>, placeholder: &str) -> String {
+    let normalized = value
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
+    normalized.unwrap_or_else(|| placeholder.to_string())
+}
+
+fn normalize_product_label(value: &str) -> String {
+    value
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|ch| if ch.is_alphanumeric() { ch } else { ' ' })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn product_matches_invoice(product: &str, invoice_products: &[String]) -> bool {
+    let normalized = normalize_product_label(product);
+
+    invoice_products.iter().any(|invoice_product| {
+        normalized == *invoice_product
+            || normalized.contains(invoice_product)
+            || invoice_product.contains(&normalized)
+    })
+}
+
+fn apply_cached_certificate_payload(ctx: &mut QualityCertificateContext, payload: CertificateCachePayload) {
+    ctx.subtitle = payload.subtitle;
+    ctx.bon_analiza = payload.bon_analiza;
+    if !payload.product_lines.is_empty() {
+        ctx.product_lines = payload.product_lines;
+    }
+}
+
+fn load_cached_certificate_payload(conn: &rusqlite::Connection, invoice_id: &str) -> Option<CertificateCachePayload> {
+    let payload_json: Option<String> = conn
+        .query_row(
+            "SELECT payload_json FROM invoice_certificate_cache WHERE invoice_id = ?1",
+            [invoice_id],
+            |row| row.get(0),
+        )
+        .ok();
+
+    payload_json.and_then(|json| serde_json::from_str::<CertificateCachePayload>(&json).ok())
+}
+
+fn save_cached_certificate_payload(
+    conn: &rusqlite::Connection,
+    invoice_id: &str,
+    ctx: &QualityCertificateContext,
+) -> Result<(), String> {
+    let payload = CertificateCachePayload {
+        subtitle: ctx.subtitle.clone(),
+        bon_analiza: ctx.bon_analiza.clone(),
+        product_lines: ctx.product_lines.clone(),
+    };
+
+    let payload_json = serde_json::to_string(&payload)
+        .map_err(|e| format!("Failed to serialize certificate cache payload: {}", e))?;
+
+    conn.execute(
+        "INSERT INTO invoice_certificate_cache (invoice_id, payload_json, updated_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(invoice_id) DO UPDATE SET payload_json = excluded.payload_json, updated_at = excluded.updated_at",
+        params![invoice_id, payload_json, Utc::now().to_rfc3339()],
+    )
+    .map_err(|e| format!("Failed to save certificate cache payload: {}", e))?;
+
+    Ok(())
+}
+
+async fn build_quality_certificate_context(
+    db: &State<'_, Database>,
+    invoice_id: &str,
+    car_number: &str,
+) -> Result<QualityCertificateContext, String> {
+    let (invoice_number, invoice_series, created_at, partner_name, cert_serie, cert_id_client, invoice_products, api): (i64, Option<String>, String, String, String, String, Vec<String>, api_client::ApiClient) = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+        let row = conn.query_row(
+            "SELECT i.invoice_number, i.invoice_series, i.created_at, p.name FROM invoices i JOIN partners p ON p.id = i.partner_id WHERE i.id = ?1",
+            [invoice_id],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            },
+        ).map_err(|e| format!("Invoice not found for certificate: {}", e))?;
+
+        let cert_filters: (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT cert_comanda_serie, cert_comanda_id_client FROM agent_settings WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap_or((None, None));
+
+        let cert_serie = cert_filters
+            .0
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("CCAL")
+            .to_string();
+
+        let cert_id_client = cert_filters
+            .1
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("1602")
+            .to_string();
+
+        let invoice_products: Vec<String> = conn
+            .prepare(
+                r#"
+                SELECT p.name
+                FROM invoice_items ii
+                JOIN products p ON p.id = ii.product_id
+                WHERE ii.invoice_id = ?1
+                "#,
+            )
+            .map_err(|e| e.to_string())?
+            .query_map([invoice_id], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|result| result.ok())
+            .map(|name| normalize_product_label(&name))
+            .filter(|name| !name.is_empty())
+            .collect();
+
+        let api = get_wme_api_client(&conn)?;
+        (row.0, row.1, row.2, row.3, cert_serie, cert_id_client, invoice_products, api)
+    };
+
+    let created_at_dt = chrono::DateTime::parse_from_rfc3339(&created_at)
+        .map_err(|e| format!("Failed to parse invoice date for certificate: {}", e))?
+        .with_timezone(&Local);
+
+    let invoice_day = created_at_dt.format("%d.%m.%Y").to_string();
+    let data_referinta = format!("{} 00:00", invoice_day);
+    let data_end = format!("{} 23:59", invoice_day);
+
+    let mut ctx = QualityCertificateContext {
+        cert_date: Local::now().format("%d.%m.%Y").to_string(),
+        subtitle: "Nr.____ din data de __.__.____".to_string(),
+        packed_date: invoice_day.clone(),
+        beneficiary: partner_name,
+        invoice_display: invoice_series
+            .as_ref()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .map(|s| format!("{} {}", s, invoice_number))
+            .unwrap_or_else(|| invoice_number.to_string()),
+        invoice_date: invoice_day.clone(),
+        car_number: car_number.trim().to_string(),
+        bon_analiza: "BA____/__.__.____".to_string(),
+        product_lines: vec![QualityCertificateProductLine {
+            denumire: "Produs".to_string(),
+            lot: "____".to_string(),
+            data_productie: "__.__.____".to_string(),
+            data_expirare: "__.__.____".to_string(),
+        }],
+    };
+
+    let response = api
+        .get_info_comenzi_ext(api_client::ComenziExtFilterRequest {
+            data_referinta: Some(data_referinta),
+            data_end: Some(data_end),
+            cod_comanda: None,
+            id_partener: Some(cert_id_client.clone()),
+            info_extensii: Some("D".to_string()),
+        })
+        .await;
+
+    let response = match response {
+        Ok(value) => value,
+        Err(err) => {
+            warn!("[CERT] GetInfoComenziExt failed: {}", err);
+
+            if let Ok(conn) = db.conn.lock().map_err(|e| e.to_string()) {
+                if let Some(payload) = load_cached_certificate_payload(&conn, invoice_id) {
+                    apply_cached_certificate_payload(&mut ctx, payload);
+                    warn!("[CERT] Using cached certificate data for invoice {} (offline/API error fallback).", invoice_id);
+                    return Ok(ctx);
+                }
+            }
+
+            warn!("[CERT] No cached certificate data found for invoice {}. Using placeholders.", invoice_id);
+            return Ok(ctx);
+        }
+    };
+
+    let selected_command = response
+        .info_comenzi
+        .into_iter()
+        .filter(|c| {
+            c.serie
+                .as_deref()
+                .map(|serie| serie.trim().eq_ignore_ascii_case(cert_serie.as_str()))
+                .unwrap_or(false)
+                && c.id_client
+                    .as_deref()
+                    .map(|id| id.trim() == cert_id_client.as_str())
+                    .unwrap_or(false)
+        })
+        .max_by_key(|c| parse_comanda_numar(c.numar.as_ref()));
+
+    let selected_command = match selected_command {
+        Some(command) => Some(command),
+        None => {
+            let fallback_start = (created_at_dt - chrono::Duration::days(30))
+                .format("%d.%m.%Y")
+                .to_string();
+
+            let fallback_response = api
+                .get_info_comenzi_ext(api_client::ComenziExtFilterRequest {
+                    data_referinta: Some(format!("{} 00:00", fallback_start)),
+                    data_end: Some(format!("{} 23:59", invoice_day)),
+                    cod_comanda: None,
+                    id_partener: Some(cert_id_client.clone()),
+                    info_extensii: Some("D".to_string()),
+                })
+                .await;
+
+            match fallback_response {
+                Ok(value) => {
+                    let fallback = value
+                        .info_comenzi
+                        .into_iter()
+                        .filter(|c| {
+                            c.serie
+                                .as_deref()
+                                .map(|serie| serie.trim().eq_ignore_ascii_case(cert_serie.as_str()))
+                                .unwrap_or(false)
+                                && c.id_client
+                                    .as_deref()
+                                    .map(|id| id.trim() == cert_id_client.as_str())
+                                    .unwrap_or(false)
+                        })
+                        .max_by_key(|c| {
+                            (
+                                parse_comanda_data_score(c.data.as_ref()),
+                                parse_comanda_numar(c.numar.as_ref()),
+                            )
+                        });
+
+                    if fallback.is_some() {
+                        warn!(
+                            "[CERT] No command found on invoice day {}. Using latest previous command from last 30 days.",
+                            invoice_day
+                        );
+                    }
+
+                    fallback
+                }
+                Err(err) => {
+                    warn!(
+                        "[CERT] Fallback GetInfoComenziExt failed for invoice day {}: {}",
+                        invoice_day,
+                        err
+                    );
+                    None
+                }
+            }
+        }
+    };
+
+    let mut should_cache = false;
+
+    if let Some(command) = selected_command {
+        let cmd_numar = normalize_or_placeholder(command.numar, "____");
+        let cmd_data = normalize_or_placeholder(command.data, "__.__.____");
+        ctx.subtitle = format!("Nr.{} din data de {}", cmd_numar, cmd_data);
+
+        let mut lines = Vec::new();
+        let mut bon = None;
+
+        for item in command.items {
+            if bon.is_none() {
+                bon = item
+                    .bon_analiza
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .map(|v| v.to_string());
+            }
+
+            let denumire_for_match = item
+                .denumire
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or("");
+
+            if !invoice_products.is_empty() && !product_matches_invoice(denumire_for_match, &invoice_products) {
+                continue;
+            }
+
+            lines.push(QualityCertificateProductLine {
+                denumire: normalize_or_placeholder(item.denumire, "Produs"),
+                lot: normalize_or_placeholder(item.lot, "____"),
+                data_productie: normalize_or_placeholder(item.data_productie, "__.__.____"),
+                data_expirare: normalize_or_placeholder(item.data_expirare, "__.__.____"),
+            });
+        }
+
+        if !lines.is_empty() {
+            ctx.product_lines = lines;
+            should_cache = true;
+        } else {
+            warn!(
+                "[CERT] Command found but no items matched invoice products for invoice {}.",
+                invoice_id
+            );
+        }
+
+        if let Some(value) = bon {
+            ctx.bon_analiza = value;
+        }
+    } else {
+        warn!(
+            "[CERT] No command found for invoice day {} with filters Serie={} and IDClient={}. Using placeholders.",
+            ctx.invoice_date,
+            cert_serie,
+            cert_id_client
+        );
+    }
+
+    if should_cache {
+        if let Ok(conn) = db.conn.lock().map_err(|e| e.to_string()) {
+            if let Err(e) = save_cached_certificate_payload(&conn, invoice_id, &ctx) {
+                warn!("[CERT] Could not persist certificate cache for invoice {}: {}", invoice_id, e);
+            }
+        }
+    } else if let Ok(conn) = db.conn.lock().map_err(|e| e.to_string()) {
+        if let Some(payload) = load_cached_certificate_payload(&conn, invoice_id) {
+            apply_cached_certificate_payload(&mut ctx, payload);
+            warn!("[CERT] Using cached certificate data for invoice {} because fresh command data was incomplete.", invoice_id);
+        }
+    }
+
+    Ok(ctx)
+}
+
+fn generate_quality_certificate_html(ctx: &QualityCertificateContext) -> String {
     use base64::{engine::general_purpose, Engine as _};
 
     let epc_img = general_purpose::STANDARD.encode(include_bytes!("../../public/EPC 16 EC.png"));
     let iso_img = general_purpose::STANDARD.encode(include_bytes!("../../public/KARIN-ISO.png"));
     let stamp_img = general_purpose::STANDARD.encode(include_bytes!("../../public/STAMPILA.png"));
-    let cert_date = Local::now().format("%d.%m.%Y").to_string();
+    let product_lines_html = ctx
+        .product_lines
+        .iter()
+        .map(|line| {
+            format!(
+                r#"<div class="cat-line">{} {} ddm {} Lot {}</div>"#,
+                line.denumire,
+                line.data_productie,
+                line.data_expirare,
+                line.lot
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
 
     format!(
         r#"<!DOCTYPE html>
@@ -350,7 +769,7 @@ fn generate_quality_certificate_html(car_number: &str) -> String {
 
         <div class="title">Certificat de calitate - Declarație de conformitate</div>
         <div class="date">Data: {}</div>
-        <div class="cert-subtitle">Nr.033 din data de 05.02.2026</div>
+        <div class="cert-subtitle">{}</div>
 
         <div class="cert-intro">
             În conformitate cu prevederile legale privind răspunderea,
@@ -360,29 +779,13 @@ fn generate_quality_certificate_html(car_number: &str) -> String {
 
         <div class="cat-grid">
             <div class="cat-group">
-                <div class="cat-line">Cat. S (&lt;53g) 04.02.26 ddm 04.03.26 Lot 035 S</div>
-                <div class="cat-line">Cat. S (&lt;53g) ________ ddm ________ Lot ____ S</div>
-            </div>
-            <div class="cat-group">
-                <div class="cat-line">Cat. L (63-73g) 02.02.26 ddm 02.03.26 Lot 033 L</div>
-                <div class="cat-line">Cat. L (63-73g) 04.02.26 ddm 04.03.26 Lot 035 L</div>
-                <div class="cat-line">Cat. L (63-73g) ________ ddm ________ Lot ____ L</div>
-            </div>
-            <div class="cat-group">
-                <div class="cat-line">Cat. M (53-63g) 02.02.26 ddm 02.03.26 Lot 033 M</div>
-                <div class="cat-line">Cat. M (53-63g) 04.02.26 ddm 04.03.26 Lot 035 M</div>
-                <div class="cat-line">Cat. M (53-63g) ________ ddm ________ Lot ____ M</div>
-            </div>
-            <div class="cat-group">
-                <div class="cat-line">Cat. XL (&gt;73g) 02.02.26 ddm 02.03.26 Lot 033 XL</div>
-                <div class="cat-line">Cat. XL (&gt;73g) 04.02.26 ddm 04.03.26 Lot 035 XL</div>
-                <div class="cat-line">Cat. XL (&gt;73g) ________ ddm ________ Lot ____ XL</div>
+                {}
             </div>
         </div>
 
         <div class="cert-body">
-            <p>Ambalate la data de 05.02.2026. Livrate beneficiarului: Rețea Magazine. Conform facturii/avizului nr. ______ din 05.02.2026.</p>
-            <p>Transport auto: {} indeplinesc parametri de calitate specificati conform BAnr.77/29.01.2026(salmonella negativ).</p>
+            <p>Ambalate la data de {}. Livrate beneficiarului: {}. Conform facturii/avizului nr. {} din {}.</p>
+            <p>Transport auto: {} indeplinesc parametri de calitate specificati conform {} (salmonella negativ).</p>
             <p>Caracteristici tehnice de livrare: SALUBRE; Rasa LOHMANN BROWN, LOHMANN SANDY; Aspectul cojii intactă, curată de formă normală, uscată;</p>
             <p>Camera de aer: imobilă, cu înălțimea maximă 5 mm. Albușul: clar, translucid, consistență gelatinoasă si lipsit de corpuri străine de orice natura.</p>
             <p>Gălbenuș vizibil, în fascicol de lumina sub formă de umbră. Mirosul și gust caracteristic oului proaspăt, fără miros și gust străin.</p>
@@ -416,14 +819,26 @@ fn generate_quality_certificate_html(car_number: &str) -> String {
 </html>"#,
         epc_img,
         iso_img,
-        cert_date,
-        car_number,
+        ctx.cert_date,
+        ctx.subtitle,
+        product_lines_html,
+        ctx.packed_date,
+        ctx.beneficiary,
+        ctx.invoice_display,
+        ctx.invoice_date,
+        ctx.car_number,
+        ctx.bon_analiza,
         stamp_img,
     )
 }
 
-fn save_invoice_certificate_file(invoice_id: &str, car_number: &str) -> Result<(String, String, String), String> {
-    let html = generate_quality_certificate_html(car_number);
+async fn save_invoice_certificate_file(
+    db: &State<'_, Database>,
+    invoice_id: &str,
+    car_number: &str,
+) -> Result<(String, String, String), String> {
+    let context = build_quality_certificate_context(db, invoice_id, car_number).await?;
+    let html = generate_quality_certificate_html(&context);
 
     let app_data_dir = dirs::config_dir()
         .ok_or("Could not find app data directory")?
@@ -897,6 +1312,69 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
     }
 
     result
+}
+
+#[tauri::command]
+pub async fn sync_certificate_cache(db: State<'_, Database>) -> Result<String, String> {
+    let (invoice_ids, car_number): (Vec<String>, String) = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+        let car_number = conn
+            .query_row(
+                "SELECT car_number FROM agent_settings WHERE id = 1",
+                [],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+
+        let mut stmt = conn
+            .prepare(
+                r#"
+                SELECT i.id
+                FROM invoices i
+                LEFT JOIN invoice_certificate_cache c ON c.invoice_id = i.id
+                WHERE c.invoice_id IS NULL
+                ORDER BY i.created_at DESC
+                LIMIT 100
+                "#,
+            )
+            .map_err(|e| e.to_string())?;
+
+        let invoice_ids = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect::<Vec<_>>();
+
+        (invoice_ids, car_number)
+    };
+
+    if invoice_ids.is_empty() {
+        return Ok("Certificate cache already up to date.".to_string());
+    }
+
+    let mut processed = 0usize;
+    let mut failed = 0usize;
+
+    for invoice_id in invoice_ids {
+        match build_quality_certificate_context(&db, &invoice_id, &car_number).await {
+            Ok(_) => processed += 1,
+            Err(e) => {
+                failed += 1;
+                warn!(
+                    "[CERT][SYNC] Failed to pre-cache certificate for invoice {}: {}",
+                    invoice_id, e
+                );
+            }
+        }
+    }
+
+    Ok(format!(
+        "Certificate cache sync completed: {} processed, {} failed.",
+        processed, failed
+    ))
 }
 
 // Convert API partners to our internal model
@@ -2698,89 +3176,120 @@ pub async fn print_invoice_to_html(
     invoice_id: String,
     printer_name: Option<String>,
 ) -> Result<String, String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    let (
+        invoice,
+        items,
+        payment_days,
+        delegate_name,
+        delegate_act,
+        carnet_series,
+        car_number,
+        invoice_number,
+    ) = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    // Get invoice number first
-    let invoice_number: i64 = conn
-        .query_row(
-            "SELECT invoice_number FROM invoices WHERE id = ?1",
-            [&invoice_id],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("Invoice not found: {}", e))?;
+        // Get invoice number first
+        let invoice_number: i64 = conn
+            .query_row(
+                "SELECT invoice_number FROM invoices WHERE id = ?1",
+                [&invoice_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Invoice not found: {}", e))?;
 
-    // Fetch invoice details and payment term
-    let (invoice, payment_term_days) = get_invoice_for_print(&conn, &invoice_id)?;
+        // Fetch invoice details and payment term
+        let (invoice, payment_term_days) = get_invoice_for_print(&conn, &invoice_id)?;
 
-    info!("📅 Payment term retrieved from database for partner '{}': {:?}", invoice.partner_name, payment_term_days);
+        info!("📅 Payment term retrieved from database for partner '{}': {:?}", invoice.partner_name, payment_term_days);
 
-    // Get agent settings for delegate info
-    let agent_settings_result = conn.query_row(
-        "SELECT delegate_name, delegate_act FROM agent_settings WHERE id = 1",
-        [],
-        |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
-    );
+        // Get agent settings for delegate info
+        let agent_settings_result = conn.query_row(
+            "SELECT delegate_name, delegate_act FROM agent_settings WHERE id = 1",
+            [],
+            |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
+        );
 
-    let (delegate_name, delegate_act) = agent_settings_result.unwrap_or((None, None));
+        let (delegate_name, delegate_act) = agent_settings_result.unwrap_or((None, None));
 
-    // Fetch invoice items
-    let mut stmt = conn
-        .prepare(
-            r#"
-            SELECT ii.id, ii.product_id, p.name, ii.quantity, ii.unit_price, p.unit_of_measure, ii.total_price, p.procent_tva
-            FROM invoice_items ii
-            JOIN products p ON ii.product_id = p.id
-            WHERE ii.invoice_id = ?1
-            "#,
-        )
-        .map_err(|e| e.to_string())?;
+        // Fetch invoice items
+        let mut stmt = conn
+            .prepare(
+                r#"
+                SELECT ii.id, ii.product_id, p.name, ii.quantity, ii.unit_price, p.unit_of_measure, ii.total_price, p.procent_tva
+                FROM invoice_items ii
+                JOIN products p ON ii.product_id = p.id
+                WHERE ii.invoice_id = ?1
+                "#,
+            )
+            .map_err(|e| e.to_string())?;
 
-    let items: Vec<InvoiceItem> = stmt
-        .query_map([&invoice_id], |row| {
-            // Parse TVA percentage from TEXT to f64
-            let tva_percent: Option<f64> = match row.get::<_, Option<String>>(7)? {
-                Some(s) => s.parse::<f64>().ok(),
-                None => None,
-            };
+        let items: Vec<InvoiceItem> = stmt
+            .query_map([&invoice_id], |row| {
+                // Parse TVA percentage from TEXT to f64
+                let tva_percent: Option<f64> = match row.get::<_, Option<String>>(7)? {
+                    Some(s) => s.parse::<f64>().ok(),
+                    None => None,
+                };
 
-            Ok(InvoiceItem {
-                id: row.get(0)?,
-                invoice_id: invoice_id.clone(),
-                product_id: row.get(1)?,
-                product_name: row.get(2)?,
-                quantity: row.get(3)?,
-                unit_price: row.get(4)?,
-                unit_of_measure: row.get(5)?,
-                total_price: row.get(6)?,
-                tva_percent,
+                Ok(InvoiceItem {
+                    id: row.get(0)?,
+                    invoice_id: invoice_id.clone(),
+                    product_id: row.get(1)?,
+                    product_name: row.get(2)?,
+                    quantity: row.get(3)?,
+                    unit_price: row.get(4)?,
+                    unit_of_measure: row.get(5)?,
+                    total_price: row.get(6)?,
+                    tva_percent,
+                })
             })
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Use partner's payment term or default to 30 days
+        let payment_days = payment_term_days.unwrap_or(30);
+
+        info!(
+            "📅 Using payment term: {} days (partner: '{}', retrieved: {:?}, final: {})",
+            payment_days, invoice.partner_name, payment_term_days, payment_days
+        );
+
+        // Get carnet series from agent settings
+        let carnet_series = conn
+            .query_row(
+                "SELECT carnet_series FROM agent_settings WHERE id = 1",
+                [],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "FACTURA".to_string());
+
+        // Get car number from agent settings
+        let car_number = conn
+            .query_row(
+                "SELECT car_number FROM agent_settings WHERE id = 1",
+                [],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .ok()
+            .flatten();
+
+        (
+            invoice,
+            items,
+            payment_days,
+            delegate_name,
+            delegate_act,
+            carnet_series,
+            car_number,
+            invoice_number,
+        )
+    }; 
 
     // Read logo and convert to base64
     let logo_base64 = read_logo_to_base64();
-
-    // Use partner's payment term or default to 30 days
-    let payment_days = payment_term_days.unwrap_or(30);
-
-    info!("📅 Using payment term: {} days (partner: '{}', retrieved: {:?}, final: {})",
-        payment_days, invoice.partner_name, payment_term_days, payment_days);
-
-    // Get carnet series from agent settings
-    let carnet_series = conn.query_row(
-        "SELECT carnet_series FROM agent_settings WHERE id = 1",
-        [],
-        |row| row.get::<_, Option<String>>(0)
-    ).ok().flatten().unwrap_or_else(|| "FACTURA".to_string());
-
-    // Get car number from agent settings
-    let car_number = conn.query_row(
-        "SELECT car_number FROM agent_settings WHERE id = 1",
-        [],
-        |row| row.get::<_, Option<String>>(0)
-    ).ok().flatten();
 
     // Generate HTML
     let html = print_invoice::generate_invoice_html(
@@ -2949,12 +3458,8 @@ pub async fn print_invoice_to_html(
                 Err(e) => warn!("Invoice SumatraPDF print failed: {}", e),
             }
 
-            match save_invoice_certificate_file(&invoice_id, {
-                    let car_nr: String = conn.query_row(
-                        "SELECT COALESCE(car_number, '') FROM agent_settings WHERE id = 1",
-                        [], |row| row.get(0)).unwrap_or_default();
-                    car_nr
-                }.as_str()) {
+            let cert_car_number = car_number.clone().unwrap_or_default();
+            match save_invoice_certificate_file(&db, &invoice_id, cert_car_number.as_str()).await {
                 Ok((_cert_html_path, _cert_pdf_path, cert_print_file)) => {
                     std::thread::sleep(std::time::Duration::from_millis(400));
 
@@ -3024,7 +3529,7 @@ pub async fn print_invoice_certificate(
             |row| row.get::<_, String>(0),
         ).unwrap_or_default()
     };
-    let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&invoice_id, &car_number)?;
+    let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&db, &invoice_id, &car_number).await?;
     let print_file = target.clone();
     let _is_pdf = print_file.ends_with(".pdf");
 
@@ -3123,7 +3628,7 @@ pub async fn preview_invoice_certificate(
                 |row| row.get::<_, String>(0),
             ).unwrap_or_default()
         };
-        let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&invoice_id, &car_number)?;
+        let (_html_path, _pdf_path, target) = save_invoice_certificate_file(&db, &invoice_id, &car_number).await?;
 
         open::that(&target).map_err(|e| format!("Failed to open certificate preview: {}", e))?;
         Ok(target)
@@ -3545,35 +4050,37 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
     let result = conn.query_row(
-        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, wme_host, wme_port FROM agent_settings WHERE id = 1",
+        "SELECT agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cert_comanda_serie, cert_comanda_id_client, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, wme_host, wme_port FROM agent_settings WHERE id = 1",
         [],
         |row| {
-            let auto_sync_enabled: Option<i32> = row.get(16)?;
+            let auto_sync_enabled: Option<i32> = row.get(18)?;
             Ok(AgentSettings {
                 agent_name: row.get(0)?,
                 carnet_series: row.get(1)?,
                 simbol_carnet_livr: row.get(2)?,
                 simbol_gestiune_livrare: row.get(3)?,
                 tip_contabil: row.get(4)?,
-                cod_carnet: row.get(5)?,
-                cod_carnet_livr: row.get(6)?,
-                cod_delegat: row.get(7)?,
-                delegate_name: row.get(8)?,
-                delegate_act: row.get(9)?,
-                car_number: row.get(10)?,
-                invoice_number_start: row.get(11)?,
-                invoice_number_end: row.get(12)?,
-                invoice_number_current: row.get(13)?,
-                marca_agent: row.get(14)?,
-                nume_casa: row.get(15)?,
+                cert_comanda_serie: row.get(5)?,
+                cert_comanda_id_client: row.get(6)?,
+                cod_carnet: row.get(7)?,
+                cod_carnet_livr: row.get(8)?,
+                cod_delegat: row.get(9)?,
+                delegate_name: row.get(10)?,
+                delegate_act: row.get(11)?,
+                car_number: row.get(12)?,
+                invoice_number_start: row.get(13)?,
+                invoice_number_end: row.get(14)?,
+                invoice_number_current: row.get(15)?,
+                marca_agent: row.get(16)?,
+                nume_casa: row.get(17)?,
                 auto_sync_collections_enabled: auto_sync_enabled.map(|v| v != 0),
-                auto_sync_collections_time: row.get(17)?,
-                receipt_series: row.get(18)?,
-                receipt_number_start: row.get(19)?,
-                receipt_number_end: row.get(20)?,
-                receipt_number_current: row.get(21)?,
-                wme_host: row.get(22)?,
-                wme_port: row.get::<_, Option<i64>>(23)?.map(|v| v as i32),
+                auto_sync_collections_time: row.get(19)?,
+                receipt_series: row.get(20)?,
+                receipt_number_start: row.get(21)?,
+                receipt_number_end: row.get(22)?,
+                receipt_number_current: row.get(23)?,
+                wme_host: row.get(24)?,
+                wme_port: row.get::<_, Option<i64>>(25)?.map(|v| v as i32),
             })
         },
     );
@@ -3586,6 +4093,8 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
             simbol_carnet_livr: None,
             simbol_gestiune_livrare: None,
             tip_contabil: Some("valoare".to_string()),
+            cert_comanda_serie: Some("CCAL".to_string()),
+            cert_comanda_id_client: Some("1602".to_string()),
             cod_carnet: None,
             cod_carnet_livr: None,
             cod_delegat: None,
@@ -3617,6 +4126,8 @@ pub fn save_agent_settings(
     simbol_carnet_livr: Option<String>,
     simbol_gestiune_livrare: Option<String>,
     tip_contabil: Option<String>,
+    cert_comanda_serie: Option<String>,
+    cert_comanda_id_client: Option<String>,
     cod_carnet: Option<String>,
     cod_carnet_livr: Option<String>,
     cod_delegat: Option<String>,
@@ -3676,6 +4187,18 @@ pub fn save_agent_settings(
         .filter(|value| !value.is_empty())
         .or(Some("valoare".to_string()));
 
+    let normalized_cert_comanda_serie = cert_comanda_serie
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or(Some("CCAL".to_string()));
+
+    let normalized_cert_comanda_id_client = cert_comanda_id_client
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or(Some("1602".to_string()));
+
     let normalized_wme_host = wme_host
         .as_ref()
         .map(|s| s.trim().to_string())
@@ -3685,15 +4208,15 @@ pub fn save_agent_settings(
         .or(Some(8089));
 
     conn.execute(
-        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, wme_host, wme_port, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25) \
-         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, tip_contabil = excluded.tip_contabil, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, cod_delegat = excluded.cod_delegat, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, marca_agent = excluded.marca_agent, nume_casa = excluded.nume_casa, auto_sync_collections_enabled = excluded.auto_sync_collections_enabled, auto_sync_collections_time = excluded.auto_sync_collections_time, receipt_series = excluded.receipt_series, receipt_number_start = excluded.receipt_number_start, receipt_number_end = excluded.receipt_number_end, receipt_number_current = excluded.receipt_number_current, wme_host = excluded.wme_host, wme_port = excluded.wme_port, updated_at = excluded.updated_at",
+        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cert_comanda_serie, cert_comanda_id_client, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, wme_host, wme_port, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28) \
+         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, tip_contabil = excluded.tip_contabil, cert_comanda_serie = excluded.cert_comanda_serie, cert_comanda_id_client = excluded.cert_comanda_id_client, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, cod_delegat = excluded.cod_delegat, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, marca_agent = excluded.marca_agent, nume_casa = excluded.nume_casa, auto_sync_collections_enabled = excluded.auto_sync_collections_enabled, auto_sync_collections_time = excluded.auto_sync_collections_time, receipt_series = excluded.receipt_series, receipt_number_start = excluded.receipt_number_start, receipt_number_end = excluded.receipt_number_end, receipt_number_current = excluded.receipt_number_current, wme_host = excluded.wme_host, wme_port = excluded.wme_port, updated_at = excluded.updated_at",
         params![
             agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare,
-            normalized_tip_contabil, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name,
-            delegate_act, car_number, invoice_number_start, invoice_number_end, final_invoice_current,
-            marca_agent, nume_casa, auto_sync_enabled_int, auto_sync_collections_time,
-            receipt_series, receipt_number_start, receipt_number_end, final_receipt_current,
-            normalized_wme_host, normalized_wme_port,
+            normalized_tip_contabil, normalized_cert_comanda_serie, normalized_cert_comanda_id_client,
+            cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number,
+            invoice_number_start, invoice_number_end, final_invoice_current, marca_agent, nume_casa,
+            auto_sync_enabled_int, auto_sync_collections_time, receipt_series, receipt_number_start,
+            receipt_number_end, final_receipt_current, normalized_wme_host, normalized_wme_port,
             now
         ],
     )
@@ -3705,6 +4228,8 @@ pub fn save_agent_settings(
         simbol_carnet_livr,
         simbol_gestiune_livrare,
         tip_contabil: normalized_tip_contabil,
+        cert_comanda_serie: normalized_cert_comanda_serie,
+        cert_comanda_id_client: normalized_cert_comanda_id_client,
         cod_carnet,
         cod_carnet_livr,
         cod_delegat,
@@ -4191,7 +4716,11 @@ pub fn get_client_balances(
                 SELECT 1 FROM invoices i_local
                 WHERE i_local.partner_id = cb.id_partener
                   AND i_local.invoice_number = CAST(COALESCE(cb.numar, '0') AS INTEGER)
-                  AND COALESCE(i_local.invoice_series, '') = COALESCE(cb.serie, '')
+                  AND (
+                      COALESCE(i_local.invoice_series, '') = COALESCE(cb.serie, '')
+                      OR trim(COALESCE(i_local.invoice_series, '')) = ''
+                      OR trim(COALESCE(cb.serie, '')) = ''
+                  )
             )
 
             UNION ALL
@@ -4206,7 +4735,7 @@ pub fn get_client_balances(
                 CAST(i.invoice_number AS TEXT) AS cod_document,
                 i.invoice_series AS serie,
                 CAST(i.invoice_number AS TEXT) AS numar,
-                i.created_at AS data,
+                strftime('%d/%m/%Y', replace(substr(i.created_at, 1, 19), 'T', ' ')) AS data,
                 (
                     SELECT COALESCE(SUM(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0)), 0)
                     FROM invoice_items ii
@@ -4228,13 +4757,12 @@ pub fn get_client_balances(
                         ) - COALESCE(c2.total_collected, 0)
                     ELSE 0
                 END AS rest,
-                replace(
+                strftime(
+                    '%d/%m/%Y',
                     datetime(
                         replace(substr(i.created_at, 1, 19), 'T', ' '),
                         '+' || COALESCE(NULLIF(trim(p.scadenta_la_vanzare), ''), '30') || ' days'
-                    ),
-                    ' ',
-                    'T'
+                    )
                 ) AS termen,
                 'RON' AS moneda,
                 l.name AS sediu,

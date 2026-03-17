@@ -127,6 +127,8 @@ export interface AgentSettings {
   simbol_carnet_livr: string | null;
   simbol_gestiune_livrare: string | null;
   tip_contabil: string | null;
+  cert_comanda_serie: string | null;
+  cert_comanda_id_client: string | null;
   cod_carnet: string | null;
   cod_carnet_livr: string | null;
   cod_delegat: string | null;

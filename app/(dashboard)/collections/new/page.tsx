@@ -60,20 +60,58 @@ export default function NewCollectionPage() {
         { key: "details" as const, title: "Detalii", icon: CreditCard },
     ];
 
+    const normalizeDocPart = (value?: string | null) =>
+        (value || "").trim().toUpperCase();
+
+    const getBalanceIdentity = (balance: ClientBalance) => {
+        const partner = normalizeDocPart(balance.id_partener);
+        const number = normalizeDocPart(balance.numar || balance.cod_document);
+        const series = normalizeDocPart(balance.serie);
+        return `${partner}|${number}|${series}`;
+    };
+
+    const dedupeBalances = (items: ClientBalance[]) => {
+        const unique = new Map<string, ClientBalance>();
+
+        for (const item of items) {
+            const key = getBalanceIdentity(item);
+            const existing = unique.get(key);
+            if (!existing) {
+                unique.set(key, item);
+                continue;
+            }
+
+            const existingSeries = normalizeDocPart(existing.serie);
+            const currentSeries = normalizeDocPart(item.serie);
+            const chooseCurrent = !existingSeries && !!currentSeries;
+            if (chooseCurrent) {
+                unique.set(key, item);
+            }
+        }
+
+        return Array.from(unique.values());
+    };
+
     const safeFormatDate = (dateStr?: string | null) => {
         if (!dateStr) return "-";
         try {
-            // Try standard date parsing first
-            let d = new Date(dateStr);
-            if (!isNaN(d.getTime())) return format(d, "dd.MM.yyyy");
+            const value = dateStr.trim();
 
-            // Try parsing "dd.MM.yyyy" format explicitly
-            // Only strictly match dd.MM.yyyy to avoid false positives
-            if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateStr)) {
-                d = parse(dateStr, "dd.MM.yyyy", new Date());
-                if (!isNaN(d.getTime())) return format(d, "dd.MM.yyyy");
-            }
+            // Prioritize explicit Romanian format to avoid JS locale ambiguity.
+        // Primary format is dd/MM/yyyy (slash).
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+            const d = parse(value, "dd/MM/yyyy", new Date());
+            if (!isNaN(d.getTime())) return format(d, "dd/MM/yyyy");
+        }
 
+        // Support legacy dot format as a fallback
+        if (/^\d{2}\.\d{2}\.\d{4}$/.test(value)) {
+            const d = parse(value, "dd.MM.yyyy", new Date());
+            if (!isNaN(d.getTime())) return format(d, "dd/MM/yyyy");
+        }
+
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) return format(d, "dd/MM/yyyy");
             return "-"; // Return placeholder if both fail
         } catch {
             return "-";
@@ -116,7 +154,7 @@ export default function NewCollectionPage() {
     };
 
     const getBalanceKey = (balance: ClientBalance) =>
-        `${balance.id_partener || ""}|${balance.serie || ""}|${balance.numar || ""}|${balance.cod_document || ""}|${balance.data || ""}`;
+        `${normalizeDocPart(balance.id_partener)}|${normalizeDocPart(balance.serie)}|${normalizeDocPart(balance.numar || balance.cod_document)}|${normalizeDocPart(balance.cod_document)}`;
 
     const handleInvoiceSelect = (balance: ClientBalance) => {
         const key = getBalanceKey(balance);
@@ -200,7 +238,7 @@ export default function NewCollectionPage() {
             setLoadingBalances(true);
             try {
                 const data = await getClientBalances(selectedPartner.id);
-                setBalances(data);
+                setBalances(dedupeBalances(data));
             } catch (error) {
                 console.error("Failed to load balances:", error);
                 toast.error("Eroare la încărcarea soldurilor");

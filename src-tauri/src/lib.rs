@@ -54,6 +54,7 @@ pub fn run() {
             commands::check_first_run,
             commands::get_sync_status,
             commands::sync_all_data,
+            commands::sync_certificate_cache,
             commands::check_online_status,
             // Partner commands
             commands::get_partners,

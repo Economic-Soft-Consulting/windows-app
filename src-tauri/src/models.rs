@@ -200,6 +200,8 @@ pub struct AgentSettings {
     pub simbol_carnet_livr: Option<String>,
     pub simbol_gestiune_livrare: Option<String>,
     pub tip_contabil: Option<String>,
+    pub cert_comanda_serie: Option<String>,
+    pub cert_comanda_id_client: Option<String>,
     pub cod_carnet: Option<String>,
     pub cod_carnet_livr: Option<String>,
     pub cod_delegat: Option<String>,

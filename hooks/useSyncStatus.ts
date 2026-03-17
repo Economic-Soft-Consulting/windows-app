@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   getSyncStatus,
   syncAllData,
+  syncCertificateCache,
   sendAllPendingInvoices,
   checkFirstRun,
   syncClientBalances,
@@ -35,6 +36,13 @@ export function useSyncStatus() {
     window.dispatchEvent(new CustomEvent('sync-started'));
     try {
       await syncAllData();
+
+      // Pre-cache certificate data for offline printing (non-blocking for main sync flow)
+      try {
+        await syncCertificateCache();
+      } catch (certErr) {
+        console.warn("Certificate cache sync failed, continuing.", certErr);
+      }
 
       // Send invoices and show a summary toast
       const invoiceResults = await sendAllPendingInvoices();

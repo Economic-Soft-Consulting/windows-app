@@ -594,6 +594,64 @@ pub struct SolduriFilterRequest {
     pub paginare: Option<SolduriPaginationRequest>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ComenziExtFilterRequest {
+    #[serde(rename = "DataReferinta", skip_serializing_if = "Option::is_none")]
+    pub data_referinta: Option<String>,
+    #[serde(rename = "DataEnd", skip_serializing_if = "Option::is_none")]
+    pub data_end: Option<String>,
+    #[serde(rename = "CodComanda", skip_serializing_if = "Option::is_none")]
+    pub cod_comanda: Option<String>,
+    #[serde(rename = "IDPartener", skip_serializing_if = "Option::is_none")]
+    pub id_partener: Option<String>,
+    #[serde(rename = "InfoExtensii", skip_serializing_if = "Option::is_none")]
+    pub info_extensii: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ComenziExtResponse {
+    #[serde(rename = "result")]
+    pub result: Option<String>,
+    #[serde(rename = "InfoComenzi", default)]
+    pub info_comenzi: Vec<ComandaExtInfo>,
+    #[serde(rename = "ErrorList", default)]
+    pub error_list: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ComandaExtInfo {
+    #[serde(rename = "Numar")]
+    pub numar: Option<String>,
+    #[serde(rename = "Serie")]
+    pub serie: Option<String>,
+    #[serde(rename = "Data")]
+    pub data: Option<String>,
+    #[serde(rename = "IDClient")]
+    pub id_client: Option<String>,
+    #[serde(rename = "CodComanda")]
+    pub cod_comanda: Option<String>,
+    #[serde(rename = "DataCreare")]
+    pub data_creare: Option<String>,
+    #[serde(rename = "Items", default)]
+    pub items: Vec<ComandaExtItem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ComandaExtItem {
+    #[serde(rename = "Denumire")]
+    pub denumire: Option<String>,
+    #[serde(rename = "LOT")]
+    pub lot: Option<String>,
+    #[serde(rename = "DATAPRODUCTIE")]
+    pub data_productie: Option<String>,
+    #[serde(rename = "DATAEXPIRARE")]
+    pub data_expirare: Option<String>,
+    #[serde(rename = "BONANALIZA")]
+    pub bon_analiza: Option<String>,
+    #[serde(rename = "CODPRODUCATOR")]
+    pub cod_producator: Option<String>,
+}
+
 // ==================== WME INVOICE STRUCTURES ====================
 
 #[derive(Debug, Serialize)]
@@ -1062,6 +1120,45 @@ impl ApiClient {
         info!("Successfully fetched {} balance records", solduri_response.info_solduri.len());
 
         Ok(solduri_response)
+    }
+
+    pub async fn get_info_comenzi_ext(&self, filter: ComenziExtFilterRequest) -> Result<ComenziExtResponse, String> {
+        let url = format!("{}/\"GetInfoComenziExt\"", self.config.base_url);
+
+        info!("Fetching extended commands from API: {}", url);
+
+        if let Ok(json_body) = serde_json::to_string_pretty(&filter) {
+            info!("GetInfoComenziExt Request Payload:\n{}", json_body);
+        }
+
+        let response = self.client
+            .post(&url)
+            .json(&filter)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch GetInfoComenziExt: {}", e))?;
+
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read GetInfoComenziExt response body: {}", e))?;
+
+        info!("GetInfoComenziExt Response Status: {}", status);
+
+        if !status.is_success() {
+            return Err(format!("GetInfoComenziExt API error: {}. Body: {}", status, body));
+        }
+
+        let parsed: ComenziExtResponse = serde_json::from_str(&body)
+            .map_err(|e| format!("Failed to parse GetInfoComenziExt response: {}", e))?;
+
+        info!(
+            "Successfully fetched {} commands via GetInfoComenziExt",
+            parsed.info_comenzi.len()
+        );
+
+        Ok(parsed)
     }
 
     // Fetch all client balances with automatic pagination

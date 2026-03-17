@@ -306,12 +306,21 @@ const SCHEMA: &str = r#"
         simbol_carnet_livr TEXT,
         simbol_gestiune_livrare TEXT,
         tip_contabil TEXT DEFAULT 'valoare',
+        cert_comanda_serie TEXT,
+        cert_comanda_id_client TEXT,
         cod_carnet TEXT,
         cod_carnet_livr TEXT,
         cod_delegat TEXT,
         delegate_name TEXT,
         delegate_act TEXT,
         updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS invoice_certificate_cache (
+        invoice_id TEXT PRIMARY KEY,
+        payload_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS db_migrations (
@@ -322,6 +331,7 @@ const SCHEMA: &str = r#"
     CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
     CREATE INDEX IF NOT EXISTS idx_invoices_partner ON invoices(partner_id);
     CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
+    CREATE INDEX IF NOT EXISTS idx_invoice_certificate_cache_updated_at ON invoice_certificate_cache(updated_at);
     CREATE INDEX IF NOT EXISTS idx_locations_partner ON locations(partner_id);
     CREATE INDEX IF NOT EXISTS idx_offer_items_client_product ON offer_items(id_client, product_id);
 "#;
@@ -629,6 +639,36 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         let _ = conn.execute("ALTER TABLE invoices ADD COLUMN invoice_series TEXT;", []).ok();
         conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (18, ?1)", [&Utc::now().to_rfc3339()])?;
         info!("Migration 18 completed");
+    }
+
+    // Migration 19: Add certificate command filters to agent_settings (v1.0.4)
+    if current_version < 19 {
+        info!("Applying migration 19: Add certificate command filters to agent_settings");
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN cert_comanda_serie TEXT;", []).ok();
+        let _ = conn.execute("ALTER TABLE agent_settings ADD COLUMN cert_comanda_id_client TEXT;", []).ok();
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (19, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 19 completed");
+    }
+
+    // Migration 20: Add offline certificate cache table (v1.0.5)
+    if current_version < 20 {
+        info!("Applying migration 20: Add invoice certificate cache");
+        let _ = conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS invoice_certificate_cache (
+                invoice_id TEXT PRIMARY KEY,
+                payload_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_invoice_certificate_cache_updated_at
+            ON invoice_certificate_cache(updated_at);
+            "#,
+        ).ok();
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (20, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 20 completed");
     }
 
     info!("All migrations completed successfully");

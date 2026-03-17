@@ -42,6 +42,8 @@ export default function SettingsPage() {
     simbol_carnet_livr: null,
     simbol_gestiune_livrare: null,
     tip_contabil: null,
+    cert_comanda_serie: null,
+    cert_comanda_id_client: null,
     cod_carnet: null,
     cod_carnet_livr: null,
     cod_delegat: null,
@@ -140,6 +142,8 @@ export default function SettingsPage() {
         agentSettings.simbol_carnet_livr || null,
         agentSettings.simbol_gestiune_livrare || null,
         agentSettings.tip_contabil || null,
+        agentSettings.cert_comanda_serie || null,
+        agentSettings.cert_comanda_id_client || null,
         agentSettings.cod_carnet || null,
         agentSettings.cod_carnet_livr || null,
         agentSettings.cod_delegat || null,
@@ -503,6 +507,44 @@ export default function SettingsPage() {
               />
               <p className="text-sm text-muted-foreground">
                 Se trimite pe fiecare item în IesiriClienti, câmpul TipContabil (implicit: valoare)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="certComandaSerie">Serie Comandă Certificat</Label>
+              <Input
+                id="certComandaSerie"
+                type="text"
+                placeholder="Ex: CCAL"
+                value={agentSettings.cert_comanda_serie || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    cert_comanda_serie: e.target.value,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Filtru Serie pentru GetInfoComenziExt folosit la certificatul de calitate (implicit: CCAL)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="certComandaIdClient">ID Client Certificat</Label>
+              <Input
+                id="certComandaIdClient"
+                type="text"
+                placeholder="Ex: 1602"
+                value={agentSettings.cert_comanda_id_client || ""}
+                onChange={(e) =>
+                  setAgentSettings((prev) => ({
+                    ...prev,
+                    cert_comanda_id_client: e.target.value,
+                  }))
+                }
+              />
+              <p className="text-sm text-muted-foreground">
+                Filtru IDClient pentru GetInfoComenziExt folosit la certificatul de calitate (implicit: 1602)
               </p>
             </div>
 
