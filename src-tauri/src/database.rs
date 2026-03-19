@@ -328,6 +328,15 @@ const SCHEMA: &str = r#"
         applied_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS ignored_balances (
+        id_partener TEXT NOT NULL,
+        cod_document TEXT NOT NULL,
+        serie TEXT NOT NULL,
+        numar TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id_partener, cod_document, serie, numar)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
     CREATE INDEX IF NOT EXISTS idx_invoices_partner ON invoices(partner_id);
     CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
@@ -669,6 +678,26 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
 
         conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (20, ?1)", [&Utc::now().to_rfc3339()])?;
         info!("Migration 20 completed");
+    }
+
+    // Migration 21: Add ignored_balances table for phantom invoices (v1.0.4)
+    if current_version < 21 {
+        info!("Applying migration 21: Add ignored_balances table");
+        let _ = conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS ignored_balances (
+                id_partener TEXT NOT NULL,
+                cod_document TEXT NOT NULL,
+                serie TEXT NOT NULL,
+                numar TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id_partener, cod_document, serie, numar)
+            );
+            "#,
+        ).ok();
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (21, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 21 completed");
     }
 
     info!("All migrations completed successfully");

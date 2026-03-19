@@ -106,6 +106,7 @@ pub fn run() {
             commands::update_all_partners_payment_terms,
             commands::save_report_html,
             commands::open_external_link,
+            commands::hide_client_balance,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

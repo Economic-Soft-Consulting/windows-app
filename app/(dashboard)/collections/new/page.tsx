@@ -13,7 +13,8 @@ import {
     CheckCircle2,
     FileText,
     Check,
-    Loader2
+    Loader2,
+    EyeOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,14 +28,17 @@ import {
     getClientBalances,
     recordCollectionGroup,
     printCollectionToHtml,
-    sendCollection
+    sendCollection,
+    hideClientBalance
 } from "@/lib/tauri/commands";
 import type { PartnerWithLocations, ClientBalance, CreateCollectionGroupRequest } from "@/lib/tauri/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/app/contexts/AuthContext";
 
 export default function NewCollectionPage() {
     const router = useRouter();
+    const { isAdmin } = useAuth();
     const [step, setStep] = useState<"partner" | "invoice" | "details">("partner");
 
     // Data
@@ -53,6 +57,7 @@ export default function NewCollectionPage() {
     const [loadingBalances, setLoadingBalances] = useState(false);
     const [saving, setSaving] = useState(false);
     const [search, setSearch] = useState("");
+    const [hidingId, setHidingId] = useState<string | null>(null);
 
     const steps = [
         { key: "partner" as const, title: "Partener", icon: Building2 },
@@ -177,6 +182,39 @@ export default function NewCollectionPage() {
             ...prev,
             [key]: (balance.rest || 0).toFixed(2),
         }));
+    };
+
+    const handleHideInvoice = async (balance: ClientBalance, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const keyToHide = getBalanceKey(balance);
+        setHidingId(keyToHide);
+
+        try {
+            await hideClientBalance(
+                balance.id_partener,
+                balance.cod_document || "",
+                balance.serie || "",
+                balance.numar || ""
+            );
+            
+            setBalances(prev => prev.filter(b => getBalanceKey(b) !== keyToHide));
+            
+            if (selectedBalanceKeys.includes(keyToHide)) {
+                setSelectedBalanceKeys(prev => prev.filter(k => k !== keyToHide));
+                setSelectedBalances(prev => prev.filter(b => getBalanceKey(b) !== keyToHide));
+                setAllocatedAmounts(prev => {
+                    const next = { ...prev };
+                    delete next[keyToHide];
+                    return next;
+                });
+            }
+            toast.success(`Factura ${balance.serie} ${balance.numar} a fost ascunsă.`);
+        } catch (error) {
+            console.error("Failed to hide balance:", error);
+            toast.error("Eroare la ascunderea facturii.");
+        } finally {
+            setHidingId(null);
+        }
     };
 
     const parseAllocated = (key: string) => {
@@ -474,13 +512,21 @@ export default function NewCollectionPage() {
                             ) : (
                                 <div className="grid gap-3 p-4 pb-20 grid-cols-1 md:grid-cols-3 lg:grid-cols-5">
                                     {balances.map((balance) => (
-                                        <button
+                                        <div
                                             key={getBalanceKey(balance)}
+                                            role="button"
+                                            tabIndex={0}
                                             className={cn(
-                                                "w-full text-left rounded-lg border p-4 transition-all hover:border-primary/50 hover:bg-muted/40",
+                                                "w-full text-left rounded-lg border p-4 transition-all cursor-pointer hover:border-primary/50 hover:bg-muted/40 outline-none focus-visible:ring-2 focus-visible:ring-primary",
                                                 selectedBalanceKeys.includes(getBalanceKey(balance)) && "border-primary bg-primary/5 ring-2 ring-primary"
                                             )}
                                             onClick={() => handleInvoiceSelect(balance)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    handleInvoiceSelect(balance);
+                                                }
+                                            }}
                                         >
                                             <div className="space-y-2">
                                                 <div className="flex items-start justify-between gap-2">
@@ -490,11 +536,30 @@ export default function NewCollectionPage() {
                                                             {balance.tip_document || "Factura"}
                                                         </span>
                                                     </div>
-                                                    {selectedBalanceKeys.includes(getBalanceKey(balance)) && (
-                                                        <span className="text-[11px] font-medium text-primary">
-                                                            Selectată #{selectedBalanceKeys.indexOf(getBalanceKey(balance)) + 1}
-                                                        </span>
-                                                    )}
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        {selectedBalanceKeys.includes(getBalanceKey(balance)) && (
+                                                            <span className="text-[11px] font-medium text-primary">
+                                                                Selectată #{selectedBalanceKeys.indexOf(getBalanceKey(balance)) + 1}
+                                                            </span>
+                                                        )}
+                                                        {isAdmin && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                onClick={(e) => handleHideInvoice(balance, e)}
+                                                                disabled={hidingId === getBalanceKey(balance)}
+                                                                title="Ascunde factura (doar Admin)"
+                                                            >
+                                                                {hidingId === getBalanceKey(balance) ? (
+                                                                    <Loader2 className="h-4 w-4 animate-spin text-red-600" />
+                                                                ) : (
+                                                                    <EyeOff className="h-4 w-4" />
+                                                                )}
+                                                                <span className="sr-only">Ascunde</span>
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -512,22 +577,22 @@ export default function NewCollectionPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-end justify-between gap-2 pt-1 border-t">
-                                                    <div>
-                                                        <div className="text-[11px] text-muted-foreground">Total factură</div>
-                                                        <div className="text-sm font-medium">
+                                                <div className="flex flex-col gap-1 pt-2 border-t mt-2">
+                                                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                                        <span className="text-[11px] text-muted-foreground shrink-0">Total factură:</span>
+                                                        <span className="text-sm font-semibold truncate">
                                                             {new Intl.NumberFormat('ro-RO', { style: 'currency', currency: balance.moneda || 'RON' }).format(balance.valoare || 0)}
-                                                        </div>
+                                                        </span>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <div className="text-[11px] text-muted-foreground">Rest de plată</div>
-                                                        <div className="font-bold text-base text-primary">
+                                                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                                        <span className="text-[11px] text-muted-foreground shrink-0">Rest de plată:</span>
+                                                        <span className="text-sm font-semibold text-primary truncate">
                                                             {new Intl.NumberFormat('ro-RO', { style: 'currency', currency: balance.moneda || 'RON' }).format(balance.rest || 0)}
-                                                        </div>
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </button>
+                                        </div>
                                     ))}
                                 </div>
                             )}

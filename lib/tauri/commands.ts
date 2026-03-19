@@ -206,6 +206,10 @@ export async function getClientBalances(partnerId?: string): Promise<ClientBalan
   return invoke<ClientBalance[]>("get_client_balances", { partnerId });
 }
 
+export async function hideClientBalance(idPartener: string, codDocument: string, serie: string, numar: string): Promise<void> {
+  return invoke<void>("hide_client_balance", { idPartener, codDocument, serie, numar });
+}
+
 export async function recordCollection(collection: Collection): Promise<string> {
   return invoke<string>("record_collection", { collection });
 }

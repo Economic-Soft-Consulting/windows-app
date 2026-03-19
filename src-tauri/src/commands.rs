@@ -4695,7 +4695,7 @@ pub fn get_client_balances(
                           AND COALESCE(c.serie_factura, '') = COALESCE(cb.serie, '')
                           AND COALESCE(c.numar_factura, '') = COALESCE(cb.numar, '')
                           AND COALESCE(c.cod_document, '') = COALESCE(cb.cod_document, '')
-                          AND (c.status IN ('pending', 'sending') OR (c.status = 'synced' AND c.synced_at > cb.synced_at))
+                          AND c.status IN ('pending', 'sending', 'synced')
                     ) > 0.01
                         THEN COALESCE(cb.rest, 0) - (
                             SELECT COALESCE(SUM(c.valoare), 0)
@@ -4704,7 +4704,7 @@ pub fn get_client_balances(
                               AND COALESCE(c.serie_factura, '') = COALESCE(cb.serie, '')
                               AND COALESCE(c.numar_factura, '') = COALESCE(cb.numar, '')
                               AND COALESCE(c.cod_document, '') = COALESCE(cb.cod_document, '')
-                              AND (c.status IN ('pending', 'sending') OR (c.status = 'synced' AND c.synced_at > cb.synced_at))
+                              AND c.status IN ('pending', 'sending', 'synced')
                         )
                     ELSE 0
                 END AS rest,
@@ -4721,6 +4721,14 @@ pub fn get_client_balances(
                       OR trim(COALESCE(i_local.invoice_series, '')) = ''
                       OR trim(COALESCE(cb.serie, '')) = ''
                   )
+            )
+            -- Exclude invoices hidden by the agent (phantom test invoices)
+            AND NOT EXISTS (
+                SELECT 1 FROM ignored_balances ib
+                WHERE ib.id_partener = cb.id_partener
+                  AND ib.cod_document = COALESCE(cb.cod_document, '')
+                  AND ib.serie = COALESCE(cb.serie, '')
+                  AND ib.numar = COALESCE(cb.numar, '')
             )
 
             UNION ALL
@@ -4835,6 +4843,30 @@ pub fn get_client_balances(
     }
 
     Ok(result)
+}
+
+#[tauri::command]
+pub fn hide_client_balance(
+    db: State<'_, Database>,
+    id_partener: String,
+    cod_document: String,
+    serie: Option<String>,
+    numar: Option<String>,
+) -> Result<(), String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    let now = Utc::now().to_rfc3339();
+    let serie_norm = serie.as_deref().unwrap_or("").trim().to_string();
+    let numar_norm = numar.as_deref().unwrap_or("").trim().to_string();
+
+    conn.execute(
+        "INSERT OR REPLACE INTO ignored_balances (id_partener, cod_document, serie, numar, hidden_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![id_partener.trim(), cod_document.trim(), serie_norm, numar_norm, now],
+    )
+    .map_err(|e| e.to_string())?;
+
+    info!("[IGNORED_BALANCES] Hidden balance for partner={} cod_document={} serie={} numar={}",
+        id_partener, cod_document, serie_norm, numar_norm);
+    Ok(())
 }
 
 #[tauri::command]

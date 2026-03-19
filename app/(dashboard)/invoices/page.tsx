@@ -279,7 +279,7 @@ export default function InvoicesPage() {
                                 Anulează
                               </DropdownMenuItem>
                             )}
-                            {isAdmin && (invoice.status === "pending" || invoice.status === "failed") && (
+                            {isAdmin && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem

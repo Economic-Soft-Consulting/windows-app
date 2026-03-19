@@ -35,7 +35,7 @@ export function InvoiceCard({ invoice, onSend, onDelete, onView, onCancel, isAdm
   const [isCancelling, setIsCancelling] = useState(false);
   const { printInvoice, isPrinting, receiptDialog } = usePrintInvoice();
   const canSend = invoice.status === "pending" || invoice.status === "failed";
-  const canDelete = isAdmin && (invoice.status === "pending" || invoice.status === "failed"); // Only admin can delete
+  const canDelete = isAdmin; // Only admin can delete
   const isSending = invoice.status === "sending";
 
   const handleCancel = async () => {

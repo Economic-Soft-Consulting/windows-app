@@ -150,6 +150,12 @@ export default function ReportsPage() {
     const reportDate = salesEndDate || salesStartDate;
     const collections = await getDailyCollectionsReport(reportDate || undefined);
 
+    const formatPrintDate = (dateStr: string) => {
+      const [year, month, day] = dateStr.split("-");
+      return `${day}.${month}.${year}`;
+    };
+    const printDateLabel = reportDate ? formatPrintDate(reportDate) : "";
+
     const formatPrintNumber = (value: number, decimals = 2) =>
       value.toLocaleString("ro-RO", {
         minimumFractionDigits: decimals,
@@ -305,7 +311,7 @@ export default function ReportsPage() {
           <h1>Centralizator zi</h1>
 
           <div class="section">
-            <h2>Facturi eliberate</h2>
+            <h2>Facturi eliberate ${printDateLabel}</h2>
             <table class="invoice-table">
               <thead>
                 <tr>
@@ -328,7 +334,7 @@ export default function ReportsPage() {
           </div>
 
           <div class="section">
-            <h2>Chitanțe</h2>
+            <h2>Chitanțe ${printDateLabel}</h2>
             <table class="receipts-table">
               <thead>
                 <tr>

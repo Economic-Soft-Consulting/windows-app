@@ -397,7 +397,7 @@ export default function CollectionsPage() {
                                                             )}
                                                         </DropdownMenuItem>
                                                     )}
-                                                    {isAdmin && (collection.status === "pending" || collection.status === "failed") && (
+                                                    {isAdmin && (
                                                         <>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem
@@ -509,7 +509,7 @@ export default function CollectionsPage() {
                                             )}
                                         </Button>
                                     )}
-                                    {isAdmin && (collection.status === "pending" || collection.status === "failed") && (
+                                    {isAdmin && (
                                         <Button
                                             variant="ghost"
                                             className="h-9 w-9 p-0 flex-shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
