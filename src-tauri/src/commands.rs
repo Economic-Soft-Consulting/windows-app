@@ -425,7 +425,7 @@ async fn build_quality_certificate_context(
     invoice_id: &str,
     car_number: &str,
 ) -> Result<QualityCertificateContext, String> {
-    let (invoice_number, invoice_series, created_at, partner_name, cert_serie, cert_id_client, invoice_products, api): (i64, Option<String>, String, String, String, String, Vec<String>, api_client::ApiClient) = {
+    let (invoice_number, invoice_series, created_at, partner_name, cert_serie, cert_id_client, api): (i64, Option<String>, String, String, String, String, api_client::ApiClient) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
         let row = conn.query_row(
@@ -465,25 +465,8 @@ async fn build_quality_certificate_context(
             .unwrap_or("1602")
             .to_string();
 
-        let invoice_products: Vec<String> = conn
-            .prepare(
-                r#"
-                SELECT p.name
-                FROM invoice_items ii
-                JOIN products p ON p.id = ii.product_id
-                WHERE ii.invoice_id = ?1
-                "#,
-            )
-            .map_err(|e| e.to_string())?
-            .query_map([invoice_id], |row| row.get::<_, String>(0))
-            .map_err(|e| e.to_string())?
-            .filter_map(|result| result.ok())
-            .map(|name| normalize_product_label(&name))
-            .filter(|name| !name.is_empty())
-            .collect();
-
         let api = get_wme_api_client(&conn)?;
-        (row.0, row.1, row.2, row.3, cert_serie, cert_id_client, invoice_products, api)
+        (row.0, row.1, row.2, row.3, cert_serie, cert_id_client, api)
     };
 
     let created_at_dt = chrono::DateTime::parse_from_rfc3339(&created_at)
@@ -544,18 +527,38 @@ async fn build_quality_certificate_context(
         }
     };
 
+    warn!(
+        "[CERT] Primary query returned {} comenzi. Looking for Serie='{}' IDClient='{}'.",
+        response.info_comenzi.len(),
+        cert_serie,
+        cert_id_client
+    );
+    for c in &response.info_comenzi {
+        warn!(
+            "[CERT]   Comanda: Numar={:?} Serie={:?} IDClient={:?} Data={:?} Items={}",
+            c.numar, c.serie, c.id_client, c.data, c.items.len()
+        );
+    }
+
     let selected_command = response
         .info_comenzi
         .into_iter()
         .filter(|c| {
-            c.serie
+            let serie_ok = c.serie
                 .as_deref()
                 .map(|serie| serie.trim().eq_ignore_ascii_case(cert_serie.as_str()))
-                .unwrap_or(false)
-                && c.id_client
-                    .as_deref()
-                    .map(|id| id.trim() == cert_id_client.as_str())
-                    .unwrap_or(false)
+                .unwrap_or(false);
+            let id_ok = c.id_client
+                .as_deref()
+                .map(|id| id.trim() == cert_id_client.as_str())
+                .unwrap_or(false);
+            if !serie_ok || !id_ok {
+                warn!(
+                    "[CERT]   SKIP comanda Numar={:?}: serie_ok={} id_ok={}",
+                    c.numar, serie_ok, id_ok
+                );
+            }
+            serie_ok && id_ok
         })
         .max_by_key(|c| parse_comanda_numar(c.numar.as_ref()));
 
@@ -625,37 +628,45 @@ async fn build_quality_certificate_context(
         let cmd_numar = normalize_or_placeholder(command.numar, "____");
         let cmd_data = normalize_or_placeholder(command.data, "__.__.____");
         ctx.subtitle = format!("Nr.{} din data de {}", cmd_numar, cmd_data);
+        warn!(
+            "[CERT] Selected comanda Nr.{} din {} with {} items.",
+            cmd_numar, cmd_data, command.items.len()
+        );
 
-        let mut lines = Vec::new();
-        let mut bon = None;
+        let mut lines_map: Vec<QualityCertificateProductLine> = Vec::new();
+        let mut bon_list: Vec<String> = Vec::new();
 
         for item in command.items {
-            if bon.is_none() {
-                bon = item
-                    .bon_analiza
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|v| !v.is_empty())
-                    .map(|v| v.to_string());
+            if let Some(b) = item.bon_analiza.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+                let s = b.to_string();
+                if !bon_list.contains(&s) {
+                    bon_list.push(s);
+                }
             }
 
-            let denumire_for_match = item
-                .denumire
-                .as_deref()
-                .map(str::trim)
-                .unwrap_or("");
+            let den = normalize_or_placeholder(item.denumire, "Produs");
+            let lot = normalize_or_placeholder(item.lot, "____");
+            let d_prod = normalize_or_placeholder(item.data_productie, "__.__.____");
+            let d_exp = normalize_or_placeholder(item.data_expirare, "__.__.____");
 
-            if !invoice_products.is_empty() && !product_matches_invoice(denumire_for_match, &invoice_products) {
-                continue;
+            let new_line = QualityCertificateProductLine {
+                denumire: den,
+                lot,
+                data_productie: d_prod,
+                data_expirare: d_exp,
+            };
+            if !lines_map.iter().any(|l| {
+                l.denumire == new_line.denumire
+                    && l.lot == new_line.lot
+                    && l.data_productie == new_line.data_productie
+                    && l.data_expirare == new_line.data_expirare
+            }) {
+                lines_map.push(new_line);
             }
-
-            lines.push(QualityCertificateProductLine {
-                denumire: normalize_or_placeholder(item.denumire, "Produs"),
-                lot: normalize_or_placeholder(item.lot, "____"),
-                data_productie: normalize_or_placeholder(item.data_productie, "__.__.____"),
-                data_expirare: normalize_or_placeholder(item.data_expirare, "__.__.____"),
-            });
         }
+
+        let mut lines = lines_map;
+        lines.sort_by(|a, b| a.denumire.cmp(&b.denumire));
 
         if !lines.is_empty() {
             ctx.product_lines = lines;
@@ -667,8 +678,8 @@ async fn build_quality_certificate_context(
             );
         }
 
-        if let Some(value) = bon {
-            ctx.bon_analiza = value;
+        if !bon_list.is_empty() {
+            ctx.bon_analiza = bon_list.join("; ");
         }
     } else {
         warn!(
@@ -1335,7 +1346,7 @@ pub async fn sync_certificate_cache(db: State<'_, Database>) -> Result<String, S
                 SELECT i.id
                 FROM invoices i
                 LEFT JOIN invoice_certificate_cache c ON c.invoice_id = i.id
-                WHERE c.invoice_id IS NULL
+                WHERE c.invoice_id IS NULL AND i.created_at >= datetime('now', '-7 days')
                 ORDER BY i.created_at DESC
                 LIMIT 100
                 "#,
