@@ -337,7 +337,13 @@ fn parse_comanda_data_score(value: Option<&String>) -> i64 {
     }
 
     let date_part = raw.split_whitespace().next().unwrap_or(raw);
-    if let Ok(parsed) = chrono::NaiveDate::parse_from_str(date_part, "%d.%m.%Y") {
+
+    // Attempt multiple formats as API might send DD.MM.YYYY, YYYY-MM-DD, or DD/MM/YYYY
+    let parsed_date = chrono::NaiveDate::parse_from_str(date_part, "%d.%m.%Y")
+        .or_else(|_| chrono::NaiveDate::parse_from_str(date_part, "%Y-%m-%d"))
+        .or_else(|_| chrono::NaiveDate::parse_from_str(date_part, "%d/%m/%Y"));
+
+    if let Ok(parsed) = parsed_date {
         return i64::from(parsed.year()) * 10_000 + i64::from(parsed.month()) * 100 + i64::from(parsed.day());
     }
 
@@ -389,6 +395,18 @@ fn load_cached_certificate_payload(conn: &rusqlite::Connection, invoice_id: &str
         .query_row(
             "SELECT payload_json FROM invoice_certificate_cache WHERE invoice_id = ?1",
             [invoice_id],
+            |row| row.get(0),
+        )
+        .ok();
+
+    payload_json.and_then(|json| serde_json::from_str::<CertificateCachePayload>(&json).ok())
+}
+
+fn load_latest_cached_certificate_payload(conn: &rusqlite::Connection) -> Option<CertificateCachePayload> {
+    let payload_json: Option<String> = conn
+        .query_row(
+            "SELECT payload_json FROM invoice_certificate_cache ORDER BY updated_at DESC LIMIT 1",
+            [],
             |row| row.get(0),
         )
         .ok();
@@ -520,6 +538,12 @@ async fn build_quality_certificate_context(
                     warn!("[CERT] Using cached certificate data for invoice {} (offline/API error fallback).", invoice_id);
                     return Ok(ctx);
                 }
+
+                if let Some(payload) = load_cached_certificate_payload(&conn, "DAILY_TODAY").or_else(|| load_latest_cached_certificate_payload(&conn)) {
+                    apply_cached_certificate_payload(&mut ctx, payload);
+                    warn!("[CERT] Using daily/latest cached certificate data for invoice {} (offline/API error fallback).", invoice_id);
+                    return Ok(ctx);
+                }
             }
 
             warn!("[CERT] No cached certificate data found for invoice {}. Using placeholders.", invoice_id);
@@ -552,15 +576,25 @@ async fn build_quality_certificate_context(
                 .as_deref()
                 .map(|id| id.trim() == cert_id_client.as_str())
                 .unwrap_or(false);
-            if !serie_ok || !id_ok {
+
+            let max_allowed_date_score = parse_comanda_data_score(Some(&invoice_day));
+            let current_date_score = parse_comanda_data_score(c.data.as_ref());
+            let date_ok = current_date_score <= max_allowed_date_score && current_date_score != i64::MIN;
+
+            if !serie_ok || !id_ok || !date_ok {
                 warn!(
-                    "[CERT]   SKIP comanda Numar={:?}: serie_ok={} id_ok={}",
-                    c.numar, serie_ok, id_ok
+                    "[CERT]   SKIP comanda Numar={:?}: serie_ok={} id_ok={} date_ok={}",
+                    c.numar, serie_ok, id_ok, date_ok
                 );
             }
-            serie_ok && id_ok
+            serie_ok && id_ok && date_ok
         })
-        .max_by_key(|c| parse_comanda_numar(c.numar.as_ref()));
+        .max_by_key(|c| {
+            (
+                parse_comanda_data_score(c.data.as_ref()),
+                parse_comanda_numar(c.numar.as_ref()),
+            )
+        });
 
     let selected_command = match selected_command {
         Some(command) => Some(command),
@@ -585,14 +619,20 @@ async fn build_quality_certificate_context(
                         .info_comenzi
                         .into_iter()
                         .filter(|c| {
-                            c.serie
+                            let serie_ok = c.serie
                                 .as_deref()
                                 .map(|serie| serie.trim().eq_ignore_ascii_case(cert_serie.as_str()))
-                                .unwrap_or(false)
-                                && c.id_client
-                                    .as_deref()
-                                    .map(|id| id.trim() == cert_id_client.as_str())
-                                    .unwrap_or(false)
+                                .unwrap_or(false);
+                            let id_ok = c.id_client
+                                .as_deref()
+                                .map(|id| id.trim() == cert_id_client.as_str())
+                                .unwrap_or(false);
+
+                            let max_allowed_date_score = parse_comanda_data_score(Some(&invoice_day));
+                            let current_date_score = parse_comanda_data_score(c.data.as_ref());
+                            let date_ok = current_date_score <= max_allowed_date_score && current_date_score != i64::MIN;
+
+                            serie_ok && id_ok && date_ok
                         })
                         .max_by_key(|c| {
                             (
@@ -700,6 +740,9 @@ async fn build_quality_certificate_context(
         if let Some(payload) = load_cached_certificate_payload(&conn, invoice_id) {
             apply_cached_certificate_payload(&mut ctx, payload);
             warn!("[CERT] Using cached certificate data for invoice {} because fresh command data was incomplete.", invoice_id);
+        } else if let Some(payload) = load_cached_certificate_payload(&conn, "DAILY_TODAY").or_else(|| load_latest_cached_certificate_payload(&conn)) {
+            apply_cached_certificate_payload(&mut ctx, payload);
+            warn!("[CERT] Using daily/latest cached certificate data for invoice {} because fresh command data was incomplete.", invoice_id);
         }
     }
 
@@ -1325,8 +1368,155 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
     result
 }
 
+async fn fetch_daily_certificate(db: &State<'_, Database>) -> Result<(), String> {
+    let (cert_serie, cert_id_client, api): (String, String, api_client::ApiClient) = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+        let cert_filters: (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT cert_comanda_serie, cert_comanda_id_client FROM agent_settings WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap_or((None, None));
+
+        let cert_serie = cert_filters
+            .0
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("CCAL")
+            .to_string();
+
+        let cert_id_client = cert_filters
+            .1
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("1602")
+            .to_string();
+
+        let api = get_wme_api_client(&conn)?;
+        (cert_serie, cert_id_client, api)
+    };
+
+    let today_dt = Local::now();
+    let today_day = today_dt.format("%d.%m.%Y").to_string();
+    let data_referinta = format!("{} 00:00", today_day);
+    let data_end = format!("{} 23:59", today_day);
+
+    let response = api
+        .get_info_comenzi_ext(api_client::ComenziExtFilterRequest {
+            data_referinta: Some(data_referinta),
+            data_end: Some(data_end),
+            cod_comanda: None,
+            id_partener: Some(cert_id_client.clone()),
+            info_extensii: Some("D".to_string()),
+        })
+        .await
+        .map_err(|e| format!("GetInfoComenziExt failed: {}", e))?;
+
+    let selected_command = response
+        .info_comenzi
+        .into_iter()
+        .filter(|c| {
+            let serie_ok = c.serie
+                .as_deref()
+                .map(|serie| serie.trim().eq_ignore_ascii_case(cert_serie.as_str()))
+                .unwrap_or(false);
+            let id_ok = c.id_client
+                .as_deref()
+                .map(|id| id.trim() == cert_id_client.as_str())
+                .unwrap_or(false);
+
+            let max_allowed_date_score = parse_comanda_data_score(Some(&today_day));
+            let current_date_score = parse_comanda_data_score(c.data.as_ref());
+            let date_ok = current_date_score <= max_allowed_date_score && current_date_score != i64::MIN;
+
+            serie_ok && id_ok && date_ok
+        })
+        .max_by_key(|c| {
+            (
+                parse_comanda_data_score(c.data.as_ref()),
+                parse_comanda_numar(c.numar.as_ref()),
+            )
+        });
+
+    if let Some(command) = selected_command {
+        let cmd_numar = normalize_or_placeholder(command.numar, "____");
+        let cmd_data = normalize_or_placeholder(command.data, "__.__.____");
+        let subtitle = format!("Nr.{} din data de {}", cmd_numar, cmd_data);
+
+        let mut lines_map: Vec<QualityCertificateProductLine> = Vec::new();
+        let mut bon_list: Vec<String> = Vec::new();
+
+        for item in command.items {
+            if let Some(b) = item.bon_analiza.as_deref().map(str::trim).filter(|v| !v.is_empty()) {
+                let s = b.to_string();
+                if !bon_list.contains(&s) {
+                    bon_list.push(s);
+                }
+            }
+
+            let den = normalize_or_placeholder(item.denumire, "Produs");
+            let lot = normalize_or_placeholder(item.lot, "____");
+            let d_prod = normalize_or_placeholder(item.data_productie, "__.__.____");
+            let d_exp = normalize_or_placeholder(item.data_expirare, "__.__.____");
+
+            let new_line = QualityCertificateProductLine {
+                denumire: den,
+                lot,
+                data_productie: d_prod,
+                data_expirare: d_exp,
+            };
+            if !lines_map.iter().any(|l| {
+                l.denumire == new_line.denumire
+                    && l.lot == new_line.lot
+                    && l.data_productie == new_line.data_productie
+                    && l.data_expirare == new_line.data_expirare
+            }) {
+                lines_map.push(new_line);
+            }
+        }
+
+        let mut lines = lines_map;
+        lines.sort_by(|a, b| a.denumire.cmp(&b.denumire));
+
+        let bon_analiza = if !bon_list.is_empty() {
+            bon_list.join("; ")
+        } else {
+            "BA____/__.__.____".to_string()
+        };
+
+        let payload = CertificateCachePayload {
+            subtitle,
+            bon_analiza,
+            product_lines: lines,
+        };
+
+        if let Ok(conn) = db.conn.lock().map_err(|e| e.to_string()) {
+            let payload_json = serde_json::to_string(&payload)
+                .map_err(|e| format!("Failed to serialize daily certificate cache payload: {}", e))?;
+
+            conn.execute(
+                "INSERT INTO invoice_certificate_cache (invoice_id, payload_json, updated_at) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(invoice_id) DO UPDATE SET payload_json = excluded.payload_json, updated_at = excluded.updated_at",
+                params!["DAILY_TODAY", payload_json, Utc::now().to_rfc3339()],
+            )
+            .map_err(|e| format!("Failed to save daily certificate cache payload: {}", e))?;
+            info!("[CERT] Daily certificate cached successfully.");
+        }
+    } else {
+        warn!("[CERT] No daily certificate found to cache for today.");
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sync_certificate_cache(db: State<'_, Database>) -> Result<String, String> {
+    let _ = fetch_daily_certificate(&db).await;
+
     let (invoice_ids, car_number): (Vec<String>, String) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -3297,7 +3487,7 @@ pub async fn print_invoice_to_html(
             car_number,
             invoice_number,
         )
-    }; 
+    };
 
     // Read logo and convert to base64
     let logo_base64 = read_logo_to_base64();

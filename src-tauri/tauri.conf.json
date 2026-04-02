@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "eSoft Facturi",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "identifier": "facturi.softconsulting.com",
   "build": {
     "frontendDist": "../out",
@@ -34,9 +34,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "resources/*"
-    ],
+    "resources": ["resources/*"],
     "macOS": {
       "entitlements": "entitlements.plist",
       "infoPlist": "Info.plist"
