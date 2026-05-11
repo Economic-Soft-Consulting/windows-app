@@ -2472,6 +2472,178 @@ pub fn get_invoice_detail(
     Ok(InvoiceDetail { invoice, items })
 }
 
+/// Looks up the daily "central" comanda (same source the certificate flow uses)
+/// and returns, per article ID, up to two `CodLinieComanda` values in document
+/// order. Surplus comanda lines (3rd+) for the same article are discarded with
+/// a warning. Returns an empty map on any API error or no match so the caller
+/// can fall back gracefully.
+///
+/// The comanda is identified by:
+///   - Date window = invoice day (00:00 .. 23:59)
+///   - `IDClient` = `cert_comanda_id_client` setting (default "1602")
+///   - `Serie`    = `cert_comanda_serie` setting (default "CCAL")
+///
+/// Each invoice line then picks LEGCOM values by matching its article ID
+/// against the lines of this single comanda — same model as the cert flow.
+async fn lookup_comanda_legcom_for_invoice(
+    api: &api_client::ApiClient,
+    cert_id_client: &str,
+    cert_serie: &str,
+    invoice_date: &str,
+) -> HashMap<String, (Option<String>, Option<String>)> {
+    // The API filters by DataCreare (when the comanda was created), not by the
+    // document `Data` field — so a comanda dated "today" may have been created
+    // days earlier. We search a 30-day DataCreare window, then filter strictly
+    // by `Data == invoice_date` in memory.
+    let window_start = match chrono::NaiveDate::parse_from_str(invoice_date, "%d.%m.%Y") {
+        Ok(d) => (d - chrono::Duration::days(30))
+            .format("%d.%m.%Y")
+            .to_string(),
+        Err(_) => {
+            warn!("[LEGCOM] Could not parse invoice_date '{}'", invoice_date);
+            return HashMap::new();
+        }
+    };
+
+    let response = api
+        .get_info_comenzi_ext(api_client::ComenziExtFilterRequest {
+            data_referinta: Some(format!("{} 00:00", window_start)),
+            data_end: Some(format!("{} 23:59", invoice_date)),
+            cod_comanda: None,
+            id_partener: Some(cert_id_client.to_string()),
+            info_extensii: Some("D".to_string()),
+        })
+        .await;
+
+    let response = match response {
+        Ok(value) => value,
+        Err(err) => {
+            warn!(
+                "[LEGCOM] GetInfoComenziExt failed (IDClient={}, Serie={}): {}",
+                cert_id_client, cert_serie, err
+            );
+            return HashMap::new();
+        }
+    };
+
+    let selected = response
+        .info_comenzi
+        .into_iter()
+        .filter(|c| {
+            let id_ok = c
+                .id_client
+                .as_deref()
+                .map(|id| id.trim() == cert_id_client)
+                .unwrap_or(false);
+            let serie_ok = c
+                .serie
+                .as_deref()
+                .map(|serie| serie.trim().eq_ignore_ascii_case(cert_serie))
+                .unwrap_or(false);
+            // API filters by DataCreare, but we want only comenzi whose
+            // document `Data` equals the invoice day. This avoids accidentally
+            // picking a future-dated comanda that was merely *created* today.
+            let date_match = c
+                .data
+                .as_deref()
+                .map(|d| d.trim() == invoice_date)
+                .unwrap_or(false);
+            id_ok && serie_ok && date_match
+        })
+        .max_by_key(|c| parse_comanda_numar(c.numar.as_ref()));
+
+    let comanda = match selected {
+        Some(c) => c,
+        None => {
+            warn!(
+                "[LEGCOM] No matching comanda found (IDClient={}, Serie={}, invoice_date={})",
+                cert_id_client, cert_serie, invoice_date
+            );
+            return HashMap::new();
+        }
+    };
+
+    info!(
+        "[LEGCOM] Using comanda Nr.{:?} Serie.{:?} Data.{:?} with {} items",
+        comanda.numar,
+        comanda.serie,
+        comanda.data,
+        comanda.items.len()
+    );
+
+    let mut buckets: HashMap<String, Vec<String>> = HashMap::new();
+    for item in comanda.items.into_iter() {
+        let (article_id, clc) = match (item.id, item.cod_linie_comanda) {
+            (Some(id), Some(clc)) => (id.trim().to_string(), clc.trim().to_string()),
+            _ => continue,
+        };
+        if article_id.is_empty() || clc.is_empty() {
+            continue;
+        }
+        buckets.entry(article_id).or_default().push(clc);
+    }
+
+    let mut result: HashMap<String, (Option<String>, Option<String>)> = HashMap::new();
+    for (article_id, values) in buckets.into_iter() {
+        if values.len() > 2 {
+            warn!(
+                "[LEGCOM] Article {} has {} comanda lines; keeping first 2 ({}), dropping {} surplus",
+                article_id,
+                values.len(),
+                values[..2].join(", "),
+                values.len() - 2
+            );
+        }
+        let mut iter = values.into_iter();
+        let first = iter.next();
+        let second = iter.next();
+        result.insert(article_id, (first, second));
+    }
+
+    result
+}
+
+/// Reads `cert_comanda_serie` and `cert_comanda_id_client` from `agent_settings`
+/// (same source the certificate flow uses), applying the same defaults.
+fn load_legcom_lookup_settings(db: &State<'_, Database>) -> (String, String) {
+    let conn = db.conn.lock();
+    let (raw_serie, raw_id_client): (Option<String>, Option<String>) = match conn {
+        Ok(c) => c
+            .query_row(
+                "SELECT cert_comanda_serie, cert_comanda_id_client FROM agent_settings WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap_or((None, None)),
+        Err(_) => (None, None),
+    };
+
+    let serie = raw_serie
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .unwrap_or("CCAL")
+        .to_string();
+    let id_client = raw_id_client
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .unwrap_or("1602")
+        .to_string();
+
+    (serie, id_client)
+}
+
+/// Returns the (LEGCOM1, LEGCOM2) pair for a given invoice product, looked up
+/// in the comanda map. Both are `None` if the product has no matching comanda
+/// line; serialization skips them so they're omitted from the JSON.
+fn lookup_legcoms(
+    comanda_map: &HashMap<String, (Option<String>, Option<String>)>,
+    product_id: &str,
+) -> (Option<String>, Option<String>) {
+    comanda_map.get(product_id).cloned().unwrap_or((None, None))
+}
+
 #[tauri::command]
 pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result<Invoice, String> {
     // Lock the invoice to prevent concurrent sending
@@ -2804,11 +2976,38 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "valoare".to_string());
+
+    // Construct the API client up-front so we can reuse it for the comanda lookup.
+    let api_client_result = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        get_wme_api_client(&conn)
+    };
+
+    // Look up CodLinieComanda values per article (LEGCOM1 / LEGCOM2 extension).
+    // Uses the same central comanda (Serie=CCAL, IDClient=1602 by default) as the
+    // certificate flow — see load_legcom_lookup_settings.
+    // Empty map on any error/offline — invoice send proceeds without the extension.
+    let (legcom_serie, legcom_id_client) = load_legcom_lookup_settings(&db);
+    let comanda_legcom: HashMap<String, (Option<String>, Option<String>)> =
+        match &api_client_result {
+            Ok(client) => {
+                lookup_comanda_legcom_for_invoice(
+                    client,
+                    &legcom_id_client,
+                    &legcom_serie,
+                    &data_formatted,
+                )
+                .await
+            }
+            Err(_) => HashMap::new(),
+        };
+
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
         .map(|(product_id, quantity, price, um)| {
             let quantity_r = (quantity * 100.0).round() / 100.0;
             let price_r = (price * 100.0).round() / 100.0;
+            let (legcom1, legcom2) = lookup_legcoms(&comanda_legcom, &product_id);
             api_client::WmeInvoiceItem {
                 id_articol: product_id,
                 cant: quantity_r,
@@ -2820,6 +3019,9 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
                 pret_achiz: 0.0,
                 observatii: None,
                 tva: None,
+                ad_dim: Some(0.0),
+                legcom1,
+                legcom2,
             }
         })
         .collect();
@@ -2869,13 +3071,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     }
     info!("===============================");
 
-    // Create the ApiClient in a separate block to ensure MutexGuard is dropped before await
-    let api_client_result = {
-        let conn = db.conn.lock().map_err(|e| e.to_string())?;
-        get_wme_api_client(&conn)
-    };
-
-    // Send to WME API
+    // Send to WME API (reusing the client created above)
     let result = match api_client_result {
         Ok(client) => client.send_invoice_to_wme(wme_request).await,
         Err(e) => Err(format!("Failed to create API client: {}", e)),
@@ -2992,49 +3188,59 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
 pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -> Result<String, String> {
     info!("Previewing JSON for invoice: {}", invoice_id);
 
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    // Wrap all rusqlite usage in a scope so its non-Send guards are dropped
+    // before any `.await` later in this function.
+    let (partner_name, location_name, notes, created_at, invoice_number,
+         partner_cod, location_id_sediu, partner_moneda, partner_payment_term,
+         items): (
+        String, String, Option<String>, String, i64,
+        Option<String>, Option<String>, Option<String>, Option<String>,
+        Vec<(String, f64, f64, String)>,
+    ) = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    // Fetch invoice basic info
-    let (partner_name, location_name, notes, created_at, invoice_number): (String, String, Option<String>, String, i64) = conn
-        .query_row(
-            "SELECT p.name, l.name, i.notes, i.created_at, i.invoice_number FROM invoices i JOIN partners p ON i.partner_id = p.id JOIN locations l ON i.location_id = l.id WHERE i.id = ?1",
-            [&invoice_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        let (partner_name, location_name, notes, created_at, invoice_number): (String, String, Option<String>, String, i64) = conn
+            .query_row(
+                "SELECT p.name, l.name, i.notes, i.created_at, i.invoice_number FROM invoices i JOIN partners p ON i.partner_id = p.id JOIN locations l ON i.location_id = l.id WHERE i.id = ?1",
+                [&invoice_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+            )
+            .map_err(|e| format!("Invoice not found: {}", e))?;
+
+        let (partner_cod, location_id_sediu, partner_moneda, partner_payment_term): (Option<String>, Option<String>, Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT p.cod_intern, l.id_sediu, p.moneda, p.scadenta_la_vanzare FROM invoices i JOIN partners p ON i.partner_id = p.id JOIN locations l ON i.location_id = l.id WHERE i.id = ?1",
+                [&invoice_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .map_err(|e| format!("Failed to get partner info: {}", e))?;
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure \
+                 FROM invoice_items ii \
+                 JOIN products p ON ii.product_id = p.id \
+                 WHERE ii.invoice_id = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let items: Vec<(String, f64, f64, String)> = stmt
+            .query_map([&invoice_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        (
+            partner_name, location_name, notes, created_at, invoice_number,
+            partner_cod, location_id_sediu, partner_moneda, partner_payment_term,
+            items,
         )
-        .map_err(|e| format!("Invoice not found: {}", e))?;
+    };
 
-    // Get agent settings
+    // Get agent settings (acquires its own lock internally)
     let agent_settings = get_agent_settings(db.clone()).map_err(|e| e.to_string())?;
-
-    // Get partner CodIntern and location ID
-    let (partner_cod, location_id_sediu, partner_moneda, partner_payment_term): (Option<String>, Option<String>, Option<String>, Option<String>) = conn
-        .query_row(
-            "SELECT p.cod_intern, l.id_sediu, p.moneda, p.scadenta_la_vanzare FROM invoices i JOIN partners p ON i.partner_id = p.id JOIN locations l ON i.location_id = l.id WHERE i.id = ?1",
-            [&invoice_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-        )
-        .map_err(|e| format!("Failed to get partner info: {}", e))?;
-
-    // Get invoice items
-    let mut stmt = conn
-        .prepare(
-            "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure \
-             FROM invoice_items ii \
-             JOIN products p ON ii.product_id = p.id \
-             WHERE ii.invoice_id = ?1",
-        )
-        .map_err(|e| e.to_string())?;
-
-    let items: Vec<(String, f64, f64, String)> = stmt
-        .query_map([&invoice_id], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    drop(stmt);
-    drop(conn);
 
     // Validate required settings
     if agent_settings.agent_name.is_none() || agent_settings.agent_name.as_ref().unwrap().is_empty() {
@@ -3103,19 +3309,47 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "valoare".to_string());
+
+    // Look up CodLinieComanda values per article so the preview matches the real send.
+    let (legcom_serie, legcom_id_client) = load_legcom_lookup_settings(&db);
+    let comanda_legcom: HashMap<String, (Option<String>, Option<String>)> = {
+        let api_client_result = {
+            let conn = db.conn.lock().map_err(|e| e.to_string())?;
+            get_wme_api_client(&conn)
+        };
+        match &api_client_result {
+            Ok(client) => {
+                lookup_comanda_legcom_for_invoice(
+                    client,
+                    &legcom_id_client,
+                    &legcom_serie,
+                    &data_formatted,
+                )
+                .await
+            }
+            Err(_) => HashMap::new(),
+        }
+    };
+
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
-        .map(|(product_id, quantity, price, um)| api_client::WmeInvoiceItem {
-            id_articol: product_id,
-            cant: quantity,
-            pret: price,
-            um: Some(um),
-            gestiune: Some(gestiune.clone()),
-            tip_contabil: Some(tip_contabil.clone()),
-            pret_inreg: 0.0,
-            pret_achiz: 0.0,
-            observatii: None,
-            tva: None,
+        .map(|(product_id, quantity, price, um)| {
+            let (legcom1, legcom2) = lookup_legcoms(&comanda_legcom, &product_id);
+            api_client::WmeInvoiceItem {
+                id_articol: product_id,
+                cant: quantity,
+                pret: price,
+                um: Some(um),
+                gestiune: Some(gestiune.clone()),
+                tip_contabil: Some(tip_contabil.clone()),
+                pret_inreg: 0.0,
+                pret_achiz: 0.0,
+                observatii: None,
+                tva: None,
+                ad_dim: Some(0.0),
+                legcom1,
+                legcom2,
+            }
         })
         .collect();
 

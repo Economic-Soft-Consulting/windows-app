@@ -638,6 +638,10 @@ pub struct ComandaExtInfo {
 
 #[derive(Debug, Deserialize)]
 pub struct ComandaExtItem {
+    #[serde(rename = "ID")]
+    pub id: Option<String>,
+    #[serde(rename = "CodLinieComanda")]
+    pub cod_linie_comanda: Option<String>,
     #[serde(rename = "Denumire")]
     pub denumire: Option<String>,
     #[serde(rename = "LOT")]
@@ -767,6 +771,12 @@ pub struct WmeInvoiceItem {
     pub observatii: Option<String>,
     #[serde(rename = "TVA", skip_serializing_if = "Option::is_none")]
     pub tva: Option<f64>,
+    #[serde(rename = "AdDim", skip_serializing_if = "Option::is_none", default)]
+    pub ad_dim: Option<f64>,
+    #[serde(rename = "LEGCOM1", skip_serializing_if = "Option::is_none", default, skip_deserializing)]
+    pub legcom1: Option<String>,
+    #[serde(rename = "LEGCOM2", skip_serializing_if = "Option::is_none", default, skip_deserializing)]
+    pub legcom2: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
