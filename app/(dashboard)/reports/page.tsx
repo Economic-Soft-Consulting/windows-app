@@ -26,6 +26,15 @@ function toInputDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function catLabel(row: { qty_cat_s: number; qty_cat_m: number; qty_cat_l: number; qty_cat_xl: number }): string {
+  const cats: string[] = [];
+  if (row.qty_cat_s > 0) cats.push("S");
+  if (row.qty_cat_m > 0) cats.push("M");
+  if (row.qty_cat_l > 0) cats.push("L");
+  if (row.qty_cat_xl > 0) cats.push("XL");
+  return cats.join("+") || "-";
+}
+
 export default function ReportsPage() {
   const { isAdmin } = useAuth();
   const [loadingSales, setLoadingSales] = useState(true);
@@ -87,6 +96,10 @@ export default function ReportsPage() {
       total_cofrage: number;
       total_without_vat: number;
       total_with_vat: number;
+      qty_cat_s: number;
+      qty_cat_m: number;
+      qty_cat_l: number;
+      qty_cat_xl: number;
     }>();
 
     for (const row of salesRows) {
@@ -97,12 +110,20 @@ export default function ReportsPage() {
         total_cofrage: 0,
         total_without_vat: 0,
         total_with_vat: 0,
+        qty_cat_s: 0,
+        qty_cat_m: 0,
+        qty_cat_l: 0,
+        qty_cat_xl: 0,
       };
 
       current.total_quantity += row.total_quantity;
       current.total_cofrage += row.total_cofrage;
       current.total_without_vat += row.total_without_vat;
       current.total_with_vat += row.total_with_vat;
+      current.qty_cat_s += row.qty_cat_s;
+      current.qty_cat_m += row.qty_cat_m;
+      current.qty_cat_l += row.qty_cat_l;
+      current.qty_cat_xl += row.qty_cat_xl;
 
       grouped.set(key, current);
     }
@@ -117,9 +138,13 @@ export default function ReportsPage() {
         acc.withoutVat += row.total_without_vat;
         acc.withVat += row.total_with_vat;
         acc.quantity += row.total_quantity;
+        acc.catS += row.qty_cat_s;
+        acc.catM += row.qty_cat_m;
+        acc.catL += row.qty_cat_l;
+        acc.catXL += row.qty_cat_xl;
         return acc;
       },
-      { quantity: 0, cofrage: 0, withoutVat: 0, withVat: 0 }
+      { quantity: 0, cofrage: 0, withoutVat: 0, withVat: 0, catS: 0, catM: 0, catL: 0, catXL: 0 }
     );
   }, [salesRows]);
 
@@ -129,6 +154,7 @@ export default function ReportsPage() {
         <TableCell className="font-medium">{row.partner_name.slice(0, 7)}</TableCell>
         <TableCell className="text-right">{row.total_quantity.toFixed(0)}</TableCell>
         <TableCell className="text-right">{row.total_cofrage.toFixed(2)}</TableCell>
+        <TableCell className="text-right">{catLabel(row)}</TableCell>
         <TableCell className="text-right">{formatCurrency(row.total_without_vat)}</TableCell>
         <TableCell className="text-right">{formatCurrency(row.total_with_vat)}</TableCell>
       </TableRow>
@@ -163,20 +189,26 @@ export default function ReportsPage() {
       });
 
     const invoiceRows = salesByPartner
-      .map((row) => `
+      .map((row) => {
+        const cat = catLabel(row);
+        return `
         <tr>
           <td class="partner-code">${row.partner_name.slice(0, 7)}</td>
           <td class="right num">${formatPrintNumber(row.total_quantity, 0)}</td>
           <td class="right num">${formatPrintNumber(row.total_cofrage, 2)}</td>
-          <td class="right num">${formatPrintNumber(row.total_without_vat, 2)}</td>
+          <td class="cat${cat.length >= 6 ? " cat-small" : ""}">${cat}</td>
           <td class="right num">${formatPrintNumber(row.total_with_vat, 2)}</td>
         </tr>
-      `)
+      `;
+      })
       .join("");
 
     const invoicesTotalQty = salesByPartner.reduce((acc, row) => acc + row.total_quantity, 0);
     const invoicesTotalCofrage = salesByPartner.reduce((acc, row) => acc + row.total_cofrage, 0);
-    const invoicesTotalWithoutVat = salesByPartner.reduce((acc, row) => acc + row.total_without_vat, 0);
+    const invoicesTotalCatS = salesByPartner.reduce((acc, row) => acc + row.qty_cat_s, 0);
+    const invoicesTotalCatM = salesByPartner.reduce((acc, row) => acc + row.qty_cat_m, 0);
+    const invoicesTotalCatL = salesByPartner.reduce((acc, row) => acc + row.qty_cat_l, 0);
+    const invoicesTotalCatXL = salesByPartner.reduce((acc, row) => acc + row.qty_cat_xl, 0);
     const invoicesTotalValue = salesByPartner.reduce((acc, row) => acc + row.total_with_vat, 0);
 
     const receiptsRows = collections.items
@@ -288,9 +320,18 @@ export default function ReportsPage() {
             }
             .invoice-table th:nth-child(1), .invoice-table td:nth-child(1) { width: 20%; }
             .invoice-table th:nth-child(2), .invoice-table td:nth-child(2) { width: 20%; }
-            .invoice-table th:nth-child(3), .invoice-table td:nth-child(3) { width: 20%; }
-            .invoice-table th:nth-child(4), .invoice-table td:nth-child(4) { width: 20%; }
-            .invoice-table th:nth-child(5), .invoice-table td:nth-child(5) { width: 20%; }
+            .invoice-table th:nth-child(3), .invoice-table td:nth-child(3) { width: 19%; }
+            .invoice-table th:nth-child(4), .invoice-table td:nth-child(4) { width: 19%; }
+            .invoice-table th:nth-child(5), .invoice-table td:nth-child(5) { width: 22%; }
+            .invoice-table td.cat {
+              white-space: nowrap;
+              padding-left: 1px;
+              padding-right: 1px;
+              font-size: 9.5px;
+            }
+            .invoice-table td.cat-small {
+              font-size: 7.5px;
+            }
             .receipts-table th:nth-child(1), .receipts-table td:nth-child(1) { width: 50%; }
             .receipts-table th:nth-child(2), .receipts-table td:nth-child(2) { width: 50%; }
             .totals {
@@ -318,7 +359,7 @@ export default function ReportsPage() {
                   <th>Cod ext</th>
                   <th class="right">Ouă</th>
                   <th class="right">Cof</th>
-                  <th class="right">Fără TVA</th>
+                  <th class="right">CAT</th>
                   <th class="right">Cu TVA</th>
                 </tr>
               </thead>
@@ -328,8 +369,11 @@ export default function ReportsPage() {
               <strong class="total-facturi-label">Total facturi:</strong>
               Ouă ${formatPrintNumber(invoicesTotalQty, 0)} |
               Cofraje ${formatPrintNumber(invoicesTotalCofrage, 2)} |
-              Fără TVA ${formatPrintNumber(invoicesTotalWithoutVat, 2)} |
-              Cu TVA ${formatPrintNumber(invoicesTotalValue, 2)}
+              Cat S ${formatPrintNumber(invoicesTotalCatS / 30, 2)} |
+              Cat M ${formatPrintNumber(invoicesTotalCatM / 30, 2)} |
+              Cat L ${formatPrintNumber(invoicesTotalCatL / 30, 2)}${invoicesTotalCatXL > 0 ? ` | Cat XL ${formatPrintNumber(invoicesTotalCatXL / 30, 2)}` : ""}
+              (exprimat în cofraje) |
+              Total cu TVA ${formatPrintNumber(invoicesTotalValue, 2)}
             </div>
           </div>
 
@@ -353,6 +397,10 @@ export default function ReportsPage() {
               Total general ${formatPrintNumber(receiptsGrandTotal, 2)}
             </div>
           </div>
+
+          <!-- 5cm hartie in plus: divul gol nu este printat de driverul termic, punctul final forteaza avansul hartiei -->
+          <div style="height: 50mm;"></div>
+          <div style="font-size: 4px; line-height: 1; color: #000;">.</div>
         </body>
       </html>
     `;
@@ -382,7 +430,7 @@ export default function ReportsPage() {
             <CardTitle className="text-sm text-muted-foreground">Centralizator zi (cu TVA)</CardTitle>
             <div className="text-2xl font-bold">{formatCurrency(salesTotals.withVat)}</div>
             <CardDescription>
-              Ouă {salesTotals.quantity.toFixed(0)} • Cofraje {salesTotals.cofrage.toFixed(2)} • Fără TVA {formatCurrency(salesTotals.withoutVat)} • Cu TVA {formatCurrency(salesTotals.withVat)}
+              Ouă {salesTotals.quantity.toFixed(0)} • Cofraje {salesTotals.cofrage.toFixed(2)} • Cat S {(salesTotals.catS / 30).toFixed(2)} • Cat M {(salesTotals.catM / 30).toFixed(2)} • Cat L {(salesTotals.catL / 30).toFixed(2)}{salesTotals.catXL > 0 ? ` • Cat XL ${(salesTotals.catXL / 30).toFixed(2)}` : ""} (cofraje) • Fără TVA {formatCurrency(salesTotals.withoutVat)} • Cu TVA {formatCurrency(salesTotals.withVat)}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -439,6 +487,7 @@ export default function ReportsPage() {
                         <TableHead>Cod ext</TableHead>
                         <TableHead className="text-right">Nr ouă</TableHead>
                         <TableHead className="text-right">Nr Cofraje</TableHead>
+                        <TableHead className="text-right">CAT</TableHead>
                         <TableHead className="text-right">Valoare fără TVA</TableHead>
                         <TableHead className="text-right">Valoare cu TVA</TableHead>
                       </TableRow>
@@ -449,6 +498,7 @@ export default function ReportsPage() {
                         <TableCell className="font-semibold">TOTAL</TableCell>
                         <TableCell className="text-right font-semibold">{salesTotals.quantity.toFixed(0)}</TableCell>
                         <TableCell className="text-right font-semibold">{salesTotals.cofrage.toFixed(2)}</TableCell>
+                        <TableCell />
                         <TableCell className="text-right font-semibold">{formatCurrency(salesTotals.withoutVat)}</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(salesTotals.withVat)}</TableCell>
                       </TableRow>

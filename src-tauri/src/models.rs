@@ -333,6 +333,10 @@ pub struct SalesPrintItem {
     pub total_vat: f64,
     pub total_with_vat: f64,
     pub payment_section: String,
+    pub qty_cat_s: f64,
+    pub qty_cat_m: f64,
+    pub qty_cat_l: f64,
+    pub qty_cat_xl: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

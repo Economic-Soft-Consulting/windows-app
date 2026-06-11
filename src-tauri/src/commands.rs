@@ -5294,7 +5294,7 @@ pub fn hide_client_balance(
     let numar_norm = numar.as_deref().unwrap_or("").trim().to_string();
 
     conn.execute(
-        "INSERT OR REPLACE INTO ignored_balances (id_partener, cod_document, serie, numar, hidden_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT OR REPLACE INTO ignored_balances (id_partener, cod_document, serie, numar, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![id_partener.trim(), cod_document.trim(), serie_norm, numar_norm, now],
     )
     .map_err(|e| e.to_string())?;
@@ -6251,15 +6251,26 @@ pub fn get_sales_print_report(
             COALESCE(NULLIF(TRIM(p.cod_extern), ''), p.name, 'Partener') AS partner_name,
             i.created_at,
             COALESCE(inv_qty.total_quantity, 0) AS total_quantity,
+            COALESCE(inv_qty.qty_cat_s, 0) AS qty_cat_s,
+            COALESCE(inv_qty.qty_cat_m, 0) AS qty_cat_m,
+            COALESCE(inv_qty.qty_cat_l, 0) AS qty_cat_l,
+            COALESCE(inv_qty.qty_cat_xl, 0) AS qty_cat_xl,
             COALESCE(inv_totals.total_without_vat, i.total_amount) AS total_without_vat,
             COALESCE(inv_totals.total_with_vat, i.total_amount * 1.19) AS total_with_vat,
             COALESCE(col.total_collected, 0) AS collected_amount
         FROM invoices i
         JOIN partners p ON p.id = i.partner_id
         LEFT JOIN (
-            SELECT invoice_id, SUM(quantity) AS total_quantity
-            FROM invoice_items
-            GROUP BY invoice_id
+            SELECT
+                ii.invoice_id,
+                SUM(ii.quantity) AS total_quantity,
+                SUM(CASE WHEN pr.name LIKE '%categoria s%' THEN ii.quantity ELSE 0 END) AS qty_cat_s,
+                SUM(CASE WHEN pr.name LIKE '%categoria m%' THEN ii.quantity ELSE 0 END) AS qty_cat_m,
+                SUM(CASE WHEN pr.name LIKE '%categoria l%' AND pr.name NOT LIKE '%categoria xl%' THEN ii.quantity ELSE 0 END) AS qty_cat_l,
+                SUM(CASE WHEN pr.name LIKE '%categoria xl%' THEN ii.quantity ELSE 0 END) AS qty_cat_xl
+            FROM invoice_items ii
+            LEFT JOIN products pr ON pr.id = ii.product_id
+            GROUP BY ii.invoice_id
         ) inv_qty ON inv_qty.invoice_id = i.id
         LEFT JOIN (
             SELECT
@@ -6317,6 +6328,10 @@ pub fn get_sales_print_report(
             END AS payment_section,
             COUNT(*) AS invoice_count,
             SUM(total_quantity) AS total_quantity,
+            SUM(qty_cat_s) AS qty_cat_s,
+            SUM(qty_cat_m) AS qty_cat_m,
+            SUM(qty_cat_l) AS qty_cat_l,
+            SUM(qty_cat_xl) AS qty_cat_xl,
             SUM(total_without_vat) AS total_without_vat,
             SUM(total_with_vat - total_without_vat) AS total_vat,
             SUM(total_with_vat) AS total_with_vat
@@ -6331,7 +6346,11 @@ pub fn get_sales_print_report(
         total_without_vat,
         total_vat,
         total_with_vat,
-        payment_section
+        payment_section,
+        qty_cat_s,
+        qty_cat_m,
+        qty_cat_l,
+        qty_cat_xl
     FROM partner_data
     WHERE 1 = 1"
     );
@@ -6351,6 +6370,10 @@ pub fn get_sales_print_report(
                 total_vat: row.get(5)?,
                 total_with_vat: row.get(6)?,
                 payment_section: row.get(7)?,
+                qty_cat_s: row.get(8)?,
+                qty_cat_m: row.get(9)?,
+                qty_cat_l: row.get(10)?,
+                qty_cat_xl: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?;

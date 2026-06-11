@@ -228,6 +228,10 @@ export interface SalesPrintItem {
   total_vat: number;
   total_with_vat: number;
   payment_section: string;
+  qty_cat_s: number;
+  qty_cat_m: number;
+  qty_cat_l: number;
+  qty_cat_xl: number;
 }
 
 export interface SalesProductReportItem {
