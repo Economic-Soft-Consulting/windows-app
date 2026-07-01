@@ -232,6 +232,7 @@ export interface SalesPrintItem {
   qty_cat_m: number;
   qty_cat_l: number;
   qty_cat_xl: number;
+  qty_cat_cas: number;
 }
 
 export interface SalesProductReportItem {

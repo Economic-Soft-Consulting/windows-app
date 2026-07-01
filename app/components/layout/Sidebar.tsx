@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -7,6 +8,7 @@ import { FileText, Database, Home, X, Settings, LogOut, Receipt, BarChart3 } fro
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { getVersion } from "@tauri-apps/api/app";
 
 const navItems = [
   {
@@ -56,6 +58,11 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAdmin, logout } = useAuth();
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion(null));
+  }, []);
 
   const handleNavClick = () => {
     // Close sidebar on mobile when navigating
@@ -183,7 +190,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* Footer - Reduced padding */}
         <div className="p-3 border-t border-border">
           <p className="text-sm text-muted-foreground text-center">
-            v1.0.5 • © 2026 eSoft
+            {appVersion ? `v${appVersion} • ` : ""}© 2026 eSoft
           </p>
         </div>
       </aside>

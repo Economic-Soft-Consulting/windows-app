@@ -6255,6 +6255,7 @@ pub fn get_sales_print_report(
             COALESCE(inv_qty.qty_cat_m, 0) AS qty_cat_m,
             COALESCE(inv_qty.qty_cat_l, 0) AS qty_cat_l,
             COALESCE(inv_qty.qty_cat_xl, 0) AS qty_cat_xl,
+            COALESCE(inv_qty.qty_cat_cas, 0) AS qty_cat_cas,
             COALESCE(inv_totals.total_without_vat, i.total_amount) AS total_without_vat,
             COALESCE(inv_totals.total_with_vat, i.total_amount * 1.19) AS total_with_vat,
             COALESCE(col.total_collected, 0) AS collected_amount
@@ -6263,11 +6264,12 @@ pub fn get_sales_print_report(
         LEFT JOIN (
             SELECT
                 ii.invoice_id,
-                SUM(ii.quantity) AS total_quantity,
-                SUM(CASE WHEN pr.name LIKE '%categoria s%' THEN ii.quantity ELSE 0 END) AS qty_cat_s,
-                SUM(CASE WHEN pr.name LIKE '%categoria m%' THEN ii.quantity ELSE 0 END) AS qty_cat_m,
-                SUM(CASE WHEN pr.name LIKE '%categoria l%' AND pr.name NOT LIKE '%categoria xl%' THEN ii.quantity ELSE 0 END) AS qty_cat_l,
-                SUM(CASE WHEN pr.name LIKE '%categoria xl%' THEN ii.quantity ELSE 0 END) AS qty_cat_xl
+                SUM(CASE WHEN LOWER(pr.name) LIKE '%categoria%' THEN ii.quantity ELSE 0 END) AS total_quantity,
+                SUM(CASE WHEN pr.name LIKE '%categoria s%' AND LOWER(pr.name) NOT LIKE '%caserol%' THEN ii.quantity ELSE 0 END) AS qty_cat_s,
+                SUM(CASE WHEN pr.name LIKE '%categoria m%' AND LOWER(pr.name) NOT LIKE '%caserol%' THEN ii.quantity ELSE 0 END) AS qty_cat_m,
+                SUM(CASE WHEN pr.name LIKE '%categoria l%' AND pr.name NOT LIKE '%categoria xl%' AND LOWER(pr.name) NOT LIKE '%caserol%' THEN ii.quantity ELSE 0 END) AS qty_cat_l,
+                SUM(CASE WHEN pr.name LIKE '%categoria xl%' AND LOWER(pr.name) NOT LIKE '%caserol%' THEN ii.quantity ELSE 0 END) AS qty_cat_xl,
+                SUM(CASE WHEN LOWER(pr.name) LIKE '%caserol%' AND LOWER(pr.name) LIKE '%categoria%' THEN ii.quantity ELSE 0 END) AS qty_cat_cas
             FROM invoice_items ii
             LEFT JOIN products pr ON pr.id = ii.product_id
             GROUP BY ii.invoice_id
@@ -6332,6 +6334,7 @@ pub fn get_sales_print_report(
             SUM(qty_cat_m) AS qty_cat_m,
             SUM(qty_cat_l) AS qty_cat_l,
             SUM(qty_cat_xl) AS qty_cat_xl,
+            SUM(qty_cat_cas) AS qty_cat_cas,
             SUM(total_without_vat) AS total_without_vat,
             SUM(total_with_vat - total_without_vat) AS total_vat,
             SUM(total_with_vat) AS total_with_vat
@@ -6350,7 +6353,8 @@ pub fn get_sales_print_report(
         qty_cat_s,
         qty_cat_m,
         qty_cat_l,
-        qty_cat_xl
+        qty_cat_xl,
+        qty_cat_cas
     FROM partner_data
     WHERE 1 = 1"
     );
@@ -6374,6 +6378,7 @@ pub fn get_sales_print_report(
                 qty_cat_m: row.get(9)?,
                 qty_cat_l: row.get(10)?,
                 qty_cat_xl: row.get(11)?,
+                qty_cat_cas: row.get(12)?,
             })
         })
         .map_err(|e| e.to_string())?;

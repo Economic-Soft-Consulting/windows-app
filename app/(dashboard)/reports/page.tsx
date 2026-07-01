@@ -26,12 +26,13 @@ function toInputDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function catLabel(row: { qty_cat_s: number; qty_cat_m: number; qty_cat_l: number; qty_cat_xl: number }): string {
+function catLabel(row: { qty_cat_s: number; qty_cat_m: number; qty_cat_l: number; qty_cat_xl: number; qty_cat_cas: number }): string {
   const cats: string[] = [];
   if (row.qty_cat_s > 0) cats.push("S");
   if (row.qty_cat_m > 0) cats.push("M");
   if (row.qty_cat_l > 0) cats.push("L");
   if (row.qty_cat_xl > 0) cats.push("XL");
+  if (row.qty_cat_cas > 0) cats.push("CAS");
   return cats.join("+") || "-";
 }
 
@@ -100,6 +101,7 @@ export default function ReportsPage() {
       qty_cat_m: number;
       qty_cat_l: number;
       qty_cat_xl: number;
+      qty_cat_cas: number;
     }>();
 
     for (const row of salesRows) {
@@ -114,6 +116,7 @@ export default function ReportsPage() {
         qty_cat_m: 0,
         qty_cat_l: 0,
         qty_cat_xl: 0,
+        qty_cat_cas: 0,
       };
 
       current.total_quantity += row.total_quantity;
@@ -124,6 +127,7 @@ export default function ReportsPage() {
       current.qty_cat_m += row.qty_cat_m;
       current.qty_cat_l += row.qty_cat_l;
       current.qty_cat_xl += row.qty_cat_xl;
+      current.qty_cat_cas += row.qty_cat_cas;
 
       grouped.set(key, current);
     }
@@ -142,9 +146,10 @@ export default function ReportsPage() {
         acc.catM += row.qty_cat_m;
         acc.catL += row.qty_cat_l;
         acc.catXL += row.qty_cat_xl;
+        acc.catCAS += row.qty_cat_cas;
         return acc;
       },
-      { quantity: 0, cofrage: 0, withoutVat: 0, withVat: 0, catS: 0, catM: 0, catL: 0, catXL: 0 }
+      { quantity: 0, cofrage: 0, withoutVat: 0, withVat: 0, catS: 0, catM: 0, catL: 0, catXL: 0, catCAS: 0 }
     );
   }, [salesRows]);
 
@@ -181,6 +186,10 @@ export default function ReportsPage() {
       return `${day}.${month}.${year}`;
     };
     const printDateLabel = reportDate ? formatPrintDate(reportDate) : "";
+    const salesDateLabel =
+      salesStartDate && salesEndDate && salesStartDate !== salesEndDate
+        ? `${formatPrintDate(salesStartDate)} - ${formatPrintDate(salesEndDate)}`
+        : printDateLabel;
 
     const formatPrintNumber = (value: number, decimals = 2) =>
       value.toLocaleString("ro-RO", {
@@ -190,7 +199,8 @@ export default function ReportsPage() {
 
     const invoiceRows = salesByPartner
       .map((row) => {
-        const cat = catLabel(row);
+        let cat = catLabel(row);
+        if (cat.length > 6) cat = cat.replace("CAS", "CS");
         return `
         <tr>
           <td class="partner-code">${row.partner_name.slice(0, 7)}</td>
@@ -209,6 +219,7 @@ export default function ReportsPage() {
     const invoicesTotalCatM = salesByPartner.reduce((acc, row) => acc + row.qty_cat_m, 0);
     const invoicesTotalCatL = salesByPartner.reduce((acc, row) => acc + row.qty_cat_l, 0);
     const invoicesTotalCatXL = salesByPartner.reduce((acc, row) => acc + row.qty_cat_xl, 0);
+    const invoicesTotalCatCAS = salesByPartner.reduce((acc, row) => acc + row.qty_cat_cas, 0);
     const invoicesTotalValue = salesByPartner.reduce((acc, row) => acc + row.total_with_vat, 0);
 
     const receiptsRows = collections.items
@@ -245,7 +256,7 @@ export default function ReportsPage() {
             html { height: 100%; }
             body {
               font-family: Arial, Helvetica, sans-serif;
-              width: 68mm;
+              width: 70mm;
               margin: 0 auto;
               padding: 2mm;
               font-size: 14px;
@@ -308,9 +319,10 @@ export default function ReportsPage() {
             }
             .partner-code {
               white-space: nowrap;
-              font-size: 11px;
-              letter-spacing: 0.2px;
+              font-size: 10px;
+              letter-spacing: 0;
               text-overflow: unset;
+              padding-right: 6px;
             }
             .invoice-table th:not(:first-child),
             .invoice-table td:not(:first-child),
@@ -318,19 +330,20 @@ export default function ReportsPage() {
             .receipts-table td:nth-child(2) {
               text-align: right;
             }
-            .invoice-table th:nth-child(1), .invoice-table td:nth-child(1) { width: 20%; }
-            .invoice-table th:nth-child(2), .invoice-table td:nth-child(2) { width: 20%; }
-            .invoice-table th:nth-child(3), .invoice-table td:nth-child(3) { width: 19%; }
-            .invoice-table th:nth-child(4), .invoice-table td:nth-child(4) { width: 19%; }
+            .invoice-table th:nth-child(1), .invoice-table td:nth-child(1) { width: 22%; }
+            .invoice-table th:nth-child(2), .invoice-table td:nth-child(2) { width: 15%; }
+            .invoice-table th:nth-child(3), .invoice-table td:nth-child(3) { width: 17%; }
+            .invoice-table th:nth-child(4), .invoice-table td:nth-child(4) { width: 24%; }
             .invoice-table th:nth-child(5), .invoice-table td:nth-child(5) { width: 22%; }
             .invoice-table td.cat {
               white-space: nowrap;
               padding-left: 1px;
               padding-right: 1px;
-              font-size: 9.5px;
+              font-size: 10px;
+              font-weight: 800;
             }
             .invoice-table td.cat-small {
-              font-size: 7.5px;
+              font-size: 8px;
             }
             .receipts-table th:nth-child(1), .receipts-table td:nth-child(1) { width: 50%; }
             .receipts-table th:nth-child(2), .receipts-table td:nth-child(2) { width: 50%; }
@@ -352,7 +365,7 @@ export default function ReportsPage() {
           <h1>Centralizator zi</h1>
 
           <div class="section">
-            <h2>Facturi eliberate ${printDateLabel}</h2>
+            <h2>Facturi eliberate ${salesDateLabel}</h2>
             <table class="invoice-table">
               <thead>
                 <tr>
@@ -371,7 +384,7 @@ export default function ReportsPage() {
               Cofraje ${formatPrintNumber(invoicesTotalCofrage, 2)} |
               Cat S ${formatPrintNumber(invoicesTotalCatS / 30, 2)} |
               Cat M ${formatPrintNumber(invoicesTotalCatM / 30, 2)} |
-              Cat L ${formatPrintNumber(invoicesTotalCatL / 30, 2)}${invoicesTotalCatXL > 0 ? ` | Cat XL ${formatPrintNumber(invoicesTotalCatXL / 30, 2)}` : ""}
+              Cat L ${formatPrintNumber(invoicesTotalCatL / 30, 2)}${invoicesTotalCatXL > 0 ? ` | Cat XL ${formatPrintNumber(invoicesTotalCatXL / 30, 2)}` : ""}${invoicesTotalCatCAS > 0 ? ` | Cat CAS ${formatPrintNumber(invoicesTotalCatCAS / 30, 2)}` : ""}
               (exprimat în cofraje) |
               Total cu TVA ${formatPrintNumber(invoicesTotalValue, 2)}
             </div>
@@ -430,7 +443,7 @@ export default function ReportsPage() {
             <CardTitle className="text-sm text-muted-foreground">Centralizator zi (cu TVA)</CardTitle>
             <div className="text-2xl font-bold">{formatCurrency(salesTotals.withVat)}</div>
             <CardDescription>
-              Ouă {salesTotals.quantity.toFixed(0)} • Cofraje {salesTotals.cofrage.toFixed(2)} • Cat S {(salesTotals.catS / 30).toFixed(2)} • Cat M {(salesTotals.catM / 30).toFixed(2)} • Cat L {(salesTotals.catL / 30).toFixed(2)}{salesTotals.catXL > 0 ? ` • Cat XL ${(salesTotals.catXL / 30).toFixed(2)}` : ""} (cofraje) • Fără TVA {formatCurrency(salesTotals.withoutVat)} • Cu TVA {formatCurrency(salesTotals.withVat)}
+              Ouă {salesTotals.quantity.toFixed(0)} • Cofraje {salesTotals.cofrage.toFixed(2)} • Cat S {(salesTotals.catS / 30).toFixed(2)} • Cat M {(salesTotals.catM / 30).toFixed(2)} • Cat L {(salesTotals.catL / 30).toFixed(2)}{salesTotals.catXL > 0 ? ` • Cat XL ${(salesTotals.catXL / 30).toFixed(2)}` : ""}{salesTotals.catCAS > 0 ? ` • Cat CAS ${(salesTotals.catCAS / 30).toFixed(2)}` : ""} (cofraje) • Fără TVA {formatCurrency(salesTotals.withoutVat)} • Cu TVA {formatCurrency(salesTotals.withVat)}
             </CardDescription>
           </CardHeader>
         </Card>

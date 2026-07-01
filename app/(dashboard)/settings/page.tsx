@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { getVersion } from "@tauri-apps/api/app";
 
 interface PrintSettings {
   printer: string;
@@ -28,6 +29,11 @@ export default function SettingsPage() {
   const { isAdmin } = useAuth();
   const router = useRouter();
   const [printers, setPrinters] = useState<string[]>([]);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion(null));
+  }, []);
   const [loadingPrinters, setLoadingPrinters] = useState(true);
   const [settings, setSettings] = useState<PrintSettings>({
     printer: "",
@@ -1041,7 +1047,7 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>• Versiunea aplicației: 0.8.0</li>
+              <li>• Versiunea aplicației: {appVersion ?? "…"}</li>
               <li>• Fișierele facturilor sunt salvate în: %APPDATA%\facturi.softconsulting.com\invoices\</li>
               <li>• Suport pentru printare PDF pe imprimantă termală 80mm</li>
               <li>• Printarea se face prin SumatraPDF (instalat automat)</li>

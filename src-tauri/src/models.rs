@@ -337,6 +337,7 @@ pub struct SalesPrintItem {
     pub qty_cat_m: f64,
     pub qty_cat_l: f64,
     pub qty_cat_xl: f64,
+    pub qty_cat_cas: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
