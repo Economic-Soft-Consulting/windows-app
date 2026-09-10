@@ -206,7 +206,13 @@ pub struct ArticleResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ArticleInfo {
-    #[serde(rename = "ID")]
+    /// WME omits "ID" entirely for articles that have no internal id — observed on every
+    /// article returned by 10.30.0.57. Without a default, serde failed the whole batch with
+    /// "missing field `ID`" and no products synced at all.
+    ///
+    /// An empty id is already handled downstream: convert_api_articles_to_model falls back to
+    /// CodObiect, which WME does always send.
+    #[serde(rename = "ID", default)]
     pub id: String,
     #[serde(rename = "CodObiect")]
     #[allow(dead_code)]
@@ -1264,3 +1270,39 @@ impl ApiClient {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::ArticleInfo;
+
+    /// WME omits "ID" for every article on some installations. This used to fail the entire
+    /// sync with `missing field \`ID\`` — no products at all, from one absent field.
+    ///
+    /// Payload trimmed from a real GetInfoArticole response.
+    #[test]
+    fn parses_an_article_with_no_id_field() {
+        let json = r#"{
+            "CodObiect": "102",
+            "Denumire": "Prestari servicii manopera",
+            "UM": "Lei",
+            "PretVanzare": "0",
+            "ProcentTVA": "21",
+            "SimbolClasa": "99CO",
+            "Clasa": "Contabile"
+        }"#;
+
+        let article: ArticleInfo =
+            serde_json::from_str(json).expect("an article without ID must still parse");
+
+        assert_eq!(article.id, "", "a missing ID becomes empty");
+        assert_eq!(article.cod_obiect.as_deref(), Some("102"), "the fallback key is present");
+        assert_eq!(article.denumire, "Prestari servicii manopera");
+    }
+
+    /// When WME does send an ID, it must be used as-is.
+    #[test]
+    fn keeps_the_id_when_present() {
+        let json = r#"{"ID": "A-77", "Denumire": "Oua M", "UM": "BUC"}"#;
+        let article: ArticleInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(article.id, "A-77");
+    }
+}
