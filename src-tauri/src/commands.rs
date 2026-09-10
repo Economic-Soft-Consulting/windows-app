@@ -1008,9 +1008,17 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
         conn.execute("PRAGMA foreign_keys = OFF", [])
             .map_err(|e| format!("Failed to disable foreign keys: {}", e))?;
 
+        // One transaction for the whole rebuild. Without it each statement was its own
+        // implicit transaction — an fsync apiece while the global connection mutex was
+        // held — and a failure part-way through left offers and offer_items deleted but
+        // not repopulated, with no error visible to the agent.
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Failed to open sync transaction: {}", e))?;
+
         // Save partners
         for partner in &partners {
-            conn.execute(
+            tx.execute(
                 "INSERT OR REPLACE INTO partners (id, name, cif, reg_com, cod, blocat, tva_la_incasare, persoana_fizica, cod_extern, cod_intern, observatii, data_adaugarii, created_at, updated_at, clasa, simbol_clasa, cod_clasa, categorie_pret_implicita, simbol_categorie_pret, scadenta_la_vanzare, scadenta_la_cumparare, discount_fix, tip_partener, mod_aplicare_discount, moneda, data_nastere, caracterizare_contabila_denumire, caracterizare_contabila_simbol) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
                 params![
                     &partner.id,
@@ -1045,7 +1053,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
             )
             .map_err(|e| format!("Failed to save partner: {}", e))?;
 
-            conn.execute(
+            tx.execute(
                 "DELETE FROM locations WHERE partner_id = ?1",
                 params![&partner.id],
             )
@@ -1053,7 +1061,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
 
             // Save locations
             for location in &partner.locations {
-                conn.execute(
+                tx.execute(
                     "INSERT OR REPLACE INTO locations (id, partner_id, name, address, cod_sediu, localitate, strada, numar, judet, tara, cod_postal, telefon, email, inactiv) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                     (
                         &location.id,
@@ -1081,7 +1089,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
             // Convert Option<f64> to Option<String> for database storage
             let tva_str = product.tva_percent.map(|t| t.to_string());
 
-            conn.execute(
+            tx.execute(
                 "INSERT INTO products (id, name, unit_of_measure, price, class, procent_tva) VALUES (?1, ?2, ?3, ?4, ?5, ?6) \
                  ON CONFLICT(id) DO UPDATE SET name = excluded.name, unit_of_measure = excluded.unit_of_measure, price = excluded.price, class = excluded.class, procent_tva = excluded.procent_tva",
                 (&product.id, &product.name, &product.unit_of_measure, product.price, &product.class, &tva_str),
@@ -1091,9 +1099,9 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
 
         // Save offers (only if fetched)
         if let Some(offers) = &offers {
-            conn.execute("DELETE FROM offer_items", [])
+            tx.execute("DELETE FROM offer_items", [])
                 .map_err(|e| format!("Failed to clear offer items: {}", e))?;
-            conn.execute("DELETE FROM offers", [])
+            tx.execute("DELETE FROM offers", [])
                 .map_err(|e| format!("Failed to clear offers: {}", e))?;
 
             for offer in offers {
@@ -1101,7 +1109,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                 let numar = offer.numar.clone().unwrap_or_default();
                 let offer_id = format!("{}-{}", id_client, numar);
 
-                conn.execute(
+                tx.execute(
                     "INSERT OR REPLACE INTO offers (id, id_client, numar, data_inceput, data_sfarsit, anulata, client, tip_oferta, furnizor, id_furnizor, cod_fiscal, simbol_clasa, moneda, observatii, extensie_document) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
                     params![
                         &offer_id,
@@ -1126,7 +1134,7 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                 if let Some(items) = &offer.items {
                     for item in items {
                         let price = parse_price(&item.pret);
-                        conn.execute(
+                        tx.execute(
                             "INSERT INTO offer_items (offer_id, id_client, product_id, denumire, um, cant_minima, cant_maxima, cant_optima, pret, discount, proc_adaos, pret_ref, pret_cu_proc_adaos, observatii, cod_oferta1, extensie_linie) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
                             params![
                                 &offer_id,
@@ -1154,20 +1162,20 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
         }
 
         // Update sync metadata
-        conn.execute(
+        tx.execute(
             "INSERT OR REPLACE INTO sync_metadata (entity_type, last_synced_at) VALUES ('partners', ?1)",
             [&now],
         )
         .map_err(|e| format!("Failed to update sync metadata: {}", e))?;
 
-        conn.execute(
+        tx.execute(
             "INSERT OR REPLACE INTO sync_metadata (entity_type, last_synced_at) VALUES ('products', ?1)",
             [&now],
         )
         .map_err(|e| format!("Failed to update sync metadata: {}", e))?;
 
         // Re-enable foreign key checks
-        conn.execute("PRAGMA foreign_keys = ON", [])
+        tx.execute("PRAGMA foreign_keys = ON", [])
             .map_err(|e| format!("Failed to re-enable foreign keys: {}", e))?;
 
         info!(
@@ -1196,6 +1204,9 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
                 |row| row.get(0),
             )
             .ok();
+
+        tx.commit()
+            .map_err(|e| format!("Failed to commit sync transaction: {}", e))?;
 
         Ok(SyncStatus {
             is_first_run: partners_count == 0,
