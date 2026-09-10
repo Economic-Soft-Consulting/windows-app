@@ -14,8 +14,11 @@ use std::path::PathBuf;
 
 // Helper function to read logo and convert to base64
 fn read_logo_to_base64() -> Option<String> {
-    // Embed logo at compile time so it works in packaged builds
-    let logo_data: &[u8] = include_bytes!("../../public/logo.png");
+    // Embed logo at compile time so it works in packaged builds.
+    // Print-sized (600x600, 8 KB) rather than the 2048x2048 / 2.5 MB source: the logo is
+    // inlined as base64 into every receipt, invoice and report, and the headless browser
+    // had to decode all of it just to render a 45 mm image on an 80 mm roll.
+    let logo_data: &[u8] = include_bytes!("../../public/logo-print.png");
     if logo_data.is_empty() {
         return None;
     }
@@ -179,7 +182,13 @@ fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
     })
 }
 
+/// Waits until `path` exists and its size has stopped changing for `stable_ms`.
+///
+/// Polls every 25 ms rather than 100 ms: the old interval meant ~400-500 ms of pure sleep
+/// per PDF even when the file was already complete before the call.
 fn wait_for_file_ready(path: &str, timeout_ms: u64, stable_ms: u64) -> bool {
+    const POLL_MS: u64 = 25;
+
     let start = std::time::Instant::now();
     let mut last_size: Option<u64> = None;
     let mut stable_for = 0u64;
@@ -189,10 +198,10 @@ fn wait_for_file_ready(path: &str, timeout_ms: u64, stable_ms: u64) -> bool {
             let size = metadata.len();
             if size > 0 {
                 if Some(size) == last_size {
-                    stable_for += 100;
                     if stable_for >= stable_ms {
                         return true;
                     }
+                    stable_for += POLL_MS;
                 } else {
                     last_size = Some(size);
                     stable_for = 0;
@@ -200,7 +209,7 @@ fn wait_for_file_ready(path: &str, timeout_ms: u64, stable_ms: u64) -> bool {
             }
         }
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(POLL_MS));
     }
 
     false
@@ -209,6 +218,12 @@ fn wait_for_file_ready(path: &str, timeout_ms: u64, stable_ms: u64) -> bool {
 /// Locates a Chromium-based browser usable for headless HTML->PDF conversion.
 /// Checks Edge (system and per-user installs) first, then Chrome as fallback.
 fn find_html_to_pdf_engine() -> Option<String> {
+    // Probed once per run instead of up to six filesystem checks on every single print.
+    static ENGINE: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    ENGINE.get_or_init(probe_html_to_pdf_engine).clone()
+}
+
+fn probe_html_to_pdf_engine() -> Option<String> {
     let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
 
     let mut candidates = vec![
@@ -253,34 +268,97 @@ fn try_generate_pdf_from_html(html_path_str: &str, pdf_path_str: &str) -> bool {
         let print_arg = format!("--print-to-pdf={}", pdf_path_str);
         info!("[PDF] Generating PDF with {}: {}", engine_path, pdf_path_str);
 
-        let output = std::process::Command::new(&engine_path)
+        let started = std::time::Instant::now();
+        let mut child = match std::process::Command::new(&engine_path)
             .args(&[
                 "--headless",
                 "--disable-gpu",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--no-pdf-header-footer",
+                // Every asset in our templates is inlined, so nothing needs the network or
+                // the profile services. Skipping them saves most of the cold-start cost.
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-extensions",
+                "--disable-background-networking",
+                "--disable-component-update",
+                "--disable-sync",
+                "--disable-crash-reporter",
+                "--disable-breakpad",
+                "--disable-default-apps",
+                "--mute-audio",
+                // Bounds rendering: without it the engine can idle waiting on timers.
+                "--virtual-time-budget=2000",
                 &user_data_arg,
                 &print_arg,
                 &file_url,
             ])
-            .output();
-
-        if let Ok(result) = output {
-            info!("[PDF] Engine status: {}, stderr: {}", result.status, String::from_utf8_lossy(&result.stderr));
-            let mut waited = 0;
-            while waited < 10000 {
-                if wait_for_file_ready(pdf_path_str, 1200, 400) {
-                    info!("[PDF] PDF generated OK");
-                    return true;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                waited += 100;
+            // Not inherited: .output() waits for the pipes to reach EOF, so any surviving
+            // helper process (crashpad) would keep us blocked after the browser exited.
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(e) => {
+                warn!("[PDF] Failed to launch {}: {}", engine_path, e);
+                return false;
             }
-            warn!("[PDF] PDF not ready after 10s");
-        } else {
-            warn!("[PDF] Failed to launch {}", engine_path);
+        };
+
+        // Bounded wait. std::process::Command::output() cannot time out, so a stale profile
+        // lock in the user-data-dir used to hang the print forever — and, because callers
+        // held the SQLite mutex, the whole app with it.
+        const ENGINE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(25);
+        let mut exited = false;
+        while started.elapsed() < ENGINE_TIMEOUT {
+            match child.try_wait() {
+                Ok(Some(_)) => {
+                    exited = true;
+                    break;
+                }
+                Ok(None) => {
+                    // The PDF may already be complete even if the process lingers.
+                    if std::path::Path::new(pdf_path_str).exists()
+                        && wait_for_file_ready(pdf_path_str, 300, 150)
+                    {
+                        exited = true;
+                        break;
+                    }
+                }
+                Err(e) => {
+                    warn!("[PDF] Could not poll engine: {}", e);
+                    break;
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(25));
         }
+
+        if !exited {
+            warn!(
+                "[PDF] Engine did not finish in {} ms — killing it. If this repeats, the \
+                 profile at {} is probably locked by a stray browser process.",
+                started.elapsed().as_millis(),
+                temp_dir.display()
+            );
+            let _ = child.kill();
+            let _ = child.wait();
+            // Drop the profile so the next print starts from a clean, unlocked one.
+            let _ = std::fs::remove_dir_all(&temp_dir);
+            return false;
+        }
+
+        // The engine has exited (or the PDF is already complete), so one bounded check
+        // is enough. This used to be a retry loop that added only 100 to `waited` per
+        // iteration while each iteration actually cost ~1400 ms, giving a real timeout of
+        // ~140 s that was logged as "10s" — that was the ~90 s print.
+        if wait_for_file_ready(pdf_path_str, 2000, 150) {
+            info!("[PDF] PDF generated OK in {} ms", started.elapsed().as_millis());
+            return true;
+        }
+
+        warn!("[PDF] PDF not ready after {} ms", started.elapsed().as_millis());
     }
 
     false
@@ -321,7 +399,7 @@ fn save_receipt_html_file(
     partner_cui: Option<&str>,
     partner_reg_com: Option<&str>,
     file_id: &str,
-) -> Result<(String, String), String> {
+) -> Result<(String, String, bool), String> {
     let logo_base64 = read_logo_to_base64();
     let html = print_receipt::generate_receipt_html(
         collection,
@@ -360,7 +438,7 @@ fn save_receipt_html_file(
                 } else {
                     warn!("[CHITANTE][SAVE] Could not generate receipt PDF, HTML is available at {}", html_path);
                 }
-                return Ok((html_path, pdf_path));
+                return Ok((html_path, pdf_path, pdf_generated));
             }
             Err(e) => {
                 failures.push(format!("write {}: {}", html_file_path.display(), e));
@@ -837,9 +915,9 @@ async fn build_quality_certificate_context(
 fn generate_quality_certificate_html(ctx: &QualityCertificateContext) -> String {
     use base64::{engine::general_purpose, Engine as _};
 
-    let epc_img = general_purpose::STANDARD.encode(include_bytes!("../../public/EPC 16 EC.png"));
-    let iso_img = general_purpose::STANDARD.encode(include_bytes!("../../public/KARIN-ISO.png"));
-    let stamp_img = general_purpose::STANDARD.encode(include_bytes!("../../public/STAMPILA.png"));
+    let epc_img = general_purpose::STANDARD.encode(include_bytes!("../../public/EPC 16 EC1.png"));
+    let iso_img = general_purpose::STANDARD.encode(include_bytes!("../../public/KARIN-ISO1.png"));
+    let stamp_img = general_purpose::STANDARD.encode(include_bytes!("../../public/STAMPILA1.png"));
     let product_lines_html = ctx
         .product_lines
         .iter()
@@ -4297,7 +4375,7 @@ pub async fn print_collection_to_html(
     let (partner_cui, partner_reg_com, partner_address, partner_localitate, partner_judet) =
         get_partner_receipt_info(&conn, &collection.id_partener);
 
-    let (html_path_str, pdf_path_str) = save_receipt_html_file(
+    let (html_path_str, pdf_path_str, pdf_generated) = save_receipt_html_file(
         &collection,
         &doc_series,
         &doc_number,
@@ -4314,7 +4392,10 @@ pub async fn print_collection_to_html(
 
     #[cfg(target_os = "windows")]
     {
-        if !try_generate_pdf_from_html(&html_path_str, &pdf_path_str) {
+        // save_receipt_html_file already converted this HTML. Re-running the conversion
+        // here meant every receipt paid for two full headless browser cold starts.
+        if !pdf_generated {
+            let _ = &html_path_str;
             return Err("Nu s-a putut genera PDF-ul chitanței: Microsoft Edge (sau Google Chrome) nu este instalat sau nu a răspuns. Reinstalați Microsoft Edge și încercați din nou.".to_string());
         }
         let print_file = pdf_path_str.clone();
@@ -4822,7 +4903,7 @@ pub fn save_report_html(report_name: String, html_content: String) -> Result<Str
 }
 
 #[tauri::command]
-pub fn print_report_html(
+pub async fn print_report_html(
     report_name: String,
     html_content: String,
     printer_name: Option<String>,
@@ -5926,7 +6007,7 @@ pub async fn send_collection(
         get_partner_receipt_info(&conn, &partner_id)
     };
 
-    let (saved_html_path, _) = save_receipt_html_file(
+    let (saved_html_path, _, _) = save_receipt_html_file(
         &collection_for_print,
         &receipt_series,
         &receipt_number,
@@ -6685,7 +6766,7 @@ pub fn get_daily_collections_report(
 }
 
 #[tauri::command]
-pub fn print_daily_report(
+pub async fn print_daily_report(
     db: State<'_, Database>,
     date: Option<String>,
     printer_name: Option<String>,
@@ -6789,24 +6870,10 @@ pub fn print_daily_report(
         // Print using SumatraPDF
         let printer = printer_name.unwrap_or_else(|| String::from(""));
 
-        // Check if a default printer is available when no specific printer is given
-        if printer.is_empty() {
-            #[cfg(target_os = "windows")]
-            {
-                // Try to detect default printer using PowerShell
-                if let Ok(output) = std::process::Command::new("powershell")
-                    .args(&["-NoProfile", "-Command", "Get-CimInstance -Class Win32_Printer | Where-Object { $_.Default -eq $true } | Select-Object -ExpandProperty Name"])
-                    .output()
-                {
-                    let default_printer = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    if !default_printer.is_empty() {
-                        info!("Default printer detected: {}", default_printer);
-                    } else {
-                        warn!("⚠ No default printer configured in Windows. Printing may fail.");
-                    }
-                }
-            }
-        }
+        // A PowerShell probe for the default printer used to run here. It cost a full
+        // PowerShell cold start (~0.5-2 s) on a blocking .output(), and its result was only
+        // ever written to the log — SumatraPDF's -print-to-default handles the real work and
+        // reports its own failure.
 
         let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
         let bundled_path = std::env::current_exe()
@@ -6842,6 +6909,10 @@ pub fn print_daily_report(
                     ];
                 }
 
+                // Without these, SumatraPDF stays resident and the blocking .output() below
+                // never returns — the other three print paths already pass them.
+                args.push("-exit-when-done".to_string());
+                args.push("-exit-on-print".to_string());
                 args.push(print_file.clone());
 
                 // Log the full command for debugging
