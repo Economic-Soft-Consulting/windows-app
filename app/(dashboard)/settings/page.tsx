@@ -194,8 +194,12 @@ export default function SettingsPage() {
       await loadAgentSettings();
       toast.success("Setările agentului au fost salvate!");
     } catch (error) {
+      // This block covers four different operations (save, delete partners, resync,
+      // reload), so show what actually failed instead of always blaming the save.
       console.error("Failed to save agent settings:", error);
-      toast.error("Eroare la salvarea setărilor agentului");
+      const detail =
+        error instanceof Error ? error.message : String(error ?? "eroare necunoscută");
+      toast.error(`Eroare la salvarea setărilor agentului: ${detail}`);
     } finally {
       setSavingAgent(false);
     }

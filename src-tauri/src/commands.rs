@@ -4121,6 +4121,15 @@ pub fn get_agent_settings(db: State<'_, Database>) -> Result<AgentSettings, Stri
     }
 }
 
+/// The agent_settings upsert, named so a test can prepare it against the real schema.
+///
+/// It shipped for ten releases with 28 columns against 29 values and 27 parameters
+/// against 28 placeholders, which made saving agent settings fail every time.
+fn agent_settings_upsert_sql() -> &'static str {
+    "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cert_comanda_serie, cert_comanda_id_client, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, wme_host, wme_port, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27) \
+         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, tip_contabil = excluded.tip_contabil, cert_comanda_serie = excluded.cert_comanda_serie, cert_comanda_id_client = excluded.cert_comanda_id_client, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, cod_delegat = excluded.cod_delegat, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, marca_agent = excluded.marca_agent, nume_casa = excluded.nume_casa, auto_sync_collections_enabled = excluded.auto_sync_collections_enabled, auto_sync_collections_time = excluded.auto_sync_collections_time, receipt_series = excluded.receipt_series, receipt_number_start = excluded.receipt_number_start, receipt_number_end = excluded.receipt_number_end, receipt_number_current = excluded.receipt_number_current, wme_host = excluded.wme_host, wme_port = excluded.wme_port, updated_at = excluded.updated_at"
+}
+
 #[tauri::command]
 pub fn save_agent_settings(
     db: State<'_, Database>,
@@ -4211,8 +4220,7 @@ pub fn save_agent_settings(
         .or(Some(8089));
 
     conn.execute(
-        "INSERT INTO agent_settings (id, agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare, tip_contabil, cert_comanda_serie, cert_comanda_id_client, cod_carnet, cod_carnet_livr, cod_delegat, delegate_name, delegate_act, car_number, invoice_number_start, invoice_number_end, invoice_number_current, marca_agent, nume_casa, auto_sync_collections_enabled, auto_sync_collections_time, receipt_series, receipt_number_start, receipt_number_end, receipt_number_current, wme_host, wme_port, updated_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28) \
-         ON CONFLICT(id) DO UPDATE SET agent_name = excluded.agent_name, carnet_series = excluded.carnet_series, simbol_carnet_livr = excluded.simbol_carnet_livr, simbol_gestiune_livrare = excluded.simbol_gestiune_livrare, tip_contabil = excluded.tip_contabil, cert_comanda_serie = excluded.cert_comanda_serie, cert_comanda_id_client = excluded.cert_comanda_id_client, cod_carnet = excluded.cod_carnet, cod_carnet_livr = excluded.cod_carnet_livr, cod_delegat = excluded.cod_delegat, delegate_name = excluded.delegate_name, delegate_act = excluded.delegate_act, car_number = excluded.car_number, invoice_number_start = excluded.invoice_number_start, invoice_number_end = excluded.invoice_number_end, invoice_number_current = excluded.invoice_number_current, marca_agent = excluded.marca_agent, nume_casa = excluded.nume_casa, auto_sync_collections_enabled = excluded.auto_sync_collections_enabled, auto_sync_collections_time = excluded.auto_sync_collections_time, receipt_series = excluded.receipt_series, receipt_number_start = excluded.receipt_number_start, receipt_number_end = excluded.receipt_number_end, receipt_number_current = excluded.receipt_number_current, wme_host = excluded.wme_host, wme_port = excluded.wme_port, updated_at = excluded.updated_at",
+        agent_settings_upsert_sql(),
         params![
             agent_name, carnet_series, simbol_carnet_livr, simbol_gestiune_livrare,
             normalized_tip_contabil, normalized_cert_comanda_serie, normalized_cert_comanda_id_client,
@@ -6485,6 +6493,31 @@ mod tests {
         ).unwrap();
 
         assert_eq!(balance_rest(&conn, "P1"), vec![35.91]);
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// save_agent_settings shipped an INSERT with 28 columns but 29 values, and 27 bound
+    /// parameters against 28 placeholders — two off-by-one errors in one statement. It had
+    /// been impossible to save agent settings since v1.0.3; agent_settings stayed empty, so
+    /// "MarcaAgent not set" was logged forever and no invoice could be sent.
+    ///
+    /// Prepares the real statement against the real schema, which is what nobody did.
+    #[test]
+    fn agent_settings_upsert_matches_its_parameter_list() {
+        let (dir, db) = temp_db("settings_upsert");
+        let conn = db.conn.lock().unwrap();
+
+        let sql = super::agent_settings_upsert_sql();
+        let stmt = conn.prepare(sql).expect("upsert must be valid SQL for the real schema");
+
+        assert_eq!(
+            stmt.parameter_count(),
+            27,
+            "the params! list in save_agent_settings supplies 27 values"
+        );
+
+        drop(stmt);
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
     }
