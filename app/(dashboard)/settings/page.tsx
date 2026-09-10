@@ -13,6 +13,7 @@ import { getAvailablePrinters, getAgentSettings, saveAgentSettings, deletePartne
 import type { AgentSettings } from "@/lib/tauri/types";
 import { toast } from "sonner";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
+import { SettingField } from "@/app/components/settings/SettingField";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { getVersion } from "@tauri-apps/api/app";
@@ -301,9 +302,9 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-y-auto min-h-0 space-y-6">
         {/* WME Server Config */}
         <Card className={!agentSettings.wme_host?.trim() ? "border-amber-400 dark:border-amber-600" : ""}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Server className="h-5 w-5" />
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Server className="h-4 w-4" />
               Server WME
               {!agentSettings.wme_host?.trim() && (
                 <span className="flex items-center gap-1 ml-auto text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-1 rounded-full">
@@ -312,505 +313,321 @@ export default function SettingsPage() {
                 </span>
               )}
             </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-3">
+            <SettingField
+              id="wmeHost"
+              label="Adresă IP"
+              placeholder="Ex: 192.168.1.100"
+              value={agentSettings.wme_host}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, wme_host: v }))}
+              hint="Adresa serverului pe care rulează WME. Fără ea, aplicația nu poate sincroniza nimic."
+              className="sm:col-span-2"
+            />
+            <SettingField
+              id="wmePort"
+              label="Port"
+              type="number"
+              placeholder="8089"
+              value={agentSettings.wme_port}
+              onChange={(v) =>
+                setAgentSettings((prev) => ({ ...prev, wme_port: v ? parseInt(v, 10) : null }))
+              }
+              hint="Implicit 8089."
+            />
+          </CardContent>
+        </Card>
+
+        {/* Agent identity */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="h-4 w-4" />
+              Identitate agent
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <SettingField
+              id="agentName"
+              label="Nume agent"
+              placeholder="Ex: Ion Popescu"
+              value={agentSettings.agent_name}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, agent_name: v }))}
+              hint="Numele care apare pe documentele tipărite."
+            />
+            <SettingField
+              id="marcaAgent"
+              label="Marca agent"
+              placeholder="Ex: 123"
+              value={agentSettings.marca_agent}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, marca_agent: v }))}
+              hint="Codul numeric din WME. Filtrează partenerii și soldurile la cei ai acestui agent. Schimbarea lui reîncarcă lista de parteneri."
+            />
+            <SettingField
+              id="numeCasa"
+              label="Nume casă"
+              placeholder="Ex: CASA LEI"
+              value={agentSettings.nume_casa}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, nume_casa: v }))}
+              hint="Casa din WME în care intră încasările."
+            />
+          </CardContent>
+        </Card>
+
+        {/* Series and booklets */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" />
+              Serii și carnete
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <SettingField
+              id="carnetSeries"
+              label="Serie carnet"
+              placeholder="Ex: FONG"
+              value={agentSettings.carnet_series}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, carnet_series: v }))}
+              hint="SimbolCarnet în WME. Seria facturilor emise de acest agent."
+            />
+            <SettingField
+              id="simbolCarnetLivr"
+              label="Serie carnet livrări"
+              placeholder="Ex: FONGL"
+              value={agentSettings.simbol_carnet_livr}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, simbol_carnet_livr: v }))}
+              hint="SimbolCarnetLivr în WME."
+            />
+            <SettingField
+              id="simbolGestiuneLivrare"
+              label="Gestiune livrare"
+              placeholder="Ex: MARFA"
+              value={agentSettings.simbol_gestiune_livrare}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, simbol_gestiune_livrare: v }))}
+              hint="Gestiunea din care se descarcă marfa."
+            />
+            <SettingField
+              id="codCarnet"
+              label="Cod carnet facturi"
+              placeholder="Ex: 1"
+              value={agentSettings.cod_carnet}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, cod_carnet: v }))}
+              hint="CodCarnet în WME."
+            />
+            <SettingField
+              id="codCarnetLivr"
+              label="Cod carnet livrări"
+              placeholder="Ex: 2"
+              value={agentSettings.cod_carnet_livr}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, cod_carnet_livr: v }))}
+              hint="CodCarnetLivr în WME."
+            />
+            <SettingField
+              id="tipContabil"
+              label="Tip contabil"
+              placeholder="valoare"
+              value={agentSettings.tip_contabil}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, tip_contabil: v }))}
+              hint="Tipul contabil al liniilor de factură. Implicit „valoare”."
+            />
+          </CardContent>
+        </Card>
+
+        {/* Delegate */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <User className="h-4 w-4" />
+              Delegat
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <SettingField
+              id="codDelegat"
+              label="Cod delegat"
+              placeholder="Ex: 5"
+              value={agentSettings.cod_delegat}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, cod_delegat: v }))}
+              hint="CodDelegat în WME."
+            />
+            <SettingField
+              id="delegateName"
+              label="Nume delegat"
+              placeholder="Ex: Ion Popescu"
+              value={agentSettings.delegate_name}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, delegate_name: v }))}
+            />
+            <SettingField
+              id="delegateAct"
+              label="Act delegat"
+              placeholder="Ex: CI SB 123456"
+              value={agentSettings.delegate_act}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, delegate_act: v }))}
+              hint="Seria și numărul actului de identitate, tipărite pe factură."
+            />
+            <SettingField
+              id="carNumber"
+              label="Număr auto"
+              placeholder="Ex: SB 01 ABC"
+              value={agentSettings.car_number}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, car_number: v }))}
+              hint="Numărul mașinii de transport, tipărit pe factură."
+            />
+          </CardContent>
+        </Card>
+
+        {/* Quality certificate */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" />
+              Certificat de calitate
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <SettingField
+              id="certComandaSerie"
+              label="Serie comandă"
+              placeholder="CCAL"
+              value={agentSettings.cert_comanda_serie}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, cert_comanda_serie: v }))}
+              hint="Seria comenzii din care se citesc lotul și datele de expirare. Implicit CCAL."
+            />
+            <SettingField
+              id="certComandaIdClient"
+              label="ID client"
+              placeholder="1602"
+              value={agentSettings.cert_comanda_id_client}
+              onChange={(v) => setAgentSettings((prev) => ({ ...prev, cert_comanda_id_client: v }))}
+              hint="Clientul pe care sunt înregistrate comenzile de producție. Implicit 1602."
+            />
+          </CardContent>
+        </Card>
+
+        {/* Numbering */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" />
+              Numerotare
+            </CardTitle>
             <CardDescription>
-              Adresa IP și portul serverului WME Winmentor — necesare pentru sincronizare și trimiterea documentelor
+              Numărul curent avansează singur la fiecare document emis.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="wmeHost">Adresă IP Server WME</Label>
-                <Input
-                  id="wmeHost"
-                  type="text"
-                  placeholder="Ex: 192.168.1.100"
-                  value={agentSettings.wme_host || ""}
-                  onChange={(e) =>
-                    setAgentSettings((prev) => ({
-                      ...prev,
-                      wme_host: e.target.value,
-                    }))
-                  }
-                />
-                <p className="text-sm text-muted-foreground">
-                  Adresa IP a serverului unde rulează WME/Winmentor
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="wmePort">Port</Label>
-                <Input
-                  id="wmePort"
-                  type="number"
-                  placeholder="8089"
-                  min={1}
-                  max={65535}
-                  value={agentSettings.wme_port ?? ""}
-                  onChange={(e) =>
-                    setAgentSettings((prev) => ({
-                      ...prev,
-                      wme_port: e.target.value ? parseInt(e.target.value, 10) : null,
-                    }))
-                  }
-                />
-                <p className="text-sm text-muted-foreground">
-                  Implicit: 8089
-                </p>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <SettingField
+                id="invoiceSeriesRead"
+                label="Serie facturi"
+                value={agentSettings.carnet_series}
+                onChange={() => {}}
+                disabled
+                hint="Preluată din „Serie carnet”, în secțiunea Serii și carnete."
+              />
+              <SettingField
+                id="invoiceStart"
+                label="Număr start"
+                type="number"
+                min="1"
+                placeholder="1"
+                value={agentSettings.invoice_number_start}
+                onChange={(v) =>
+                  setAgentSettings((prev) => ({ ...prev, invoice_number_start: parseInt(v) || null }))
+                }
+              />
+              <SettingField
+                id="invoiceEnd"
+                label="Număr final"
+                type="number"
+                min="1"
+                placeholder="99999"
+                value={agentSettings.invoice_number_end}
+                onChange={(v) =>
+                  setAgentSettings((prev) => ({ ...prev, invoice_number_end: parseInt(v) || null }))
+                }
+              />
+              <SettingField
+                id="invoiceCurrent"
+                label="Număr curent"
+                type="number"
+                disabled
+                value={agentSettings.invoice_number_current ?? 1}
+                onChange={() => {}}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-4 border-t">
+              <SettingField
+                id="receiptSeries"
+                label="Serie chitanțe"
+                placeholder="Ex: CH"
+                value={agentSettings.receipt_series}
+                onChange={(v) => setAgentSettings((prev) => ({ ...prev, receipt_series: v }))}
+              />
+              <SettingField
+                id="receiptStart"
+                label="Număr start"
+                type="number"
+                min="1"
+                placeholder="1"
+                value={agentSettings.receipt_number_start}
+                onChange={(v) =>
+                  setAgentSettings((prev) => ({ ...prev, receipt_number_start: parseInt(v) || null }))
+                }
+              />
+              <SettingField
+                id="receiptEnd"
+                label="Număr final"
+                type="number"
+                min="1"
+                placeholder="99999"
+                value={agentSettings.receipt_number_end}
+                onChange={(v) =>
+                  setAgentSettings((prev) => ({ ...prev, receipt_number_end: parseInt(v) || null }))
+                }
+              />
+              <SettingField
+                id="receiptCurrent"
+                label="Număr curent"
+                type="number"
+                disabled
+                value={agentSettings.receipt_number_current ?? 1}
+                onChange={() => {}}
+              />
             </div>
           </CardContent>
         </Card>
 
-        {/* Agent Settings */}
+        {/* Automatic collection sync */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Date Agent
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <RefreshCw className="h-4 w-4" />
+              Sincronizare automată încasări
             </CardTitle>
-            <CardDescription>
-              Configurează informațiile agentului care va fi folosit la trimiterea facturilor
-            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">          <div className="space-y-2">
-            <Label htmlFor="agentName">Nume Agent (Afișare)</Label>
-            <Input
-              id="agentName"
-              type="text"
-              placeholder="Ex: Ion Popescu"
-              value={agentSettings.agent_name || ""}
-              onChange={(e) =>
-                setAgentSettings((prev) => ({
-                  ...prev,
-                  agent_name: e.target.value,
-                }))
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              Numele agentului care va apărea pe documente
-            </p>
-          </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="marcaAgent">Marca Agent (Filtrare)</Label>
-              <Input
-                id="marcaAgent"
-                type="text"
-                placeholder="Ex: AG123"
-                value={agentSettings.marca_agent || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    marca_agent: e.target.value,
-                  }))
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm text-muted-foreground">
+                Trimite încasările zilei la ora stabilită, fără intervenție.
+              </p>
+              <Switch
+                checked={agentSettings.auto_sync_collections_enabled || false}
+                onCheckedChange={(checked) =>
+                  setAgentSettings((prev) => ({ ...prev, auto_sync_collections_enabled: checked }))
                 }
               />
-              <p className="text-sm text-muted-foreground">
-                Codul agentului folosit pentru filtrarea soldurilor din WME
-              </p>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="numeCasa">Nume Casă (Incasări)</Label>
-              <Input
-                id="numeCasa"
-                type="text"
-                placeholder="Ex: CASA1"
-                value={agentSettings.nume_casa || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    nume_casa: e.target.value,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Numele casei de marcat folosit pentru trimiterea incasărilor
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="carnetSeries">Serie Carnet (SimbolCarnet)</Label>
-              <Input
-                id="carnetSeries"
-                type="text"
-                placeholder="Ex: RS, FAC"
-                value={agentSettings.carnet_series || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    carnet_series: e.target.value,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Seria carnetului pentru facturi (ex: RS, FAC, etc.)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="simbolCarnetLivr">Serie Carnet Livrări (SimbolCarnetLivr)</Label>
-              <Input
-                id="simbolCarnetLivr"
-                type="text"
-                placeholder="Ex: BL, LIV"
-                value={agentSettings.simbol_carnet_livr || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    simbol_carnet_livr: e.target.value,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Seria carnetului pentru livrări (ex: BL, LIV, etc.)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="simbolGestiuneLivrare">Simbol Gestiune Livrare</Label>
-              <Input
-                id="simbolGestiuneLivrare"
-                type="text"
-                placeholder="Ex: MAGAZIN, DEPOZIT"
-                value={agentSettings.simbol_gestiune_livrare || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    simbol_gestiune_livrare: e.target.value,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Simbolul gestiunii de livrare din WME
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tipContabil">Tip Contabil (Items)</Label>
-              <Input
-                id="tipContabil"
-                type="text"
-                placeholder="Ex: valoare"
-                value={agentSettings.tip_contabil || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    tip_contabil: e.target.value,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Se trimite pe fiecare item în IesiriClienti, câmpul TipContabil (implicit: valoare)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="certComandaSerie">Serie Comandă Certificat</Label>
-              <Input
-                id="certComandaSerie"
-                type="text"
-                placeholder="Ex: CCAL"
-                value={agentSettings.cert_comanda_serie || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    cert_comanda_serie: e.target.value,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Filtru Serie pentru GetInfoComenziExt folosit la certificatul de calitate (implicit: CCAL)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="certComandaIdClient">ID Client Certificat</Label>
-              <Input
-                id="certComandaIdClient"
-                type="text"
-                placeholder="Ex: 1602"
-                value={agentSettings.cert_comanda_id_client || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    cert_comanda_id_client: e.target.value,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Filtru IDClient pentru GetInfoComenziExt folosit la certificatul de calitate (implicit: 1602)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="codCarnet">Cod Carnet Facturi (CodCarnet)</Label>
-              <Input
-                id="codCarnet"
-                type="text"
-                placeholder="Ex: 1"
-                value={agentSettings.cod_carnet || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    cod_carnet: e.target.value || null,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Codul numeric al carnetului de facturi din WME pentru numerotare automată
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="codCarnetLivr">Cod Carnet Livrări (CodCarnetLivr)</Label>
-              <Input
-                id="codCarnetLivr"
-                type="text"
-                placeholder="Ex: 2"
-                value={agentSettings.cod_carnet_livr || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    cod_carnet_livr: e.target.value || null,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Codul numeric al carnetului de livrări din WME pentru numerotare automată
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="codDelegat">Cod Delegat (CodDelegat)</Label>
-              <Input
-                id="codDelegat"
-                type="text"
-                placeholder="Ex: 30271"
-                value={agentSettings.cod_delegat || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    cod_delegat: e.target.value || null,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Codul delegatului trimis în payload-ul facturii (câmpul CodDelegat)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="delegateName">Numele Delegatului</Label>
-              <Input
-                id="delegateName"
-                type="text"
-                placeholder="Ex: Ion Popescu"
-                value={agentSettings.delegate_name || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    delegate_name: e.target.value || null,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Numele delegatului care apare pe factură
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="delegateAct">Act Delegat</Label>
-              <Input
-                id="delegateAct"
-                type="text"
-                placeholder="Ex: CI nr. AA123456"
-                value={agentSettings.delegate_act || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    delegate_act: e.target.value || null,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Actul de identitate al delegatului (ex: CI, BI, Pașaport)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="carNumber">Număr Auto</Label>
-              <Input
-                id="carNumber"
-                type="text"
-                placeholder="Ex: MM-01-ABC"
-                value={agentSettings.car_number || ""}
-                onChange={(e) =>
-                  setAgentSettings((prev) => ({
-                    ...prev,
-                    car_number: e.target.value || null,
-                  }))
-                }
-              />
-              <p className="text-sm text-muted-foreground">
-                Numărul de înmatriculare al mașinii de transport (apare pe factură)
-              </p>
-            </div>
-
-            <div className="space-y-4 pt-4 border-t">
-              <h3 className="font-semibold">Numerotare Facturi</h3>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceStart">Număr Start</Label>
-                  <Input
-                    id="invoiceStart"
-                    type="number"
-                    min="1"
-                    placeholder="1"
-                    value={agentSettings.invoice_number_start || ''}
-                    onChange={(e) =>
-                      setAgentSettings((prev) => ({
-                        ...prev,
-                        invoice_number_start: parseInt(e.target.value) || null,
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceEnd">Număr Final</Label>
-                  <Input
-                    id="invoiceEnd"
-                    type="number"
-                    min="1"
-                    placeholder="99999"
-                    value={agentSettings.invoice_number_end || ''}
-                    onChange={(e) =>
-                      setAgentSettings((prev) => ({
-                        ...prev,
-                        invoice_number_end: parseInt(e.target.value) || null,
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="invoiceCurrent">Număr Curent</Label>
-                  <Input
-                    id="invoiceCurrent"
-                    type="number"
-                    value={agentSettings.invoice_number_current || 1}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                Setează intervalul de numerotare pentru facturi. Numărul curent se actualizează automat la fiecare factură creată.
-              </p>
-            </div>
-
-            {/* Receipt Numbering */}
-            <div className="space-y-4 pt-4 border-t">
-              <h3 className="font-semibold">Numerotare Chitanțe</h3>
-
-              <div className="space-y-2">
-                <Label htmlFor="receiptSeries">Serie Chitanțe</Label>
-                <Input
-                  id="receiptSeries"
-                  type="text"
-                  placeholder="Ex: CH"
-                  value={agentSettings.receipt_series || ""}
-                  onChange={(e) =>
-                    setAgentSettings((prev) => ({
-                      ...prev,
-                      receipt_series: e.target.value,
-                    }))
-                  }
-                />
-                <p className="text-sm text-muted-foreground">
-                  Seria folosită pentru chitanțe (ex: CH). Dacă nu este setată, se va folosi Seria Carnet.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="receiptStart">Număr Start</Label>
-                  <Input
-                    id="receiptStart"
-                    type="number"
-                    min="1"
-                    placeholder="1"
-                    value={agentSettings.receipt_number_start || ''}
-                    onChange={(e) =>
-                      setAgentSettings((prev) => ({
-                        ...prev,
-                        receipt_number_start: parseInt(e.target.value) || null,
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="receiptEnd">Număr Final</Label>
-                  <Input
-                    id="receiptEnd"
-                    type="number"
-                    min="1"
-                    placeholder="99999"
-                    value={agentSettings.receipt_number_end || ''}
-                    onChange={(e) =>
-                      setAgentSettings((prev) => ({
-                        ...prev,
-                        receipt_number_end: parseInt(e.target.value) || null,
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="receiptCurrent">Număr Curent</Label>
-                  <Input
-                    id="receiptCurrent"
-                    type="number"
-                    value={agentSettings.receipt_number_current || 1}
-                    disabled
-                    className="bg-muted"
-                  />
-                </div>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                Setează intervalul de numerotare pentru chitanțe. Numărul curent se actualizează automat la fiecare chitanță emisă.
-              </p>
-            </div>
-
-            {/* Auto-Sync Collections */}
-            <div className="space-y-4 pt-4 border-t">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label>Sincronizare Automată Încasări</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Sincronizează automat încasările zilnice la ora specificată
-                  </p>
-                </div>
-                <Switch
-                  checked={agentSettings.auto_sync_collections_enabled || false}
-                  onCheckedChange={(checked) =>
-                    setAgentSettings((prev) => ({
-                      ...prev,
-                      auto_sync_collections_enabled: checked,
-                    }))
-                  }
-                />
-              </div>
-              {agentSettings.auto_sync_collections_enabled && (
-                <div className="space-y-2">
-                  <Label htmlFor="autoSyncTime">Oră Sincronizare</Label>
+            {agentSettings.auto_sync_collections_enabled && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="autoSyncTime" className="text-sm">Oră sincronizare</Label>
                   <Input
                     id="autoSyncTime"
                     type="time"
+                    className="h-10"
                     value={agentSettings.auto_sync_collections_time || "23:00"}
                     onChange={(e) =>
                       setAgentSettings((prev) => ({
@@ -819,29 +636,23 @@ export default function SettingsPage() {
                       }))
                     }
                   />
-                  <p className="text-sm text-muted-foreground">
-                    Ora la care se vor sincroniza automat încasările din ziua respectivă
-                  </p>
                 </div>
-              )}
-            </div>
-
-            <Button
-              onClick={handleSaveAgentSettings}
-              disabled={savingAgent}
-              className="w-full"
-            >
-              {savingAgent ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Se salvează...
-                </>
-              ) : (
-                "Salvează date agent"
-              )}
-            </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        <Button onClick={handleSaveAgentSettings} disabled={savingAgent} className="w-full h-11">
+          {savingAgent ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Se salvează...
+            </>
+          ) : (
+            "Salvează setările agentului"
+          )}
+        </Button>
+
 
         {/* Sync Settings */}
         <Card>
