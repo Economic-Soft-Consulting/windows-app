@@ -15,7 +15,6 @@ use tauri::State;
 use uuid::Uuid;
 use rusqlite::params;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
 // Helper function to read logo and convert to base64
 fn read_logo_to_base64() -> Option<String> {
@@ -114,28 +113,6 @@ fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
 ///
 /// Polls every 25 ms rather than 100 ms: the old interval meant ~400-500 ms of pure sleep
 /// per PDF even when the file was already complete before the call.
-fn get_receipts_dirs_to_try() -> Vec<PathBuf> {
-    let mut dirs_to_try = Vec::new();
-
-    if let Some(path) = dirs::config_dir() {
-        dirs_to_try.push(path.join("facturi.softconsulting.com").join("receipts"));
-    }
-
-    if let Some(path) = dirs::document_dir() {
-        dirs_to_try.push(path.join("facturi.softconsulting.com").join("receipts"));
-    }
-
-    if let Some(path) = dirs::data_dir() {
-        dirs_to_try.push(path.join("facturi.softconsulting.com").join("receipts"));
-    }
-
-    if let Ok(path) = std::env::current_dir() {
-        dirs_to_try.push(path.join("receipts"));
-    }
-
-    dirs_to_try
-}
-
 fn save_receipt_html_file(
     collection: &Collection,
     doc_series: &str,
@@ -168,7 +145,7 @@ fn save_receipt_html_file(
 
     let mut failures = Vec::new();
 
-    for dir in get_receipts_dirs_to_try() {
+    for dir in paths::receipts_dirs() {
         if let Err(e) = std::fs::create_dir_all(&dir) {
             failures.push(format!("create_dir_all {}: {}", dir.display(), e));
             continue;
@@ -785,9 +762,7 @@ async fn save_invoice_certificate_file(
     let context = build_quality_certificate_context(db, invoice_id, car_number).await?;
     let html = generate_quality_certificate_html(&context);
 
-    let app_data_dir = dirs::config_dir()
-        .ok_or("Could not find app data directory")?
-        .join("facturi.softconsulting.com")
+    let app_data_dir = paths::config_app_dir()?
         .join("invoices")
         .join("certificates");
 
@@ -3452,29 +3427,9 @@ pub fn delete_invoice(db: State<'_, Database>, invoice_id: String) -> Result<(),
 pub fn get_available_printers() -> Result<Vec<String>, String> {
     #[cfg(target_os = "windows")]
     {
-        // 1. Try WMIC first (Much faster than PowerShell)
-        // wmic printer get name
-        let wmic_output = std::process::Command::new("wmic")
-            .args(&["printer", "get", "name"])
-            .output();
-
-        if let Ok(output) = wmic_output {
-            if output.status.success() {
-                let text = String::from_utf8_lossy(&output.stdout);
-                let printers: Vec<String> = text
-                    .lines()
-                    .map(|l| l.trim().to_string())
-                    .filter(|l| !l.is_empty() && l.to_lowercase() != "name") // Filter header and empty lines
-                    .collect();
-
-                if !printers.is_empty() {
-                    return Ok(printers);
-                }
-            }
-        }
-
-        // 2. Fallback to PowerShell if WMIC fails or returns no printers
-        // Use Get-CimInstance which is generally preferred over Get-WmiObject
+        // Windows 11 24H2 removed wmic.exe, so the old "try wmic, fall back to PowerShell"
+        // path always failed its first branch and paid for the fallback anyway.
+        // Use Get-CimInstance which is preferred over the removed Get-WmiObject.
         let output = std::process::Command::new("powershell")
             .args(&[
                 "-NoProfile",
@@ -3643,10 +3598,7 @@ pub async fn print_invoice_to_html(
     );
 
     // Save to invoices folder in AppData
-    let app_data_dir = dirs::config_dir()
-        .ok_or("Could not find app data directory")?
-        .join("facturi.softconsulting.com")
-        .join("invoices");
+    let app_data_dir = paths::config_app_dir()?.join("invoices");
 
     std::fs::create_dir_all(&app_data_dir)
         .map_err(|e| format!("Failed to create invoices directory: {}", e))?;
@@ -3673,102 +3625,18 @@ pub async fn print_invoice_to_html(
         // Print PDF using SumatraPDF
         let printer = printer_name.unwrap_or_else(|| String::from(""));
 
-        // Check standard installation paths first
-        let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
+        printer::print_pdf_best_effort(&printer, &print_file, "factura");
 
-        // Also check bundled resources path
-        let bundled_path = std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(|p| p.join("resources").join("SumatraPDF.exe")));
-
-        let mut sumatra_paths = vec![
-            format!(r"{}\AppData\Local\SumatraPDF\SumatraPDF.exe", user_profile),
-            r"C:\Program Files\SumatraPDF\SumatraPDF.exe".to_string(),
-            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe".to_string(),
-        ];
-
-        // Add bundled path if exists
-        if let Some(bundled) = bundled_path {
-            sumatra_paths.insert(0, bundled.to_string_lossy().to_string());
-        }
-
-        let mut sumatra_exe = None;
-        for path in &sumatra_paths {
-            if std::path::Path::new(path).exists() {
-                sumatra_exe = Some(path.to_string());
-                info!("Found SumatraPDF at: {}", path);
-                break;
+        // The quality certificate is a second document printed alongside the invoice.
+        // Generating it makes live WME calls, so it must never fail the invoice print.
+        let cert_car_number = car_number.clone().unwrap_or_default();
+        match save_invoice_certificate_file(&db, &invoice_id, cert_car_number.as_str()).await {
+            Ok((_cert_html_path, _cert_pdf_path, cert_print_file)) => {
+                // Spaces the two jobs so the spooler keeps them in order.
+                std::thread::sleep(std::time::Duration::from_millis(400));
+                printer::print_pdf_best_effort(&printer, &cert_print_file, "certificatul de calitate");
             }
-        }
-
-        // If not in standard paths, check portable version in app data
-        if sumatra_exe.is_none() {
-            let app_data_dir = dirs::data_dir()
-                .ok_or("Could not get app data directory")?
-                .join("facturi.softconsulting.com");
-            let sumatra_portable = app_data_dir.join("tools").join("SumatraPDF.exe");
-
-            if sumatra_portable.exists() {
-                sumatra_exe = Some(sumatra_portable.to_string_lossy().to_string());
-                info!("Found portable SumatraPDF");
-            }
-        }
-
-        // Use SumatraPDF for printing
-        if let Some(sumatra_path) = sumatra_exe {
-            info!("Printing to '{}' using SumatraPDF", printer);
-
-            let mut invoice_args: Vec<String> = Vec::new();
-            if printer.trim().is_empty() {
-                invoice_args.push("-print-to-default".to_string());
-            } else {
-                invoice_args.push("-print-to".to_string());
-                invoice_args.push(printer.clone());
-            }
-            invoice_args.extend([
-                "-print-settings".to_string(),
-                "noscale".to_string(),
-                print_file.clone(),
-                "-silent".to_string(),
-                "-exit-when-done".to_string(),
-                "-exit-on-print".to_string(),
-            ]);
-
-            match std::process::Command::new(&sumatra_path).args(&invoice_args).spawn() {
-                Ok(_) => info!("Invoice print job sent successfully to printer '{}': {}", printer, invoice_id),
-                Err(e) => warn!("Invoice SumatraPDF print failed: {}", e),
-            }
-
-            let cert_car_number = car_number.clone().unwrap_or_default();
-            match save_invoice_certificate_file(&db, &invoice_id, cert_car_number.as_str()).await {
-                Ok((_cert_html_path, _cert_pdf_path, cert_print_file)) => {
-                    std::thread::sleep(std::time::Duration::from_millis(400));
-
-                    let mut cert_args: Vec<String> = Vec::new();
-                    if printer.trim().is_empty() {
-                        cert_args.push("-print-to-default".to_string());
-                    } else {
-                        cert_args.push("-print-to".to_string());
-                        cert_args.push(printer.clone());
-                    }
-                    cert_args.extend([
-                        "-print-settings".to_string(),
-                        "noscale".to_string(),
-                        cert_print_file.clone(),
-                        "-silent".to_string(),
-                        "-exit-when-done".to_string(),
-                        "-exit-on-print".to_string(),
-                    ]);
-
-                    match std::process::Command::new(&sumatra_path).args(&cert_args).spawn() {
-                        Ok(_) => info!("Certificate print job sent successfully to printer '{}': {}", printer, invoice_id),
-                        Err(e) => warn!("Certificate SumatraPDF print failed: {}", e),
-                    }
-                }
-                Err(e) => warn!("Certificate generation/print skipped: {}", e),
-            }
-        } else {
-            info!("SumatraPDF not found. PDF saved at: {}", print_file);
+            Err(e) => warn!("Certificate generation/print skipped: {}", e),
         }
 
         info!("Print dispatched (PDF) to printer '{}': {}", printer, invoice_id);
@@ -3818,62 +3686,8 @@ pub async fn print_invoice_certificate(
     #[cfg(target_os = "windows")]
     {
         let printer = printer_name.unwrap_or_default();
-        let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
-        let bundled_path = std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(|p| p.join("resources").join("SumatraPDF.exe")));
-
-        let mut sumatra_paths = vec![
-            format!(r"{}\AppData\Local\SumatraPDF\SumatraPDF.exe", user_profile),
-            r"C:\Program Files\SumatraPDF\SumatraPDF.exe".to_string(),
-            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe".to_string(),
-        ];
-
-        if let Some(bundled) = bundled_path {
-            sumatra_paths.insert(0, bundled.to_string_lossy().to_string());
-        }
-
-        let mut sumatra_exe = None;
-        for path in &sumatra_paths {
-            if std::path::Path::new(path).exists() {
-                sumatra_exe = Some(path.to_string());
-                break;
-            }
-        }
-
-        if sumatra_exe.is_none() {
-            let app_data_dir = dirs::data_dir()
-                .ok_or("Could not get app data directory")?
-                .join("facturi.softconsulting.com");
-            let sumatra_portable = app_data_dir.join("tools").join("SumatraPDF.exe");
-            if sumatra_portable.exists() {
-                sumatra_exe = Some(sumatra_portable.to_string_lossy().to_string());
-            }
-        }
-
-        if let Some(sumatra_path) = sumatra_exe {
-            let mut command = std::process::Command::new(&sumatra_path);
-
-            if printer.trim().is_empty() {
-                command.arg("-print-to-default");
-            } else {
-                command.arg("-print-to").arg(&printer);
-            }
-
-            command
-                .arg("-print-settings")
-                .arg("noscale")
-                .arg(&print_file)
-                .arg("-silent")
-                .arg("-exit-when-done")
-                .arg("-exit-on-print")
-                .spawn()
-                .map_err(|e| format!("Failed to start print with SumatraPDF: {}", e))?;
-
-            info!("[CERT][PRINT] Sent to SumatraPDF");
-        } else {
-            return Err("SumatraPDF not found. Instalează SumatraPDF sau configurează calea aplicației de printare.".to_string());
-        }
+        printer::print_pdf(&printer, &print_file, "certificatul de calitate")?;
+        info!("[CERT][PRINT] Sent to printer");
     }
 
     #[cfg(target_os = "macos")]
@@ -4129,60 +3943,7 @@ pub async fn print_collection_to_html(
         let print_file = pdf_path_str.clone();
 
         let printer = printer_name.unwrap_or_default();
-        let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
-        let bundled_path = std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(|p| p.join("resources").join("SumatraPDF.exe")));
-
-        let mut sumatra_paths = vec![
-            format!(r"{}\AppData\Local\SumatraPDF\SumatraPDF.exe", user_profile),
-            r"C:\Program Files\SumatraPDF\SumatraPDF.exe".to_string(),
-            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe".to_string(),
-        ];
-
-        if let Some(bundled) = bundled_path {
-            sumatra_paths.insert(0, bundled.to_string_lossy().to_string());
-        }
-
-        let mut sumatra_exe = None;
-        for path in &sumatra_paths {
-            if std::path::Path::new(path).exists() {
-                sumatra_exe = Some(path.to_string());
-                break;
-            }
-        }
-
-        if sumatra_exe.is_none() {
-            let app_data_dir = dirs::data_dir()
-                .ok_or("Could not get app data directory")?
-                .join("facturi.softconsulting.com");
-            let sumatra_portable = app_data_dir.join("tools").join("SumatraPDF.exe");
-            if sumatra_portable.exists() {
-                sumatra_exe = Some(sumatra_portable.to_string_lossy().to_string());
-            }
-        }
-
-        if let Some(sumatra_path) = sumatra_exe {
-            let mut command = std::process::Command::new(&sumatra_path);
-
-            if printer.trim().is_empty() {
-                command.arg("-print-to-default");
-            } else {
-                command.arg("-print-to").arg(&printer);
-            }
-
-            command
-                .arg("-print-settings")
-                .arg("noscale")
-                .arg(&print_file)
-                .arg("-silent")
-                .arg("-exit-when-done")
-                .arg("-exit-on-print")
-                .spawn()
-                .map_err(|e| format!("Failed to start print with SumatraPDF: {}", e))?;
-        } else {
-            return Err("SumatraPDF not found. Instalează SumatraPDF sau configurează calea aplicației de printare.".to_string());
-        }
+        printer::print_pdf(&printer, &print_file, "chitanta")?;
     }
 
     #[cfg(target_os = "macos")]
@@ -4614,10 +4375,7 @@ pub fn save_report_html(report_name: String, html_content: String) -> Result<Str
 
     let timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
 
-    let reports_dir = dirs::config_dir()
-        .ok_or("Could not find app data directory")?
-        .join("facturi.softconsulting.com")
-        .join("reports");
+    let reports_dir = paths::reports_dir()?;
 
     std::fs::create_dir_all(&reports_dir)
         .map_err(|e| format!("Failed to create reports directory: {}", e))?;
@@ -4659,59 +4417,7 @@ pub async fn print_report_html(
         let print_file = pdf_path_str.clone();
 
         let printer = printer_name.unwrap_or_default();
-        let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
-        let bundled_path = std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(|p| p.join("resources").join("SumatraPDF.exe")));
-
-        let mut sumatra_paths = vec![
-            format!(r"{}\AppData\Local\SumatraPDF\SumatraPDF.exe", user_profile),
-            r"C:\Program Files\SumatraPDF\SumatraPDF.exe".to_string(),
-            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe".to_string(),
-        ];
-
-        if let Some(bundled) = bundled_path {
-            sumatra_paths.insert(0, bundled.to_string_lossy().to_string());
-        }
-
-        let mut sumatra_exe = None;
-        for path in &sumatra_paths {
-            if std::path::Path::new(path).exists() {
-                sumatra_exe = Some(path.to_string());
-                break;
-            }
-        }
-
-        if sumatra_exe.is_none() {
-            let app_data_dir = dirs::data_dir()
-                .ok_or("Could not get app data directory")?
-                .join("facturi.softconsulting.com");
-            let sumatra_portable = app_data_dir.join("tools").join("SumatraPDF.exe");
-            if sumatra_portable.exists() {
-                sumatra_exe = Some(sumatra_portable.to_string_lossy().to_string());
-            }
-        }
-
-        if let Some(sumatra_path) = sumatra_exe {
-            let mut command = std::process::Command::new(&sumatra_path);
-            if printer.trim().is_empty() {
-                command.arg("-print-to-default");
-            } else {
-                command.arg("-print-to").arg(&printer);
-            }
-
-            command
-                .arg("-print-settings")
-                .arg("noscale")
-                .arg(&print_file)
-                .arg("-silent")
-                .arg("-exit-when-done")
-                .arg("-exit-on-print")
-                .spawn()
-                .map_err(|e| format!("Failed to print report: {}", e))?;
-        } else {
-            return Err("SumatraPDF not found. Instalează SumatraPDF sau configurează calea aplicației de printare.".to_string());
-        }
+        printer::print_pdf(&printer, &print_file, "raportul")?;
     }
 
     #[cfg(target_os = "macos")]
@@ -6567,10 +6273,7 @@ pub async fn print_daily_report(
     );
 
     // Save to reports folder
-    let app_data_dir = dirs::config_dir()
-        .ok_or("Could not find app data directory")?
-        .join("facturi.softconsulting.com")
-        .join("reports");
+    let app_data_dir = paths::reports_dir()?;
 
     std::fs::create_dir_all(&app_data_dir)
         .map_err(|e| format!("Failed to create reports directory: {}", e))?;
@@ -6603,106 +6306,9 @@ pub async fn print_daily_report(
         // ever written to the log — SumatraPDF's -print-to-default handles the real work and
         // reports its own failure.
 
-        let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
-        let bundled_path = std::env::current_exe()
-            .ok()
-            .and_then(|exe| exe.parent().map(|p| p.join("resources").join("SumatraPDF.exe")));
-
-        let mut sumatra_paths = vec![
-            format!(r"{}\AppData\Local\SumatraPDF\SumatraPDF.exe", user_profile),
-            r"C:\Program Files\SumatraPDF\SumatraPDF.exe".to_string(),
-            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe".to_string(),
-        ];
-
-        if let Some(p) = bundled_path {
-            sumatra_paths.insert(0, p.to_string_lossy().to_string());
-        }
-
-        let mut printed = false;
-
-        for sumatra_path in sumatra_paths {
-            if std::path::Path::new(&sumatra_path).exists() {
-                info!("Found SumatraPDF at: {}", sumatra_path);
-
-                let mut args = vec![
-                    "-print-to-default".to_string(),
-                    "-silent".to_string(),
-                ];
-
-                if !printer.is_empty() {
-                    args = vec![
-                        "-print-to".to_string(),
-                        printer.clone(),
-                        "-silent".to_string(),
-                    ];
-                }
-
-                // Without these, SumatraPDF stays resident and the blocking .output() below
-                // never returns — the other three print paths already pass them.
-                args.push("-exit-when-done".to_string());
-                args.push("-exit-on-print".to_string());
-                args.push(print_file.clone());
-
-                // Log the full command for debugging
-                info!("Executing print command with args: {:?}", args);
-
-                let output = std::process::Command::new(&sumatra_path)
-                    .args(&args)
-                    .output();
-
-                match output {
-                    Ok(result) => {
-                        info!("Print command executed. Status: {}", result.status);
-                        let stdout = String::from_utf8_lossy(&result.stdout);
-                        let stderr = String::from_utf8_lossy(&result.stderr);
-
-                        if !stdout.is_empty() {
-                            info!("Print stdout: {}", stdout);
-                        }
-                        if !stderr.is_empty() {
-                            info!("Print stderr: {}", stderr);
-                        }
-
-                        if result.status.success() {
-                            printed = true;
-                            info!("✓ Document sent to printer successfully");
-                            break;
-                        } else {
-                            warn!("✗ Print failed with exit code: {:?}", result.status.code());
-
-                            // Check for specific printer initialization errors
-                            if stdout.contains("CreateDCW") && stdout.contains("failed") {
-                                warn!("Printer driver error detected. The printer may be offline, disconnected, or have driver issues.");
-                                if let Some(printer_name_match) = stdout.lines()
-                                    .find(|line| line.contains("printer:"))
-                                    .and_then(|line| line.split("printer: '").nth(1))
-                                    .and_then(|s| s.split('\'').next())
-                                {
-                                    warn!("Printer: {} - Please check if it's powered on and connected.", printer_name_match);
-                                }
-                            } else if printer.is_empty() {
-                                warn!("Hint: No printer specified. Ensure a default printer is set in Windows.");
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        warn!("Failed to execute print command: {}", e);
-                    }
-                }
-            }
-        }
-
-        if printed {
-            info!("✓ Report printed successfully");
-            Ok(format!("Report printed successfully. File saved at: {}", print_file))
-        } else {
-            let msg = format!(
-                "Could not print report. The printer may be offline or disconnected. PDF saved at: {}",
-                print_file
-            );
-            warn!("{}", msg);
-            Ok(msg)
-        }
+        printer::print_pdf(&printer, &print_file, "raportul zilnic")?;
+        info!("Report print job sent. File saved at: {}", print_file);
+        Ok(format!("Report printed successfully. File saved at: {}", print_file))
     }
 
     #[cfg(not(target_os = "windows"))]

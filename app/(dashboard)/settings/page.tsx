@@ -228,7 +228,9 @@ export default function SettingsPage() {
               setSettings(prev => ({ ...prev, printer: settingsParsed.printer }));
             }
           }
-          // Note: Don't set loading to false here - wait for actual printer fetch
+          // The list stays on screen while loadPrinters() refreshes it in the background;
+          // see hasNoPrintersYet below. Blocking on the OS query instead kept the whole
+          // Settings screen behind a spinner even though the list was already in hand.
         }
       } catch (e) {
         console.error("Failed to parse cached printers:", e);
@@ -278,15 +280,20 @@ export default function SettingsPage() {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
+  // Enumerating printers goes out to the OS and is refreshed on every visit, so only block
+  // the screen when there is genuinely nothing to show. A list cached from a previous visit
+  // is enough to render Settings immediately; the refresh then lands silently underneath.
+  const hasNoPrintersYet = loadingPrinters && printers.length === 0;
+
   // Show full page loading while all settings are loading initially
-  if (loadingPrinters || loadingAgentSettings) {
+  if (hasNoPrintersYet || loadingAgentSettings) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <div className="text-center">
           <h2 className="text-lg font-semibold">Se încarcă setările...</h2>
           <p className="text-muted-foreground text-sm">
-            {loadingPrinters
+            {hasNoPrintersYet
               ? "Se verifică imprimantele disponibile"
               : "Se încarcă configurările agentului"
             }
@@ -925,7 +932,7 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {loadingPrinters ? (
+            {hasNoPrintersYet ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 Se încarcă imprimantele...
