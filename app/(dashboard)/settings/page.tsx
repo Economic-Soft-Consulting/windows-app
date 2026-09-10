@@ -142,34 +142,11 @@ export default function SettingsPage() {
       const newMarcaAgent = (agentSettings.marca_agent || "").trim();
       const normalizedMarcaAgent = newMarcaAgent.length > 0 ? newMarcaAgent : null;
 
-      await saveAgentSettings(
-        agentSettings.agent_name || null,
-        agentSettings.carnet_series || null,
-        agentSettings.simbol_carnet_livr || null,
-        agentSettings.simbol_gestiune_livrare || null,
-        agentSettings.tip_contabil || null,
-        agentSettings.cert_comanda_serie || null,
-        agentSettings.cert_comanda_id_client || null,
-        agentSettings.cod_carnet || null,
-        agentSettings.cod_carnet_livr || null,
-        agentSettings.cod_delegat || null,
-        agentSettings.delegate_name || null,
-        agentSettings.delegate_act || null,
-        agentSettings.car_number || null,
-        agentSettings.invoice_number_start,
-        agentSettings.invoice_number_end,
-        agentSettings.invoice_number_current,
-        normalizedMarcaAgent,
-        agentSettings.nume_casa || null,
-        agentSettings.auto_sync_collections_enabled,
-        agentSettings.auto_sync_collections_time || null,
-        agentSettings.receipt_series || null,
-        agentSettings.receipt_number_start,
-        agentSettings.receipt_number_end,
-        agentSettings.receipt_number_current,
-        agentSettings.wme_host?.trim() || null,
-        agentSettings.wme_port ?? null
-      );
+      await saveAgentSettings({
+        ...agentSettings,
+        marca_agent: normalizedMarcaAgent,
+        wme_host: agentSettings.wme_host?.trim() || null,
+      });
 
       const marcaChanged = oldMarcaAgent !== newMarcaAgent;
 

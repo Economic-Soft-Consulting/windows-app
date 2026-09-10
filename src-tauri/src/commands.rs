@@ -4145,33 +4145,43 @@ fn agent_settings_upsert_sql() -> &'static str {
 #[tauri::command]
 pub fn save_agent_settings(
     db: State<'_, Database>,
-    agent_name: Option<String>,
-    carnet_series: Option<String>,
-    simbol_carnet_livr: Option<String>,
-    simbol_gestiune_livrare: Option<String>,
-    tip_contabil: Option<String>,
-    cert_comanda_serie: Option<String>,
-    cert_comanda_id_client: Option<String>,
-    cod_carnet: Option<String>,
-    cod_carnet_livr: Option<String>,
-    cod_delegat: Option<String>,
-    delegate_name: Option<String>,
-    delegate_act: Option<String>,
-    car_number: Option<String>,
-    invoice_number_start: Option<i64>,
-    invoice_number_end: Option<i64>,
-    invoice_number_current: Option<i64>,
-    marca_agent: Option<String>,
-    nume_casa: Option<String>,
-    auto_sync_collections_enabled: Option<bool>,
-    auto_sync_collections_time: Option<String>,
-    receipt_series: Option<String>,
-    receipt_number_start: Option<i64>,
-    receipt_number_end: Option<i64>,
-    receipt_number_current: Option<i64>,
-    wme_host: Option<String>,
-    wme_port: Option<i64>,
+    settings: AgentSettings,
 ) -> Result<AgentSettings, String> {
+    // One struct instead of 26 positional parameters.
+    //
+    // The old signature spelled the same field list out four times — the Rust parameters,
+    // the column list, the placeholder list and params! — with nothing cross-checking them.
+    // A one-placeholder drift compiled fine and only failed at runtime, which is how saving
+    // agent settings stayed broken from v1.0.3 to v1.0.14.
+    let AgentSettings {
+        agent_name,
+        carnet_series,
+        simbol_carnet_livr,
+        simbol_gestiune_livrare,
+        tip_contabil,
+        cert_comanda_serie,
+        cert_comanda_id_client,
+        cod_carnet,
+        cod_carnet_livr,
+        cod_delegat,
+        delegate_name,
+        delegate_act,
+        car_number,
+        invoice_number_start,
+        invoice_number_end,
+        invoice_number_current,
+        receipt_series,
+        receipt_number_start,
+        receipt_number_end,
+        receipt_number_current,
+        marca_agent,
+        nume_casa,
+        auto_sync_collections_enabled,
+        auto_sync_collections_time,
+        wme_host,
+        wme_port,
+    } = settings;
+
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
 

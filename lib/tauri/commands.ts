@@ -138,62 +138,15 @@ export async function getAgentSettings(): Promise<AgentSettings> {
   return invoke<AgentSettings>("get_agent_settings");
 }
 
-export async function saveAgentSettings(
-  agentName: string | null,
-  carnetSeries: string | null,
-  simbolCarnetLivr: string | null,
-  simbolGestiuneLivrare: string | null,
-  tipContabil: string | null,
-  certComandaSerie: string | null,
-  certComandaIdClient: string | null,
-  codCarnet: string | null,
-  codCarnetLivr: string | null,
-  codDelegat: string | null,
-  delegateName: string | null,
-  delegateAct: string | null,
-  carNumber: string | null,
-  invoiceNumberStart: number | null,
-  invoiceNumberEnd: number | null,
-  invoiceNumberCurrent: number | null,
-  marcaAgent: string | null,
-  numeCasa: string | null,
-  autoSyncCollectionsEnabled: boolean | null,
-  autoSyncCollectionsTime: string | null,
-  receiptSeries: string | null,
-  receiptNumberStart: number | null,
-  receiptNumberEnd: number | null,
-  receiptNumberCurrent: number | null,
-  wmeHost: string | null,
-  wmePort: number | null
-): Promise<AgentSettings> {
-  return invoke<AgentSettings>("save_agent_settings", {
-    agentName,
-    carnetSeries,
-    simbolCarnetLivr,
-    simbolGestiuneLivrare,
-    tipContabil,
-    certComandaSerie,
-    certComandaIdClient,
-    codCarnet,
-    codCarnetLivr,
-    codDelegat,
-    delegateName,
-    delegateAct,
-    carNumber,
-    invoiceNumberStart,
-    invoiceNumberEnd,
-    invoiceNumberCurrent,
-    marcaAgent,
-    numeCasa,
-    autoSyncCollectionsEnabled,
-    autoSyncCollectionsTime,
-    receiptSeries,
-    receiptNumberStart,
-    receiptNumberEnd,
-    receiptNumberCurrent,
-    wmeHost,
-    wmePort,
-  });
+/**
+ * Saves the agent settings.
+ *
+ * Takes the whole object rather than 26 positional arguments. The old signature listed
+ * `string | null` twenty times in a row, so transposing two of them type-checked cleanly and
+ * silently wrote the wrong columns.
+ */
+export async function saveAgentSettings(settings: AgentSettings): Promise<AgentSettings> {
+  return invoke<AgentSettings>("save_agent_settings", { settings });
 }
 
 // ==================== COLLECTION COMMANDS ====================
