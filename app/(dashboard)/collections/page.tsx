@@ -422,7 +422,12 @@ export default function CollectionsPage() {
                         </Table>
                     </div>
                 ) : (
-                    <div className="grid gap-3 pb-4 min-h-full content-start" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gridAutoRows: "1fr" }}>
+                    <div className="grid gap-3 pb-4 min-h-full content-start" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+                        {/* Deliberately no gridAutoRows: "1fr". That gave every row an equal
+                            share of the full container height, so a single receipt stretched
+                            down the whole screen with its buttons pinned to the bottom. Auto
+                            rows size to their content, and the default stretch still keeps
+                            cards in the same row equal - as the invoice list already does. */}
                         {collections.map((collection) => (
                             <Card key={collection.id} className="flex flex-col text-sm h-full">
                                 <CardHeader className="pb-2 pt-3 px-3">
