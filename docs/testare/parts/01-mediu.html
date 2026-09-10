@@ -1,0 +1,98 @@
+<!-- ============ CAP 1 ============ -->
+<div class="page">
+<h2>1. Pregătirea mediului de testare</h2>
+
+<h3>1.1 Ce este aplicația, pe scurt</h3>
+<p>eSoft Facturi este o aplicație <b>desktop pentru Windows</b> folosită de agenții de vânzări care livrează ouă la clienți. Agentul ajunge la client, emite factura pe loc, o printează pe o imprimantă termică de 80&nbsp;mm, printează certificatul de calitate, încasează banii și emite chitanța, iar la finalul zilei printează centralizatorul zilei.</p>
+<p>Aplicația funcționează <b>offline</b>: tot ce se emite se salvează într-o bază de date locală SQLite și se trimite automat în WinMentor când revine conexiunea. Din acest motiv, o parte importantă a testelor din acest document verifică exact comportamentul fără internet.</p>
+
+<div class="note"><b>Foarte important de știut înainte de a începe</b>
+Datele firmei (KARIN SRL, CUI, Reg.&nbsp;Com., adresă, bancă, IBAN, capital social) <b>nu sunt configurabile din aplicație</b> &mdash; sunt fixate în codul programului și apar automat pe facturi și certificate. Prin urmare, „configurarea firmei” din capitolul 2 înseamnă, în practică: configurarea <b>serverului WME</b>, a <b>agentului</b>, a <b>seriilor și numerotării</b> documentelor și a <b>imprimantei</b>. Verificarea datelor firmei se face prin citirea documentelor printate (TC-CFG-017 și TC-CFG-018).</div>
+
+<h3>1.2 Cerințe hardware și software</h3>
+<table class="t">
+  <tr><th style="width:44mm">Componentă</th><th>Cerință</th><th style="width:38mm">Cum se verifică</th></tr>
+  <tr><td>Sistem de operare</td><td>Windows 10 sau 11, 64 de biți</td><td><span class="k">winver</span></td></tr>
+  <tr><td>Microsoft Edge sau Google Chrome</td><td><b>Obligatoriu.</b> Aplicația îl folosește în fundal pentru a transforma documentele în PDF înainte de printare. Fără el nu se poate printa nimic.</td><td>Se deschide Edge o dată, manual</td></tr>
+  <tr><td>Imprimantă termică</td><td>80&nbsp;mm, instalată în Windows și funcțională</td><td>Setări Windows &rarr; Imprimante &rarr; Print test page</td></tr>
+  <tr><td>Rețea către serverul WME</td><td>Acces la IP-ul și portul serverului WinMentor (implicit portul 8089)</td><td><span class="k">ping &lt;IP_WME&gt;</span></td></tr>
+  <tr><td>Internet</td><td>Necesar pentru sincronizare și pentru prima pornire</td><td>Indicatorul „Online” din antetul aplicației</td></tr>
+  <tr><td>Cameră web</td><td>Opțional &mdash; doar pentru testul scanerului de coduri de bare</td><td>Aplicația Camera din Windows</td></tr>
+</table>
+
+<h3>1.3 Date necesare înainte de testare</h3>
+<p>Completează tabelul de mai jos <b>înainte</b> de a începe. Fără aceste valori, majoritatea testelor nu pot fi executate.</p>
+<table class="t">
+  <tr><th style="width:62mm">Ce</th><th>Valoare pentru mediul de test</th></tr>
+  <tr><td>Adresă IP server WME</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Port WME (implicit 8089)</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Marca agent (<b>numeric</b> &mdash; obligatoriu doar cifre)</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Nume agent (afișare)</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Nume casă pentru încasări</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Serie carnet facturi / Cod carnet</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Serie carnet livrări / Cod carnet livrări</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Simbol gestiune livrare</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Interval numere facturi (start &ndash; final)</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Serie și interval numere chitanțe</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Cod delegat / Nume delegat / Act delegat</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Număr auto</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Serie comandă certificat (implicit CCAL)</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>ID client certificat (implicit 1602)</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Parola de Administrator</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Nume imprimantă termică</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>2&ndash;3 parteneri de test (denumire + cod WME)</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Un partener <b>fără locații</b> configurate (pentru TC-FAC-009)</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Comandă WME pentru certificat, pe ziua de test</td><td><span class="fill">&nbsp;</span></td></tr>
+</table>
+
+<div class="warn"><b>Atenție &mdash; se testează pe un mediu separat</b>
+Aplicația trimite documente reale în WinMentor. Facturile și chitanțele emise în timpul testării <b>ajung în contabilitate</b>. Cere-i clientului fie o bază WME de test, fie un partener dedicat de test și un interval de numere de documente rezervat testării. Notează în Anexa E toate numerele de documente consumate.</div>
+
+<h3>1.4 Starea inițială &mdash; procedura de „instalare curată”</h3>
+<p>O parte din teste (capitolele 2 și 4) trebuie executate pe o instalare complet curată. Procedura de resetare completă:</p>
+<ol>
+  <li>Închide aplicația eSoft Facturi complet (verifică în Task Manager că nu mai rulează <span class="k">eSoft Facturi.exe</span>).</li>
+  <li>Deschide Windows Explorer și scrie în bara de adresă: <span class="k">%APPDATA%\facturi.softconsulting.com</span></li>
+  <li>Șterge <b>tot</b> conținutul folderului (baza de date <span class="k">facturi.db</span> și folderele <span class="k">invoices</span>, <span class="k">receipts</span>, <span class="k">reports</span>).</li>
+  <li>Scrie în bara de adresă: <span class="k">%LOCALAPPDATA%\facturi.softconsulting.com</span> și șterge folderul <span class="k">EBWebView</span> (aici stau setările de imprimantă și sesiunea de utilizator).</li>
+  <li>Scrie în bara de adresă: <span class="k">%TEMP%</span> și șterge folderul <span class="k">esoft_edge_pdf</span>, dacă există.</li>
+  <li>Pornește aplicația &mdash; trebuie să apară ecranul de autentificare, apoi ecranul de primă pornire.</li>
+</ol>
+<p>Pentru testele care cer doar „date resincronizate”, fără resetare completă, se șterg doar tabelele de sincronizare din Setări (butonul de ștergere parteneri) &mdash; vezi TC-DAT-013.</p>
+
+<div class="bug"><b>Blocaj cunoscut la printare &mdash; de recunoscut din prima</b>
+Dacă printarea „se blochează” (aplicația pare că printează la nesfârșit sau nu mai iese nimic la imprimantă), cauza este aproape întotdeauna un proces Edge rămas agățat pe folderul <span class="k">%TEMP%\esoft_edge_pdf</span>. Soluție: închide aplicația, deschide Task Manager, oprește toate procesele <span class="k">msedge.exe</span>, șterge folderul <span class="k">%TEMP%\esoft_edge_pdf</span>. Dacă folderul nu se poate șterge, <b>repornește calculatorul</b>. Nu raporta ca defect nou &mdash; notează „blocaj Edge” și continuă.</div>
+
+<h3>1.5 Unde se uită testerul când ceva nu merge</h3>
+<table class="t">
+  <tr><th style="width:52mm">Ce</th><th>Unde</th></tr>
+  <tr><td>Fișier de log al aplicației</td><td><span class="k">%LOCALAPPDATA%\facturi.softconsulting.com\logs\app.log</span></td></tr>
+  <tr><td>Baza de date locală</td><td><span class="k">%APPDATA%\facturi.softconsulting.com\facturi.db</span></td></tr>
+  <tr><td>Facturi generate (HTML + PDF)</td><td><span class="k">%APPDATA%\facturi.softconsulting.com\invoices\</span></td></tr>
+  <tr><td>Certificate de calitate</td><td><span class="k">...\invoices\certificates\</span></td></tr>
+  <tr><td>Chitanțe</td><td><span class="k">%APPDATA%\facturi.softconsulting.com\receipts\</span></td></tr>
+  <tr><td>Rapoarte / centralizatoare</td><td><span class="k">%APPDATA%\facturi.softconsulting.com\reports\</span></td></tr>
+</table>
+<p>Fișierele HTML din aceste foldere se pot deschide direct în Edge &mdash; este cea mai rapidă metodă de a verifica <i>conținutul</i> unui document fără a consuma hârtie.</p>
+
+<h3>1.6 Harta ecranelor</h3>
+<table class="t">
+  <tr><th style="width:26mm">Meniu lateral</th><th style="width:30mm">Ecran</th><th>Ce face</th><th class="c" style="width:26mm">Agent</th><th class="c" style="width:24mm">Admin</th></tr>
+  <tr><td>Acasă</td><td>Panou principal</td><td>Statistici, totaluri financiare, navigare rapidă</td><td class="c">doar ziua curentă</td><td class="c">tot istoricul</td></tr>
+  <tr><td>Facturi</td><td>Listă facturi</td><td>Emitere, printare, trimitere, ștergere</td><td class="c">doar azi</td><td class="c">tot</td></tr>
+  <tr><td>Chitanțe</td><td>Listă încasări</td><td>Emitere chitanțe, printare, trimitere</td><td class="c">doar azi</td><td class="c">tot</td></tr>
+  <tr><td>Rapoarte</td><td>Centralizator zi</td><td>Agregat pe partener + printare bon 80&nbsp;mm</td><td class="c">interval blocat pe azi</td><td class="c">interval liber</td></tr>
+  <tr><td>Date</td><td>Parteneri / Articole</td><td>Vizualizare date sincronizate, solduri, oferte</td><td class="c">da</td><td class="c">da</td></tr>
+  <tr><td>Setări</td><td>Configurare</td><td>Server WME, agent, numerotare, imprimantă</td><td class="c">ascuns</td><td class="c">da</td></tr>
+</table>
+
+<h3>1.7 Ordinea recomandată de execuție</h3>
+<table class="t">
+  <tr><th style="width:20mm">Sesiune</th><th style="width:44mm">Capitole</th><th>Precondiție de mediu</th></tr>
+  <tr><td>Ziua 1 &mdash; dimineață</td><td>2, 3, 4</td><td>Instalare curată (secțiunea 1.4)</td></tr>
+  <tr><td>Ziua 1 &mdash; după-amiază</td><td>5, 6, 7</td><td>Aplicație configurată și sincronizată</td></tr>
+  <tr><td>Ziua 2</td><td>8, 9, 10, 11, 12</td><td>Imprimantă termică pornită, hârtie suficientă</td></tr>
+  <tr><td>Ziua 3</td><td>13, 14, 17</td><td>Există facturi emise în zilele anterioare</td></tr>
+  <tr><td>Ziua 4</td><td>15, 16, 18, 19</td><td>Se poate întrerupe rețeaua / opri serverul WME</td></tr>
+</table>
+</div>

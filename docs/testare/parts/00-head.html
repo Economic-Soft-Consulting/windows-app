@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<title>Specificatie de testare manuala - eSoft Facturi v1.0.9</title>
+<style>
+@page { size: A4; margin: 14mm 12mm 16mm 12mm; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Segoe UI", Calibri, Arial, sans-serif; font-size: 9.2pt; line-height: 1.42; color: #14161a; margin: 0; }
+
+h1 { font-size: 19pt; margin: 0 0 4mm; color: #0f2a4a; letter-spacing: -0.2pt; }
+h2 { font-size: 13.5pt; margin: 0 0 3mm; padding: 2.4mm 3mm; background: #0f2a4a; color: #fff; border-radius: 1.5mm;
+     page-break-after: avoid; break-after: avoid; }
+h3 { font-size: 10.8pt; margin: 5mm 0 2mm; color: #0f2a4a; border-bottom: 0.6mm solid #c8d4e2; padding-bottom: 1mm;
+     page-break-after: avoid; break-after: avoid; }
+h4 { font-size: 9.6pt; margin: 4mm 0 1.5mm; color: #23425f; page-break-after: avoid; break-after: avoid; }
+p { margin: 0 0 2mm; }
+ul, ol { margin: 0 0 2mm; padding-left: 5.5mm; }
+li { margin-bottom: 0.7mm; }
+code, .k { font-family: Consolas, "Courier New", monospace; font-size: 8.4pt; background: #eef1f5;
+           padding: 0.2mm 1mm; border-radius: 0.8mm; border: 0.2mm solid #dde3ea; }
+b, strong { font-weight: 600; }
+
+.page { page-break-after: always; break-after: page; }
+.nobreak { page-break-inside: avoid; break-inside: avoid; }
+
+/* ---------- Cover ---------- */
+.cover { height: 258mm; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+.cover-kicker { font-size: 10pt; letter-spacing: 2.6pt; color: #5b7089; text-transform: uppercase; margin-bottom: 6mm; }
+.cover-title { font-size: 31pt; line-height: 1.1; color: #0f2a4a; font-weight: 700; margin: 0 0 4mm; }
+.cover-sub { font-size: 14pt; color: #37536f; margin-bottom: 12mm; }
+.cover-rule { width: 40mm; height: 1.2mm; background: #c8912a; margin: 0 auto 12mm; border-radius: 1mm; }
+.cover-box { border: 0.4mm solid #c8d4e2; border-radius: 2mm; padding: 6mm 8mm; max-width: 120mm; margin: 0 auto; text-align: left; }
+.cover-box table { width: 100%; border-collapse: collapse; }
+.cover-box td { padding: 1.6mm 0; font-size: 9.6pt; border-bottom: 0.2mm dotted #d5dde6; }
+.cover-box td:first-child { color: #5b7089; width: 42%; }
+.cover-box tr:last-child td { border-bottom: none; }
+
+/* ---------- Generic tables ---------- */
+table.t { width: 100%; border-collapse: collapse; margin: 0 0 3mm; font-size: 8.6pt; }
+table.t th { background: #23425f; color: #fff; text-align: left; padding: 1.6mm 2mm; font-weight: 600; }
+table.t td { border: 0.2mm solid #ccd6e0; padding: 1.5mm 2mm; vertical-align: top; }
+table.t tr:nth-child(even) td { background: #f6f8fa; }
+table.t td.c, table.t th.c { text-align: center; }
+
+/* ---------- Test case block ---------- */
+.tc { border: 0.35mm solid #b9c7d6; border-radius: 1.6mm; margin: 0 0 3.5mm; page-break-inside: avoid; break-inside: avoid;
+      overflow: hidden; }
+.tc-h { background: #eaf0f6; border-bottom: 0.35mm solid #b9c7d6; padding: 1.8mm 2.5mm; display: flex; align-items: baseline; gap: 3mm; }
+.tc-id { font-family: Consolas, monospace; font-size: 8.8pt; font-weight: 700; color: #0f2a4a; white-space: nowrap; }
+.tc-t { font-size: 9.6pt; font-weight: 600; flex: 1; color: #14161a; }
+.pr { font-size: 7.4pt; font-weight: 700; padding: 0.6mm 2mm; border-radius: 3mm; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.3pt; }
+.p1 { background: #b3261e; color: #fff; }
+.p2 { background: #c8912a; color: #fff; }
+.p3 { background: #3d6b8e; color: #fff; }
+.p4 { background: #6b7b8c; color: #fff; }
+.tc-body { padding: 2.2mm 2.5mm 1mm; }
+.meta { font-size: 8.2pt; color: #41566b; margin: 0 0 2mm; padding-bottom: 1.5mm; border-bottom: 0.2mm dotted #ccd6e0; }
+.meta span { margin-right: 5mm; }
+.meta b { color: #0f2a4a; }
+.lbl { font-size: 8pt; font-weight: 700; color: #23425f; text-transform: uppercase; letter-spacing: 0.4pt; margin: 1.5mm 0 0.8mm; }
+.tc ol, .tc ul { margin-bottom: 1.5mm; }
+.exp { background: #f2f7f2; border-left: 0.9mm solid #2f7a4a; padding: 1.5mm 2.5mm; margin: 0 0 2mm; }
+.exp ul { margin-bottom: 0; }
+.verdict { width: 100%; border-collapse: collapse; margin: 1mm 0 0; font-size: 8pt; }
+.verdict td { border: 0.25mm solid #b9c7d6; padding: 2.2mm 2mm; }
+.verdict td.v { width: 16mm; text-align: center; font-weight: 700; color: #41566b; }
+.verdict td.vp { background: #f2f7f2; }
+.verdict td.vf { background: #fdf3f2; }
+.verdict td.vb { background: #f7f4ec; }
+.verdict td.ob { color: #8b97a4; }
+
+/* ---------- Callouts ---------- */
+.note, .warn, .bug { border-radius: 1.6mm; padding: 2.2mm 3mm; margin: 0 0 3mm; font-size: 8.6pt; page-break-inside: avoid; }
+.note { background: #eef4fa; border-left: 1mm solid #3d6b8e; }
+.warn { background: #fdf6e8; border-left: 1mm solid #c8912a; }
+.bug  { background: #fdf1f0; border-left: 1mm solid #b3261e; }
+.note b, .warn b, .bug b { display: block; margin-bottom: 0.8mm; }
+
+.chk { list-style: none; padding-left: 0; }
+.chk li { padding-left: 6mm; position: relative; margin-bottom: 1.2mm; }
+.chk li:before { content: ""; position: absolute; left: 0; top: 0.6mm; width: 3.4mm; height: 3.4mm;
+                 border: 0.35mm solid #5b7089; border-radius: 0.6mm; }
+
+.toc { column-count: 2; column-gap: 8mm; font-size: 9pt; }
+.toc div { margin-bottom: 1.4mm; break-inside: avoid; }
+.toc .n { display: inline-block; width: 8mm; color: #c8912a; font-weight: 700; }
+.toc .sub { display: block; padding-left: 8mm; color: #5b7089; font-size: 8.4pt; }
+
+.fill { border-bottom: 0.25mm solid #8b97a4; display: inline-block; min-width: 30mm; }
+</style>
+</head>
+<body>
+
+<!-- ============ COPERTA ============ -->
+<div class="page cover">
+  <div class="cover-kicker">Document de asigurare a calității</div>
+  <div class="cover-title">Specificație de testare<br>manuală</div>
+  <div class="cover-sub">eSoft Facturi &mdash; aplicație desktop de facturare</div>
+  <div class="cover-rule"></div>
+  <div class="cover-box">
+    <table>
+      <tr><td>Aplicație</td><td><b>eSoft Facturi</b> (Tauri 2 + Next.js, Windows)</td></tr>
+      <tr><td>Versiune testată</td><td><b>v1.0.9</b></td></tr>
+      <tr><td>Beneficiar</td><td>KARIN SRL &mdash; Seini, jud. Maramureș</td></tr>
+      <tr><td>Sistem ERP integrat</td><td>WinMentor Enterprise (WME) &mdash; REST / DataSnap</td></tr>
+      <tr><td>Tip de testare</td><td>Manuală, funcțională, end-to-end</td></tr>
+      <tr><td>Număr cazuri de test</td><td><b>235</b> (structurate pe 18 capitole)</td></tr>
+      <tr><td>Tester</td><td><span class="fill">&nbsp;</span></td></tr>
+      <tr><td>Data începerii</td><td><span class="fill">&nbsp;</span></td></tr>
+      <tr><td>Versiune document</td><td>1.0</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============ CUPRINS ============ -->
+<div class="page">
+<h1>Cuprins</h1>
+<div class="toc">
+  <div><span class="n">0</span>Cum se folosește acest document</div>
+  <div><span class="n">1</span>Pregătirea mediului de testare</div>
+  <div><span class="n">2</span>Configurarea inițială a firmei și a agentului <span class="sub">TC-CFG (18 cazuri)</span></div>
+  <div><span class="n">3</span>Autentificare și roluri <span class="sub">TC-AUT (12 cazuri)</span></div>
+  <div><span class="n">4</span>Prima pornire (First Run) <span class="sub">TC-FR (7 cazuri)</span></div>
+  <div><span class="n">5</span>Sincronizarea datelor <span class="sub">TC-SIN (13 cazuri)</span></div>
+  <div><span class="n">6</span>Panoul principal (Acasă) <span class="sub">TC-HOM (8 cazuri)</span></div>
+  <div><span class="n">7</span>Date &mdash; Parteneri și Articole <span class="sub">TC-DAT (14 cazuri)</span></div>
+  <div><span class="n">8</span>Emiterea unei facturi (wizard 4 pași) <span class="sub">TC-FAC (24 cazuri)</span></div>
+  <div><span class="n">9</span>Lista de facturi și trimiterea în WME <span class="sub">TC-LST (16 cazuri)</span></div>
+  <div><span class="n">10</span>Detalii factură <span class="sub">TC-DET (7 cazuri)</span></div>
+  <div><span class="n">11</span>Printarea &mdash; lanțul complet <span class="sub">TC-PRN (14 cazuri)</span></div>
+  <div><span class="n">12</span>Certificatul de calitate <span class="sub">TC-CER (11 cazuri)</span></div>
+  <div><span class="n">13</span>Chitanțe / încasări <span class="sub">TC-CHI (22 cazuri)</span></div>
+  <div><span class="n">14</span>Centralizator zi (Rapoarte) <span class="sub">TC-CEN (15 cazuri)</span></div>
+  <div><span class="n">15</span>Setări (Administrator) <span class="sub">TC-SET (16 cazuri)</span></div>
+  <div><span class="n">16</span>Comportament offline și reziliență <span class="sub">TC-OFF (11 cazuri)</span></div>
+  <div><span class="n">17</span>Reconcilierea cifrelor <span class="sub">TC-REC (9 cazuri)</span></div>
+  <div><span class="n">18</span>Regresie pe versiuni v1.0.4 &rarr; v1.0.9 <span class="sub">TC-REG (12 cazuri)</span></div>
+  <div><span class="n">19</span>Ecrane ascunse / de dezvoltare <span class="sub">TC-DEV (6 cazuri)</span></div>
+  <div><span class="n">20</span>Matricea de permisiuni Agent vs. Administrator</div>
+  <div><span class="n">21</span>Anexa A &mdash; Mesaje de eroare așteptate</div>
+  <div><span class="n">22</span>Anexa B &mdash; Fișiere, foldere și resetarea aplicației</div>
+  <div><span class="n">23</span>Anexa C &mdash; Defecte cunoscute de confirmat</div>
+  <div><span class="n">24</span>Anexa D &mdash; Formular de raportare defect</div>
+  <div><span class="n">25</span>Anexa E &mdash; Sumar de execuție</div>
+</div>
+</div>
+<!-- ============ CAP 0 ============ -->
+<div class="page">
+<h2>0. Cum se folosește acest document</h2>
+
+<h3>0.1 Scopul documentului</h3>
+<p>Acest document descrie <b>toate fluxurile funcționale</b> ale aplicației eSoft Facturi v1.0.9 și modul în care trebuie verificate manual, pas cu pas. Este scris astfel încât o persoană care nu a mai folosit aplicația să poată parcurge întregul set de teste doar citind acest document.</p>
+<p>Fiecare capitol acoperă un ecran sau un flux. Cazurile de test sunt numerotate și pot fi executate în ordinea din document &mdash; ordinea este aleasă intenționat, astfel încât datele create într-un capitol să fie folosite în capitolul următor.</p>
+
+<h3>0.2 Structura unui caz de test</h3>
+<p>Fiecare caz de test are următoarea formă:</p>
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-XXX-000</span><span class="tc-t">Titlul cazului de test</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent / Administrator</span><span><b>Ecran:</b> unde se execută</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Ce trebuie să fie adevărat înainte de a începe.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Acțiunea concretă pe care o face testerul.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul><li>Ce trebuie să se întâmple. Dacă nu se întâmplă exact acest lucru, cazul este <b>FAIL</b>.</li></ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații / nr. defect:</td></tr></table>
+  </div>
+</div>
+
+<h3>0.3 Prioritățile</h3>
+<table class="t">
+  <tr><th style="width:24mm">Prioritate</th><th>Semnificație</th><th style="width:52mm">Ce facem dacă pică</th></tr>
+  <tr><td><span class="pr p1">Critică</span></td><td>Blochează activitatea zilnică: nu se poate emite, printa sau trimite un document; se pierd date; cifrele sunt greșite.</td><td>Se raportează imediat, telefonic. Livrarea se oprește.</td></tr>
+  <tr><td><span class="pr p2">Mare</span></td><td>Funcție importantă nu merge, dar există o cale ocolitoare.</td><td>Se raportează în aceeași zi.</td></tr>
+  <tr><td><span class="pr p3">Medie</span></td><td>Comportament greșit, dar fără impact asupra documentelor emise.</td><td>Se raportează la finalul sesiunii.</td></tr>
+  <tr><td><span class="pr p4">Mică</span></td><td>Cosmetic: text, aliniere, traducere.</td><td>Se notează în sumar.</td></tr>
+</table>
+
+<h3>0.4 Reguli de aur pentru tester</h3>
+<ol>
+  <li><b>Nu presupune nimic.</b> Dacă în „Rezultat așteptat" scrie un text exact între ghilimele, textul din aplicație trebuie să fie identic, inclusiv diacriticele. Orice diferență se notează.</li>
+  <li><b>Verifică și hârtia, nu doar ecranul.</b> Aproape toate defectele grave ale acestei aplicații apar la printare. Păstrează fiecare bon printat, notează pe el ID-ul cazului de test.</li>
+  <li><b>Notificările (toast) apar în dreapta-sus</b> și dispar singure în câteva secunde. Fii atent imediat după fiecare click.</li>
+  <li><b>După fiecare test care trimite ceva în WME</b>, verifică și în WinMentor că documentul a ajuns și că nu s-a dublat.</li>
+  <li><b>Fă o fotografie / captură de ecran la orice eroare.</b> Notează ora exactă &mdash; se poate corela cu fișierul de log.</li>
+  <li><b>Nu sări peste capitolul 1.</b> Testele următoare presupun un mediu pregătit conform capitolului 1.</li>
+</ol>
+
+<h3>0.5 Legendă notații</h3>
+<table class="t">
+  <tr><th style="width:40mm">Notație</th><th>Semnificație</th></tr>
+  <tr><td><span class="k">%APPDATA%</span></td><td>Se scrie literal în bara Windows Explorer; se rezolvă la <span class="k">C:\Users\&lt;utilizator&gt;\AppData\Roaming</span>.</td></tr>
+  <tr><td>„Text"</td><td>Text care trebuie să apară exact așa în aplicație.</td></tr>
+  <tr><td><b>Buton</b></td><td>Element pe care se dă click.</td></tr>
+  <tr><td>Meniu &rarr; Submeniu</td><td>Cale de navigare.</td></tr>
+  <tr><td>WME</td><td>WinMentor Enterprise &mdash; sistemul ERP central.</td></tr>
+  <tr><td>Cofraj</td><td>30 de ouă. Toate rapoartele convertesc bucăți în cofraje împărțind la 30.</td></tr>
+</table>
+</div>

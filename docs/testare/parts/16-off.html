@@ -1,0 +1,253 @@
+<!-- ============ CAP 16 ============ -->
+<div class="page">
+<h2>16. Comportament offline și reziliență</h2>
+
+<p>Aplicația este folosită în mașină, pe teren, cu semnal intermitent. Acest capitol simulează condițiile reale de utilizare.</p>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-001</span><span class="tc-t">Ziua completă de lucru fără internet</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> toate</span><span><b>Durată:</b> ~40 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Aplicație configurată și sincronizată complet <b>înainte</b> de deconectare.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Sincronizează complet, apoi <b>deconectează</b> rețeaua.</li>
+      <li>Emite <b>5 facturi</b> pentru 3 parteneri diferiți, cu printare completă.</li>
+      <li>Emite <b>3 chitanțe</b>: două direct după factură, una din soldul clientului.</li>
+      <li>Printează certificatul pentru două dintre facturi.</li>
+      <li>Printează centralizatorul zilei.</li>
+      <li>Verifică toate ecranele: Acasă, Facturi, Chitanțe, Date, Rapoarte.</li>
+      <li>Reconectează rețeaua și așteaptă până la 60 de secunde.</li>
+      <li>Verifică în WinMentor toate documentele.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat &mdash; bifează</div>
+    <div class="exp"><ul class="chk">
+      <li>Toate cele 5 facturi se creează, primesc numere consecutive și se printează</li>
+      <li>Toate cele 3 chitanțe se creează și se printează</li>
+      <li>Certificatele conțin date reale (memorate la sincronizarea de dimineață)</li>
+      <li>Centralizatorul se printează corect și include toate documentele</li>
+      <li>Niciun ecran nu afișează eroare tehnică sau ecran alb</li>
+      <li>La reconectare, toate documentele se trimit automat</li>
+      <li>În WinMentor sunt exact 5 facturi și 3 chitanțe, <b>fără duplicate</b></li>
+      <li>Valorile din WinMentor coincid cu bonurile printate</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-002</span><span class="tc-t">Conexiune intermitentă în timpul trimiterii</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Cu 3 facturi în așteptare, reconectează rețeaua.</li>
+      <li>Imediat ce începe trimiterea, <b>deconectează</b> din nou.</li>
+      <li>Repetă ciclul de 3 ori: conectat 5 secunde, deconectat 10 secunde.</li>
+      <li>Lasă apoi conexiunea stabilă și așteaptă finalizarea.</li>
+      <li>Verifică în WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația nu se blochează în niciun moment.</li>
+      <li>Facturile netrimise rămân „În așteptare” și se reîncearcă automat.</li>
+      <li><b>Criteriul principal:</b> în WinMentor există exact 3 facturi, fără duplicate, deși trimiterea a fost întreruptă de mai multe ori.</li>
+      <li>Nicio factură nu se pierde.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-003</span><span class="tc-t">Oprirea forțată a aplicației în timpul trimiterii unei chitanțe</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Chitanțe</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă „Trimite” pe o chitanță și, când statusul devine <b>„Se trimite...”</b>, oprește aplicația din Task Manager.</li>
+      <li>Repornește aplicația și verifică statusul chitanței.</li>
+      <li>Verifică în WinMentor.</li>
+      <li>Retrimite chitanța dacă este cazul și verifică din nou.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>După repornire, chitanța <b>nu</b> mai are statusul „Se trimite...”; a revenit la „În așteptare”.</li>
+      <li>Baza de date nu este coruptă; aplicația pornește normal.</li>
+      <li>În WinMentor există <b>o singură</b> încasare, nu două.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-004</span><span class="tc-t">Oprirea calculatorului în timpul emiterii unei facturi</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Se execută pe un calculator de test, nu pe cel de producție.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Notează „Număr Curent” din Setări.</li>
+      <li>Completează wizardul și apasă „Trimite”; imediat, oprește forțat calculatorul (buton de alimentare).</li>
+      <li>Repornește calculatorul și aplicația.</li>
+      <li>Verifică lista de facturi și „Număr Curent”.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația pornește normal, fără mesaj de bază de date coruptă.</li>
+      <li>Fie factura există complet, fie nu există deloc &mdash; <b>nu</b> trebuie să existe o factură parțială, fără produse.</li>
+      <li>Se notează valoarea „Număr Curent” după repornire și dacă s-a consumat sau nu un număr.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-005</span><span class="tc-t">Serverul WME cade la mijlocul unei zile de lucru</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> toate</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Cu internetul activ, oprește serverul WME.</li>
+      <li>Emite o factură completă, cu printare și chitanță.</li>
+      <li>Observă indicatorul din antet și mesajele afișate.</li>
+      <li>Repornește serverul WME și apasă „Sincronizare”.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Indicatorul rămâne <b>„Online”</b>, deși WME este oprit (vezi TC-SIN-013).</li>
+      <li>Documentele se creează și se printează normal.</li>
+      <li>Trimiterea eșuează, dar documentele rămân salvate local.</li>
+      <li>După repornirea serverului și sincronizare, totul se trimite corect.</li>
+      <li>Se notează cât de clar este mesajul afișat utilizatorului în acest interval.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-006</span><span class="tc-t">Rețea foarte lentă</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Posibilitate de a limita viteza rețelei (ex. conexiune mobilă slabă). Altfel, marchează <b>Blocat</b>.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Limitează viteza rețelei.</li><li>Apasă „Sincronizare” și cronometrează.</li><li>În timpul operației, încearcă să navighezi și să emiți o factură.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația rămâne receptivă; se poate naviga în alte ecrane.</li>
+      <li>Operațiile de rețea se opresc după un timp rezonabil (aprox. 30 de secunde) și afișează un mesaj, în loc să rămână blocate la nesfârșit.</li>
+      <li>Emiterea unei facturi funcționează în paralel.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-007</span><span class="tc-t">Utilizare îndelungată fără repornire</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> toate</span><span><b>Durată:</b> 8 ore (pasiv)</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Lasă aplicația deschisă o zi întreagă de lucru.</li>
+      <li>Emite documente din oră în oră.</li>
+      <li>La final, verifică în Task Manager consumul de memorie al aplicației și numărul de procese Edge.</li>
+      <li>Verifică dimensiunea folderului <span class="k">%TEMP%\esoft_edge_pdf</span>.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația rămâne la fel de rapidă la finalul zilei ca la început.</li>
+      <li>Consumul de memorie nu crește necontrolat; notează valoarea de la început și de la sfârșit: <span class="fill">&nbsp;</span></li>
+      <li>Nu rămân procese Edge agățate.</li>
+      <li>Printarea funcționează la fel de bine la ora 17 ca la ora 8 (vezi blocajul cunoscut din secțiunea 1.4).</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-008</span><span class="tc-t">Trecerea peste miezul nopții</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Acasă / Facturi</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Se poate modifica ceasul calculatorului de test.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură la ora 23:50 (sau setează ceasul astfel).</li>
+      <li>Avansează ceasul peste miezul nopții, la 00:10.</li>
+      <li>Verifică ecranele Acasă, Facturi, Chitanțe și Rapoarte, ca <b>Agent</b>.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Factura emisă „ieri” nu mai apare în lista Agentului &mdash; filtrarea pe ziua curentă se aplică corect.</li>
+      <li>Statisticile de pe Acasă se resetează la zero pentru ziua nouă.</li>
+      <li>Centralizatorul afișează ziua nouă, goală.</li>
+      <li>Facturile din ziua precedentă rămân vizibile pentru Administrator și se trimit în continuare automat.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-009</span><span class="tc-t">Spațiu insuficient pe disc</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Calculator de test pe care se poate umple discul. Altfel, marchează <b>Blocat</b>.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Umple discul până rămân sub 50 MB liberi.</li><li>Încearcă să emiți și să printezi o factură.</li><li>Eliberează spațiu și reîncearcă.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația afișează un mesaj inteligibil, nu o eroare tehnică brută.</li>
+      <li>Baza de date nu se corupe.</li>
+      <li>După eliberarea spațiului, totul revine la normal fără reinstalare.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-010</span><span class="tc-t">Comportamentul la rezoluții și dimensiuni de fereastră diferite</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> toate</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Maximizează fereastra și parcurge toate ecranele.</li>
+      <li>Redimensionează fereastra la aproximativ jumătate de ecran și repetă.</li>
+      <li>Redimensionează la lățime foarte mică (~1000 px) și repetă.</li>
+      <li>Verifică în special: tabelele, wizardul de factură, ecranul de Setări și Centralizatorul.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>La lățimi mici apare butonul de meniu (hamburger), iar meniul lateral se deschide peste conținut.</li>
+      <li>Anumite coloane de tabel se ascund pentru a încăpea &mdash; acest lucru este intenționat.</li>
+      <li><b>Niciun buton nu devine inaccesibil</b> și niciun text nu se suprapune.</li>
+      <li>Butoanele „Continuă”/„Trimite” din wizard rămân vizibile la orice dimensiune.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-OFF-011</span><span class="tc-t">Două documente emise simultan din ecrane diferite</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Facturi / Chitanțe</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Pornește trimiterea unei facturi.</li>
+      <li>Imediat, fără a aștepta, mergi în Chitanțe și pornește trimiterea unei chitanțe.</li>
+      <li>Concomitent, apasă și butonul „Sincronizare” din antet.</li>
+      <li>Așteaptă finalizarea tuturor operațiilor și verifică în WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația nu se blochează și nu afișează erori tehnice.</li>
+      <li>Ambele documente ajung în WinMentor, <b>o singură dată fiecare</b>.</li>
+      <li>Numerotarea rămâne consecutivă, fără repetări.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

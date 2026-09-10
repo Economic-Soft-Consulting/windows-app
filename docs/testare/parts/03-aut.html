@@ -1,0 +1,350 @@
+<!-- ============ CAP 3 ============ -->
+<div class="page">
+<h2>3. Autentificare și roluri</h2>
+
+<p>Aplicația are două roluri: <b>Agent</b> (utilizatorul de teren, fără parolă) și <b>Administrator</b> (cu parolă, acces complet). Nu există autentificare pe server &mdash; verificarea se face local, în aplicație.</p>
+
+<div class="note"><b>Diferența esențială de reținut</b>
+Sesiunea de <b>Agent se păstrează</b> după repornirea aplicației. Sesiunea de <b>Administrator NU se păstrează</b> &mdash; la fiecare pornire trebuie reintrodusă parola. Acest comportament este intenționat; nu îl raporta ca defect.</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-001</span><span class="tc-t">Ecranul de autentificare &mdash; aspect inițial</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> &mdash;</span><span><b>Ecran:</b> Autentificare</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Pornește aplicația (dacă ești autentificat, apasă întâi <b>„Schimbă utilizator”</b>).</li><li>Observă ecranul.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Titlu <b>„eSoft Facturi”</b>, subtitlu <b>„Selectați tipul de utilizator”</b>, siglă vizibilă.</li>
+      <li>Două butoane mari: <b>„Agent”</b> cu textul „Acces standard” și <b>„Administrator”</b> cu textul „Acces complet”.</li>
+      <li>Nu există câmp de parolă vizibil în acest moment.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-002</span><span class="tc-t">Autentificare ca Agent</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Autentificare</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Agent”</b>.</li><li>Observă zona de sub titlu.</li><li>Apasă <b>„Continuă”</b>.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Subtitlul devine <b>„Autentificare”</b>, iar în banda gri scrie <b>„Agent”</b> și <b>„Fără parolă”</b>.</li>
+      <li><b>Nu apare câmp de parolă.</b></li>
+      <li>La apăsarea butonului „Continuă” apare notificarea verde <b>„Autentificat ca Agent”</b> și se deschide pagina Acasă.</li>
+      <li>În meniul lateral scrie <b>„👤 Agent”</b>, iar în antet apare eticheta <b>„Agent”</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-003</span><span class="tc-t">Autentificare ca Administrator cu parola corectă</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Autentificare</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Ai parola de Administrator din tabelul 1.3.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Administrator”</b>.</li><li>Verifică dacă în câmpul de parolă cursorul este deja poziționat (focus automat).</li><li>Introdu parola corectă și apasă <b>„Autentificare”</b>.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare eticheta <b>„Parolă Administrator”</b> și câmpul cu textul-sugestie „Introduceți parola”; cursorul este deja în câmp.</li>
+      <li>Caracterele introduse sunt mascate (puncte), nu vizibile.</li>
+      <li>Apare notificarea verde <b>„Autentificat ca Administrator”</b> și se deschide pagina Acasă.</li>
+      <li>În meniul lateral apare intrarea <b>„Setări”</b>, care la Agent lipsește.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-004</span><span class="tc-t">Parolă goală la Administrator</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Autentificare</span><span><b>Durată:</b> ~1 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Administrator”</b>.</li><li>Lasă câmpul gol și apasă <b>„Autentificare”</b>.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sub câmp apare textul roșu <b>„Introduceți parola”</b>, însoțit de o pictogramă de avertizare.</li>
+      <li>Autentificarea <b>nu</b> se produce; rămâi pe ecranul de autentificare.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-005</span><span class="tc-t">Parolă greșită la Administrator</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Autentificare</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Administrator”</b>.</li><li>Introdu o parolă greșită (ex. <span class="k">1234</span>) și apasă <b>„Autentificare”</b>.</li><li>Începe să tastezi din nou în câmp.</li><li>Repetă de 5 ori cu parole greșite diferite.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare textul roșu <b>„Parolă incorectă”</b>, iar câmpul de parolă este <b>golit automat</b>.</li>
+      <li>Mesajul de eroare dispare la prima tastă apăsată.</li>
+      <li>Nu există blocare după încercări repetate &mdash; se notează ca observație de securitate, nu ca defect funcțional.</li>
+      <li>Nu se acordă în niciun caz acces.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-006</span><span class="tc-t">Tasta Enter trimite formularul de autentificare</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Autentificare</span><span><b>Durată:</b> ~1 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Administrator”</b>, tastează parola corectă și apasă tasta <b>Enter</b> (fără a apăsa butonul).</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul><li>Autentificarea se produce identic cu apăsarea butonului.</li></ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-007</span><span class="tc-t">Butonul „Înapoi” resetează selecția rolului</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> &mdash;</span><span><b>Ecran:</b> Autentificare</span><span><b>Durată:</b> ~1 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Administrator”</b>, introdu o parolă greșită pentru a genera eroarea.</li><li>Apasă <b>„Înapoi”</b>.</li><li>Apasă din nou <b>„Administrator”</b>.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se revine la ecranul cu cele două roluri.</li>
+      <li>La reintrare, câmpul de parolă este <b>gol</b> și <b>fără</b> mesajul de eroare anterior.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-008</span><span class="tc-t">Sesiunea de Agent supraviețuiește repornirii</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> global</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Autentifică-te ca <b>Agent</b>.</li><li>Închide complet aplicația.</li><li>Pornește aplicația din nou.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația se deschide <b>direct pe pagina Acasă</b>, ca Agent, fără a mai cere autentificarea.</li>
+      <li>Intrarea „Setări” din meniul lateral rămâne ascunsă.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-009</span><span class="tc-t">Sesiunea de Administrator NU supraviețuiește repornirii</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> global</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Autentifică-te ca <b>Administrator</b>.</li><li>Închide complet aplicația.</li><li>Pornește aplicația din nou.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația cere din nou autentificarea &mdash; se afișează ecranul cu cele două roluri.</li>
+      <li>Nu se intră automat ca Administrator.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-010</span><span class="tc-t">Schimbarea utilizatorului</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> ambele</span><span><b>Ecran:</b> Meniu lateral / Acasă</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Fiind autentificat ca Administrator, apasă <b>„Schimbă utilizator”</b> din partea de jos a meniului lateral.</li>
+      <li>Autentifică-te ca Agent.</li>
+      <li>Repetă folosind cardul <b>„Schimbă user”</b> din secțiunea „Navigare Rapidă” de pe pagina Acasă.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Ambele căi duc la ecranul de autentificare.</li>
+      <li>După trecerea la Agent, intrarea „Setări” dispare din meniu și statisticile de pe Acasă se restrâng la ziua curentă.</li>
+      <li>Nu rămân pe ecran date ale utilizatorului anterior.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-011</span><span class="tc-t">Agentul nu poate ajunge în Setări</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Autentifică-te ca <b>Agent</b>.</li>
+      <li>Verifică meniul lateral: intrarea „Setări” trebuie să lipsească.</li>
+      <li>Verifică secțiunea „Navigare Rapidă” de pe Acasă: cardul „Configurare” trebuie să lipsească.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Nici intrarea din meniu, nici cardul „Configurare” nu sunt vizibile pentru Agent.</li>
+      <li>Dacă, prin orice mijloc, se ajunge pe ecranul de Setări, apare imediat notificarea roșie <b>„Acces interzis - doar pentru Administrator”</b> și utilizatorul este trimis pe pagina Acasă.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-AUT-012</span><span class="tc-t">Acțiunile rezervate Administratorului sunt ascunse pentru Agent</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> mai multe</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există cel puțin o factură și o chitanță emise azi, precum și un partener cu sold.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Ca Agent, deschide <b>Facturi</b> și verifică meniul „⋯” al unei facturi și butoanele de pe card.</li>
+      <li>Deschide <b>Chitanțe</b> și verifică aceleași elemente.</li>
+      <li>Deschide <b>Date &rarr; Parteneri</b> și caută butonul de ștergere parteneri.</li>
+      <li>Deschide <b>Chitanțe &rarr; Chitanță nouă</b>, alege un partener și treci la pasul „Factură”; caută butonul de ascundere a unei facturi.</li>
+      <li>Deschide <b>Rapoarte</b> și încearcă să modifici datele din calendare.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat &mdash; bifează</div>
+    <div class="exp"><ul class="chk">
+      <li>Facturi: opțiunea <b>„Șterge”</b> și pictograma de coș <b>lipsesc</b></li>
+      <li>Chitanțe: opțiunea <b>„Șterge”</b> <b>lipsește</b></li>
+      <li>Date: butonul <b>„Șterge parteneri + sedii”</b> <b>lipsește</b></li>
+      <li>Chitanță nouă, pasul Factură: butonul de ascundere („ochi tăiat”) <b>lipsește</b></li>
+      <li>Rapoarte: ambele calendare sunt <b>inactive</b> și fixate pe data de azi</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>
+
+<!-- ============ CAP 4 ============ -->
+<div class="page">
+<h2>4. Prima pornire (First Run)</h2>
+
+<p>La prima deschidere pe un calculator nou, aplicația afișează o fereastră care blochează restul interfeței până când datele de bază (parteneri și produse) sunt descărcate din WME. Toate testele din acest capitol necesită procedura de resetare din secțiunea 1.4.</p>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FR-001</span><span class="tc-t">Prima pornire fără internet</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Prima pornire</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Instalare curată (1.4). Calculatorul este <b>deconectat</b> de la internet.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Pornește aplicația și autentifică-te ca Administrator.</li><li>Citește fereastra afișată.</li><li>Apasă <b>„Reîncearcă”</b> încă fiind offline.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Titlu: <b>„Conexiune necesară”</b>.</li>
+      <li>Text: „Pentru prima utilizare este necesară o conexiune la internet pentru a descărca lista de parteneri și produse.”</li>
+      <li>Buton: <b>„Reîncearcă”</b>; la apăsare, mesajul rămâne același.</li>
+      <li>Restul aplicației rămâne inaccesibil (fereastra blochează interfața).</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FR-002</span><span class="tc-t">Prima pornire online, fără server WME configurat</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Prima pornire</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Instalare curată. Internet activ. Serverul WME nu este configurat.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Pornește aplicația, autentifică-te ca <b>Administrator</b>.</li><li>Citește fereastra.</li><li>Apasă <b>„Mergi la Setări”</b>.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Titlu: <b>„Server WME neconfigurat”</b>, text: „Înainte de prima sincronizare trebuie să configurezi adresa IP a serverului WME în Setări.”</li>
+      <li>Apăsarea butonului deschide <b>ecranul de Setări</b>, cu cardul Server WME evidențiat în portocaliu.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FR-003</span><span class="tc-t">Prima sincronizare reușită</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Prima pornire</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Serverul WME este configurat corect (TC-CFG-004) și accesibil. Internet activ.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Repornește aplicația.</li><li>Urmărește fereastra de primă pornire până la dispariția ei. Cronometrează durata.</li><li>Mergi în ecranul <b>Date</b> și verifică numărul de parteneri și de articole.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se afișează <b>„Se încarcă datele...”</b>, „Se descarcă lista de parteneri și produse.” și „Vă rugăm așteptați.” cu un indicator de progres.</li>
+      <li>Fereastra dispare singură la finalizare, fără intervenția utilizatorului.</li>
+      <li>Lista de parteneri și lista de articole sunt populate.</li>
+      <li>Durata totală se notează: <span class="fill">&nbsp;</span> secunde.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FR-004</span><span class="tc-t">Prima sincronizare eșuată (server WME oprit)</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Prima pornire</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Instalare curată, IP WME configurat, dar serviciul WME <b>oprit</b> sau IP-ul indisponibil. Internet activ.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Pornește aplicația și autentifică-te.</li><li>Așteaptă rezultatul.</li><li>Pornește serviciul WME și apasă <b>„Reîncearcă”</b>.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare titlul <b>„Eroare la sincronizare”</b> și mesajul tehnic returnat de server.</li>
+      <li>Butonul <b>„Reîncearcă”</b> este disponibil.</li>
+      <li>După pornirea serviciului, reîncercarea reușește și fereastra dispare.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FR-005</span><span class="tc-t">Fereastra de primă pornire nu mai apare la a doua deschidere</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> global</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>După o primă sincronizare reușită, închide și redeschide aplicația.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul><li>Aplicația pornește direct în interfața normală, fără fereastra de primă pornire.</li></ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FR-006</span><span class="tc-t">Fereastra de actualizare automată a aplicației</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> global</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Aplicație instalată dintr-un kit oficial (nu versiune de dezvoltare) și internet activ.</li><li>Ideal: există o versiune mai nouă publicată.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Pornește aplicația și urmărește primele secunde.</li><li>Dacă apare fereastra de actualizare, așteaptă finalizarea.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Dacă există o versiune nouă: apar mesajele „Checking for updates...”, apoi „Downloading update...” cu versiunea afișată, iar la final aplicația <b>repornește singură</b> pe versiunea nouă.</li>
+      <li>Dacă nu există versiune nouă sau nu există internet: aplicația pornește normal, fără mesaje de eroare.</li>
+      <li><b>Observație de raportat:</b> textele acestei ferestre sunt în limba engleză.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FR-007</span><span class="tc-t">Recuperarea după oprirea forțată a aplicației</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi / Chitanțe</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există cel puțin o factură în așteptare.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă <b>„Trimite”</b> pe o factură și, imediat ce statusul devine <b>„Se trimite...”</b>, oprește forțat aplicația din Task Manager.</li>
+      <li>Repornește aplicația și deschide lista de Facturi.</li>
+      <li>Verifică în WinMentor dacă factura a ajuns.</li>
+      <li>Dacă nu a ajuns, retrimite-o și verifică din nou.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>După repornire, factura <b>nu</b> mai are statusul „Se trimite...”; a revenit la <b>„În așteptare”</b>.</li>
+      <li>Aplicația pornește normal, baza de date nu este coruptă.</li>
+      <li><b>Cel mai important:</b> după retrimitere, în WinMentor există <b>o singură</b> factură, nu două. Notează numărul documentului verificat.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

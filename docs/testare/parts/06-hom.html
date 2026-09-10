@@ -1,0 +1,450 @@
+<!-- ============ CAP 6 ============ -->
+<div class="page">
+<h2>6. Panoul principal (Acasă)</h2>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-HOM-001</span><span class="tc-t">Panoul de Agent afișează doar ziua curentă</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Acasă</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există facturi emise <b>azi</b> și facturi emise în <b>zilele anterioare</b>. Notează numărul exact al fiecărei categorii.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Autentifică-te ca <b>Agent</b> și deschide pagina Acasă.</li><li>Citește titlul, subtitlul și cele 4 casete de statistici.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Titlu: <b>„Bine ai venit!”</b>; subtitlu: <b>„Panou Agent - Date zilnice”</b>.</li>
+      <li>Titlul secțiunii de statistici este <b>„Sumar Ziua Curentă”</b>.</li>
+      <li>Prima casetă se numește <b>„Facturi Astăzi”</b>, cu textul de subsol „Emise azi”.</li>
+      <li>Numărul afișat este <b>doar</b> cel al facturilor de azi &mdash; cele din zilele anterioare nu sunt numărate.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-HOM-002</span><span class="tc-t">Panoul de Administrator afișează tot istoricul</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Acasă</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Autentifică-te ca <b>Administrator</b> și deschide pagina Acasă.</li><li>Compară numerele cu cele notate la TC-HOM-001.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Subtitlu: <b>„Panou Administrator - Toate datele”</b>; secțiune: <b>„Sumar Total”</b>.</li>
+      <li>Prima casetă se numește doar <b>„Facturi”</b>, cu subsolul „Total facturi”.</li>
+      <li>Numărul afișat include <b>toate</b> facturile, din toate zilele.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-HOM-003</span><span class="tc-t">Corectitudinea celor patru casete de statistici</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Acasă + Facturi</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Notează valorile din cele 4 casete: Facturi, În Așteptare, Trimise, Eșuate.</li>
+      <li>Deschide ecranul <b>Facturi</b> și notează contoarele de pe fiecare filă: Toate, În așteptare, Trimise, Eșuate.</li>
+      <li>Compară perechile.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Valorile coincid exact, pereche cu pereche.</li>
+      <li>Suma „În Așteptare” + „Trimise” + „Eșuate” este cel mult egală cu „Facturi” (poate exista și statusul tranzitoriu „Se trimite”).</li>
+      <li>Textele de subsol: „Necesită sincronizare” (galben), „Confirmate WinMentor” (verde), „Erori validare” (roșu).</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-HOM-004</span><span class="tc-t">Totalurile financiare &mdash; TVA calculat fix la 19%</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Acasă</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Ideal: există cel puțin o factură cu un produs care are alt procent de TVA decât 19% (ex. 9%). Dacă nu există, notează acest lucru și marchează cazul ca <b>Blocat</b>.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Notează valorile din caseta <b>„Totaluri Financiare”</b>: „Fără TVA”, „Total cu TVA”, „Volum Doc.”.</li>
+      <li>Deschide facturile una câte una și adună manual totalul cu TVA din fiecare (folosind TVA-ul real al fiecărui produs).</li>
+      <li>Compară suma manuală cu valoarea „Total cu TVA” de pe panou.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>„Fără TVA” coincide cu suma totalurilor nete ale facturilor.</li>
+      <li>„Volum Doc.” este numărul total de bucăți vândute.</li>
+      <li><b>Dacă toate produsele au TVA 19%:</b> valorile coincid.</li>
+      <li><b>Dacă există un produs cu alt TVA:</b> valoarea de pe panou diferă de suma reală, pentru că panoul aplică 19% pe tot. <b>Acesta este un defect de raportat</b>, cu cifrele concrete notate.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-HOM-005</span><span class="tc-t">Navigarea rapidă din panou</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Acasă</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă, pe rând, fiecare card din secțiunea <b>„Navigare Rapidă”</b> și revino de fiecare dată pe Acasă.</li><li>Apasă și butonul mare <b>„Factură Nouă”</b>.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li><b>Facturi</b> („Istoric și status”) &rarr; lista de facturi.</li>
+      <li><b>Chitanțe</b> („Încasări și status”) &rarr; lista de chitanțe.</li>
+      <li><b>Date / Parteneri</b> („Clienți și produse”) &rarr; ecranul Date.</li>
+      <li><b>Rapoarte</b> („Vânzări și încasări”) &rarr; Centralizator zi.</li>
+      <li><b>Configurare</b> („Setări aplicație”) &rarr; Setări (vizibil doar la Administrator).</li>
+      <li><b>Schimbă user</b> &rarr; ecranul de autentificare.</li>
+      <li><b>Factură Nouă</b> &rarr; wizardul de factură, pasul 1.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-HOM-006</span><span class="tc-t">Cardul „Web eSoft” deschide site-ul în browser</span><span class="pr p4">Mică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Acasă</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă cardul <b>„Web eSoft”</b> / legătura „Vizitează”.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se deschide <b>browserul implicit</b> al calculatorului la adresa softconsulting.ro.</li>
+      <li>Pagina <b>nu</b> se deschide în interiorul aplicației, iar aplicația rămâne deschisă în fundal.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-HOM-007</span><span class="tc-t">Viteza de încărcare a panoului cu volum mare de date</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Acasă</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Baza de date conține un număr mare de facturi (peste 100; ideal peste 300). Dacă mediul de test nu are, cere clientului o copie a bazei de producție sau notează cazul ca <b>Blocat</b>.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Autentifică-te ca <b>Administrator</b>.</li>
+      <li>Cronometrează timpul de la deschiderea paginii Acasă până la afișarea valorii finale la „Volum Doc.”.</li>
+      <li>În acest interval, încearcă să navighezi în alt ecran.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Panoul devine complet utilizabil în cel mult <b>5 secunde</b>.</li>
+      <li>Interfața <b>nu îngheață</b>; navigarea rămâne posibilă în timpul încărcării.</li>
+      <li><b>Risc cunoscut:</b> aplicația interoghează fiecare factură în parte pentru a calcula „Volum Doc.”. Cu multe facturi, timpul crește liniar. Notează timpul măsurat și numărul de facturi: <span class="fill">&nbsp;</span></li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-HOM-008</span><span class="tc-t">Panoul pe o instalare fără date</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Acasă</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Instalare curată, sincronizată, dar fără nicio factură emisă.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Deschide pagina Acasă.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Toate cele 4 casete afișează <b>0</b>, nu spații goale sau „NaN”.</li>
+      <li>Totalurile financiare afișează <b>0,00 RON</b>, corect formatat.</li>
+      <li>Nu apare nicio eroare.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>
+
+<!-- ============ CAP 7 ============ -->
+<div class="page">
+<h2>7. Date &mdash; Parteneri și Articole</h2>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-001</span><span class="tc-t">Structura ecranului Date</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Meniu lateral &rarr; <b>Date</b>.</li><li>Comută între cele două file.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Titlu <b>„Date”</b>, subtitlu „Vizualizează partenerii și produsele disponibile”.</li>
+      <li>Două file: <b>„Parteneri”</b> și <b>„Articole”</b>, fiecare cu numărul de înregistrări afișat lângă titlu.</li>
+      <li>Comutarea între file este instantanee și păstrează datele deja încărcate.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-002</span><span class="tc-t">Căutarea partenerilor după nume, CUI și cod</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; Parteneri</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Caută un partener după o parte din denumire (ex. primele 4 litere).</li>
+      <li>Caută același partener după <b>CUI</b>.</li>
+      <li>Caută-l după <b>cod intern</b>.</li>
+      <li>Caută un text care nu există (ex. <span class="k">zzzzz</span>).</li>
+      <li>Golește căsuța de căutare.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Câmpul are textul-sugestie <b>„Caută partener (nume, CUI, cod)...”</b>.</li>
+      <li>Căutarea după denumire returnează partenerul.</li>
+      <li>Se notează dacă funcționează căutarea după CUI și după cod intern &mdash; dacă nu, se raportează ca defect, întrucât sugestia din câmp promite acest lucru.</li>
+      <li>Pentru un text inexistent apare <b>„Nu există parteneri”</b>.</li>
+      <li>La golirea căsuței, lista completă revine.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-003</span><span class="tc-t">Căutare cu diacritice și caractere speciale</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; Parteneri</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Caută un partener al cărui nume conține diacritice, scriind <b>cu</b> diacritice.</li>
+      <li>Caută același partener scriind <b>fără</b> diacritice.</li>
+      <li>Introdu în căsuță caracterele <span class="k">%</span> și apoi <span class="k">_</span>.</li>
+      <li>Introdu un apostrof: <span class="k">'</span></li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se notează comportamentul pentru fiecare variantă (cu / fără diacritice).</li>
+      <li>Caracterele <span class="k">%</span> și <span class="k">_</span> <b>nu</b> trebuie să returneze toată lista, iar aplicația nu trebuie să se blocheze.</li>
+      <li>Apostroful nu produce eroare tehnică și nu golește ecranul.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-004</span><span class="tc-t">Cardul de partener afișează datele corect</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; Parteneri</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Alege un partener și compară datele de pe card cu fișa lui din WinMentor.</li><li>Caută un partener marcat ca inactiv în WME.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Cardul afișează: denumire, <b>„CUI: …”</b>, <b>„COD: …”</b>, Județ, Localitate, Linii Credit, Scadență („N zile”) și numărul de locații.</li>
+      <li>Valorile coincid cu cele din WinMentor.</li>
+      <li>Partenerii inactivi au eticheta roșie <b>„Inactiv”</b>.</li>
+      <li>Există butonul <b>„Vezi Detalii &amp; Prețuri”</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-005</span><span class="tc-t">Fereastra de detalii partener &mdash; fila Info General</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; detalii partener</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Vezi Detalii &amp; Prețuri”</b> la un partener.</li><li>Rămâi pe fila <b>„Info General”</b> și parcurge cele trei secțiuni.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Antetul ferestrei conține denumirea, <b>„CUI: …”</b> și <b>„Reg.Com: …”</b>.</li>
+      <li>Secțiunea <b>„Info Fiscal”</b>: CUI/CIF, Reg. Comerțului, Cod Intern, Cod Extern, Tip Partener, TVA la Încasare, <b>Plătitor TVA</b> („Da” dacă CUI-ul începe cu RO), Statut (Activ/Inactiv).</li>
+      <li>Secțiunea <b>„Financiar”</b>: Credit Client, Monedă, Scadență Vânzare, Discount Fix, Categorie Preț.</li>
+      <li><b>De notat ca defect minor:</b> câmpurile „Banca”, „Cont IBAN” și „Agent” afișează întotdeauna „-”, indiferent de datele reale.</li>
+      <li>Câmpurile fără valoare <b>dispar complet</b> în loc să afișeze „-” &mdash; se notează ca inconsecvență.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-006</span><span class="tc-t">Fila Locații și căutarea în ea</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; detalii partener</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Partenerul ales are cel puțin 3 locații.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deschide fila <b>„Locații (N)”</b> și verifică dacă N corespunde numărului real de locații.</li>
+      <li>Caută o locație după denumire, apoi după localitate.</li>
+      <li>Apasă pe un număr de telefon și pe o adresă de e-mail afișate.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Numărul din titlul filei este corect.</li>
+      <li>Fiecare locație afișează denumirea, <b>„Cod Sediu: …”</b> sau <b>„Sediu Secundar”</b>, adresa, Localitate, Județ, Țara, Cod Poștal.</li>
+      <li>Căutarea filtrează corect după denumire și localitate.</li>
+      <li>Telefonul și e-mailul sunt legături active care deschid aplicația implicită.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-007</span><span class="tc-t">Fila Oferte &amp; Prețuri &mdash; prețul de contract</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; detalii partener</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>În WME există o ofertă activă pentru partenerul ales, cu preț diferit de prețul de listă. Notează prețul din ofertă.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deschide fila <b>„Oferte &amp; Prețuri”</b> și caută produsul din ofertă.</li>
+      <li>Compară prețul afișat cu prețul din ofertă și cu prețul de listă din fila Articole.</li>
+      <li>Emite o factură pentru acest partener cu acest produs și verifică prețul folosit.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Prețul afișat în această filă este <b>prețul din ofertă</b>, nu prețul de listă.</li>
+      <li>Factura emisă folosește <b>același preț de ofertă</b>.</li>
+      <li><b>De notat ca defect minor:</b> fila afișează, când nu există rezultate, mesajul „Nu s-au găsit produse în ofertă sau stoc pentru „…””, deși în această filă <b>nu există câmp de căutare</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-008</span><span class="tc-t">Fila Solduri și actualizarea lor</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; detalii partener</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Partenerul are facturi neîncasate în WME. Notează soldul din WinMentor.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deschide fila <b>„Solduri (N)”</b>.</li>
+      <li>Apasă <b>„Actualizează”</b> și așteaptă.</li>
+      <li>Compară fiecare rând și totalul cu situația din WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare <b>„Solduri actualizate”</b> după apăsarea butonului.</li>
+      <li>Fiecare card afișează „tip document serie număr”, Cod, Data, Scadență, „Rest de plată” și „Valoare”.</li>
+      <li><b>„Total sold”</b> este afișat cu <b>roșu</b> când este pozitiv și cu verde în caz contrar.</li>
+      <li>Valorile coincid cu WinMentor.</li>
+      <li>Dacă nu există solduri: <b>„Nu există solduri pentru acest partener”</b> și „Apasă „Actualizează” pentru a sincroniza soldurile.”</li>
+      <li><b>De notat ca defect minor:</b> etichetele de pe carduri sunt în engleză &mdash; <b>„Paid”</b> / <b>„Unpaid”</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-009</span><span class="tc-t">Lista de articole și căutarea în ea</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; Articole</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Deschide fila <b>„Articole”</b>.</li><li>Caută un articol după denumire, apoi după cod.</li><li>Compară datele afișate cu fișa articolului din WinMentor.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sugestia din câmp: <b>„Caută articol (nume, cod)...”</b>.</li>
+      <li>Fiecare card afișează: denumire, clasa, <b>„UM:”</b>, <b>„TVA: N%”</b> și prețul.</li>
+      <li>Valorile coincid cu cele din WinMentor.</li>
+      <li>Fără rezultate: <b>„Nu există articole”</b> / „Sincronizează datele pentru a vedea articolele”.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-010</span><span class="tc-t">Căutarea de articole se golește singură după deschiderea unui partener</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>În fila <b>Articole</b>, scrie un text de căutare și lasă-l acolo.</li>
+      <li>Treci pe fila <b>Parteneri</b>, deschide detaliile unui partener, apoi închide fereastra.</li>
+      <li>Revino pe fila <b>Articole</b>.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se notează dacă textul de căutare a rămas sau s-a golit singur.</li>
+      <li><b>Defect suspectat:</b> căsuța se golește, deoarece este legată de căutarea din fereastra de partener. Dacă se confirmă, se raportează.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-011</span><span class="tc-t">Scanerul de coduri de bare &mdash; funcționare</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; Parteneri</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Calculatorul are cameră web funcțională și un cod de bare tipărit la îndemână.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă butonul cu pictograma de scanare de lângă căsuța de căutare.</li>
+      <li>Permite accesul la cameră dacă se cere.</li>
+      <li>Poziționează codul de bare în cadru.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se deschide fereastra <b>„Scanează Cod de Bare”</b> cu imaginea de la cameră și indicația „Poziționează codul de bare în cadrul de scanare”.</li>
+      <li>La citire apare notificarea <b>„Cod scanat: …”</b>, codul este introdus automat în căsuța de căutare și fereastra se închide.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-012</span><span class="tc-t">Scanerul de coduri de bare fără cameră</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; Parteneri</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Calculatorul <b>nu</b> are cameră, sau accesul la cameră este refuzat.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă butonul de scanare.</li><li>Dacă apare cererea de permisiune, <b>refuz-o</b>.</li><li>Închide fereastra și continuă să folosești aplicația.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se afișează un mesaj inteligibil sau un cadru gol, <b>fără</b> eroare tehnică netradusă.</li>
+      <li>Fereastra se poate închide, iar aplicația rămâne complet funcțională.</li>
+      <li>Căutarea manuală continuă să meargă.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-013</span><span class="tc-t">Ștergerea partenerilor și a sediilor (Administrator)</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Date &rarr; Parteneri</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există cel puțin un partener <b>cu</b> facturi emise și unul <b>fără</b> facturi. Notează denumirile.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă butonul roșu <b>„Șterge parteneri + sedii”</b>.</li>
+      <li>Citește fereastra de confirmare, apoi apasă <b>„Anulează”</b>. Verifică faptul că nu s-a șters nimic.</li>
+      <li>Repetă și apasă de data aceasta <b>„Șterge”</b>.</li>
+      <li>Verifică lista: care parteneri au dispărut și care au rămas.</li>
+      <li>Verifică faptul că facturile emise anterior sunt încă prezente și se pot deschide.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Fereastra de confirmare are titlul <b>„Confirmi ștergerea?”</b> și textul „Vor fi șterși doar partenerii și sediile care NU au facturi asociate. Datele legate de facturi rămân protejate de constrângerile bazei de date.”</li>
+      <li>„Anulează” nu șterge nimic.</li>
+      <li>După confirmare, butonul afișează „Se șterge...”, apoi apare un mesaj cu numărul de parteneri și sedii șterse.</li>
+      <li>Partenerul <b>cu</b> facturi <b>rămâne</b>; cel fără facturi este șters.</li>
+      <li>Facturile vechi se deschid în continuare corect, cu denumirea partenerului afișată.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DAT-014</span><span class="tc-t">Ecranul Date se reîmprospătează după sincronizare</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deschide ecranul <b>Date</b> și notează numărul de parteneri.</li>
+      <li>Cere clientului să adauge un partener nou în WME (sau să modifice denumirea unuia existent).</li>
+      <li>Fără a părăsi ecranul, apasă <b>„Sincronizare”</b> din antet.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>După finalizarea sincronizării, lista se actualizează <b>singură</b>, fără a fi nevoie de navigare în alt ecran și înapoi.</li>
+      <li>Partenerul nou apare, respectiv denumirea modificată se reflectă.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

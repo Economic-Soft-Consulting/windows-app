@@ -1,0 +1,267 @@
+<!-- ============ CAP 5 ============ -->
+<div class="page">
+<h2>5. Sincronizarea datelor</h2>
+
+<p>Sincronizarea aduce în aplicație partenerii, articolele, prețurile de contract și soldurile clienților din WME și, în același timp, trimite spre WME documentele emise offline. Există trei mecanisme distincte, care trebuie testate separat.</p>
+
+<table class="t">
+  <tr><th style="width:44mm">Mecanism</th><th>Când pornește</th><th style="width:40mm">Ce face</th></tr>
+  <tr><td>Butonul <b>Sincronizare</b> din antet</td><td>Manual, la cererea utilizatorului</td><td>Lanțul complet, în 5 pași</td></tr>
+  <tr><td>Trimiterea automată la revenirea conexiunii</td><td>Automat, la fiecare 30 de secunde și la revenirea internetului</td><td>Trimite facturile și chitanțele restante</td></tr>
+  <tr><td>Sincronizarea zilnică programată</td><td>Automat, la ora configurată în Setări</td><td>Sincronizare completă</td></tr>
+</table>
+
+<div class="note"><b>Lanțul complet al butonului Sincronizare</b> (în această ordine): 1. descarcă parteneri, articole și oferte &rarr; 2. pregătește datele pentru certificatele de calitate &rarr; 3. trimite facturile în așteptare &rarr; 4. actualizează soldurile clienților &rarr; 5. trimite chitanțele în așteptare. Fiecare pas are notificarea lui proprie; urmărește-le pe toate.</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-001</span><span class="tc-t">Sincronizare manuală completă, reușită</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> antet</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Server WME accesibil, internet activ, cel puțin o factură în așteptare.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă butonul <b>„Sincronizare”</b> din antet.</li>
+      <li>Notează <b>toate</b> notificările care apar, în ordine.</li>
+      <li>Verifică ecranul Date &rarr; parteneri și articole.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Butonul afișează <b>„Se sincronizează...”</b> cu pictogramă rotativă și devine inactiv pe durata operației.</li>
+      <li>Apare <b>„Datele au fost actualizate”</b>.</li>
+      <li>Dacă existau facturi în așteptare, apare o notificare de forma <b>„N facturi trimise cu succes.”</b> (sau „1 factură trimisă cu succes.” la singular).</li>
+      <li>Apare <b>„Chitanțele au fost sincronizate.”</b></li>
+      <li>Listele de parteneri și articole din ecranul Date se actualizează.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-002</span><span class="tc-t">Butonul de sincronizare este inactiv în modul offline</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> antet</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Deconectează rețeaua și așteaptă ca indicatorul să devină <b>„Offline”</b> (până la 30 de secunde).</li><li>Încearcă să apeși butonul <b>„Sincronizare”</b>.</li><li>Deschide Setări și verifică butonul mare de sincronizare.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Butonul din antet este <b>inactiv</b> și nu declanșează nimic.</li>
+      <li>În Setări, butonul afișează textul <b>„Offline - Nu se poate sincroniza”</b> și este inactiv.</li>
+      <li>Indicatorul din antet este roșu, cu textul <b>„Offline”</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-003</span><span class="tc-t">Informația de ultimă sincronizare</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> antet + Setări</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Ține cursorul deasupra butonului <b>„Sincronizare”</b> din antet, fără a apăsa.</li>
+      <li>Deschide <b>Setări &rarr; Sincronizare Date</b> și compară valorile.</li>
+      <li>Execută o sincronizare și verifică din nou ambele locuri.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sugestia afișată conține trei rânduri: „Sincronizare completă: parteneri, produse, solduri, încasări”, „Parteneri: …”, „Produse: …”.</li>
+      <li>Datele afișate în Setări („Ultima sincronizare parteneri” / „…produse”) coincid cu cele din sugestie.</li>
+      <li>Pe o instalare curată apare <b>„Niciodată”</b>.</li>
+      <li>După sincronizare, ambele se actualizează la data și ora curente.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-004</span><span class="tc-t">Trimiterea automată la revenirea internetului</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> global</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Aplicația este online și configurată corect.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deconectează rețeaua; așteaptă indicatorul <b>„Offline”</b>.</li>
+      <li>Emite <b>2 facturi</b> și <b>1 chitanță</b>. Verifică faptul că toate au statusul „În așteptare”.</li>
+      <li>Reconectează rețeaua și <b>nu apăsa nimic</b>. Așteaptă maximum 60 de secunde.</li>
+      <li>Urmărește notificările și apoi verifică lista de facturi și de chitanțe.</li>
+      <li>Verifică în WinMentor că cele 2 facturi și chitanța au ajuns, o singură dată fiecare.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare <b>„Conexiune restabilită! Se trimit documentele în așteptare...”</b>.</li>
+      <li>Apoi apar <b>„2 facturi trimise automat.”</b> și <b>„1 chitanțe procesate automat.”</b></li>
+      <li>Statusul facturilor devine <b>„Trimisă”</b> (verde), al chitanței <b>„Sincronizat”</b>.</li>
+      <li>În WinMentor există exact 2 facturi și 1 chitanță &mdash; <b>fără duplicate</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-005</span><span class="tc-t">Sincronizări simultane &mdash; apăsare repetată</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> antet + Setări</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există 2&ndash;3 facturi în așteptare.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă butonul <b>„Sincronizare”</b> din antet și, imediat, încearcă să-l apeși din nou de câteva ori.</li>
+      <li>În timp ce sincronizarea rulează, deschide Setări și încearcă și butonul de acolo.</li>
+      <li>La final, verifică în WinMentor numărul de facturi ajunse.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Butoanele sunt inactive pe durata operației &mdash; nu se pot declanșa două sincronizări simultane.</li>
+      <li>În WinMentor ajunge <b>exact</b> numărul de facturi emise, fără duplicate.</li>
+      <li>Aplicația nu se blochează și nu afișează erori tehnice.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-006</span><span class="tc-t">Sincronizarea când serverul WME cade la mijlocul operației</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> antet</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Ai posibilitatea de a opri serviciul WME în timpul testului.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Notează numărul curent de parteneri din ecranul Date.</li>
+      <li>Pornește sincronizarea și, imediat, oprește serviciul WME.</li>
+      <li>Urmărește mesajele și verifică apoi lista de parteneri.</li>
+      <li>Repornește serviciul WME și sincronizează din nou.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare o notificare de eroare inteligibilă, nu un ecran alb sau o blocare.</li>
+      <li>Aplicația rămâne utilizabilă; se poate naviga în continuare.</li>
+      <li>La reluare, datele revin complet. Notează dacă lista de parteneri a rămas temporar goală sau incompletă &mdash; este un risc cunoscut.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-007</span><span class="tc-t">Sincronizarea soldurilor eșuează, dar restul continuă</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> antet</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Pe o instalare fără parteneri sincronizați (imediat după ștergerea partenerilor), apasă <b>„Sincronizare”</b>.</li><li>Urmărește notificările.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Dacă soldurile nu pot fi aduse, apare notificarea galbenă <b>„Soldurile nu au putut fi sincronizate acum. Chitanțele continuă să se sincronizeze.”</b></li>
+      <li>Restul lanțului de sincronizare continuă &mdash; eșecul unui pas nu oprește operația.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-008</span><span class="tc-t">Numai articolele din clasa „ouă” se sincronizează</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; Articole</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>În WME există articole și din alte clase decât ouă.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Sincronizează datele.</li><li>Deschide <b>Date &rarr; Articole</b> și parcurge lista.</li><li>Caută prin căsuța de căutare un articol din altă clasă (ex. ambalaje, servicii).</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>În listă apar <b>doar</b> articole din clasa de ouă.</li>
+      <li>Articolele din alte clase <b>nu apar deloc</b>, nici prin căutare directă.</li>
+      <li>Acesta este comportamentul proiectat &mdash; se confirmă cu clientul dacă este cel dorit; nu se raportează automat ca defect.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-009</span><span class="tc-t">Numai partenerii din clasa „AGENTI” se sincronizează</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Date &rarr; Parteneri</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Cere clientului denumirea unui partener din WME care <b>nu</b> este în clasa AGENTI.</li><li>Caută-l în ecranul Date &rarr; Parteneri.</li><li>Caută-l și în pasul „Partener” al wizardului de factură.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Partenerul <b>nu apare</b> în niciunul din cele două locuri.</li>
+      <li>Se afișează mesajul <b>„Nu s-au găsit parteneri”</b>.</li>
+      <li>Confirmă cu clientul că filtrarea pe clasa AGENTI este cea dorită.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-010</span><span class="tc-t">Sincronizarea automată zilnică &mdash; activare</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>În Setări, pornește comutatorul <b>„Sincronizare Automată Încasări”</b>.</li>
+      <li>Verifică apariția câmpului <b>„Oră Sincronizare”</b>; notează valoarea implicită afișată.</li>
+      <li>Setează ora la <b>2 minute în viitor</b> față de ora curentă. Salvează cu „Salvează date agent”.</li>
+      <li>Lasă aplicația deschisă și așteaptă trecerea orei setate (verificarea se face din minut în minut).</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Câmpul „Oră Sincronizare” apare <b>doar</b> când comutatorul este pornit.</li>
+      <li>La ora stabilită, sincronizarea pornește singură și apare <b>„Sincronizarea automată completă a fost executată.”</b></li>
+      <li><b>De verificat:</b> valoarea implicită afișată în interfață este „23:00”, dar aplicația folosește intern „23:59” când nu s-a salvat nimic &mdash; notează dacă observi neconcordanța.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-011</span><span class="tc-t">Sincronizarea automată zilnică &mdash; dezactivare</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Oprește comutatorul „Sincronizare Automată Încasări” și salvează.</li><li>Setează ceasul de test astfel încât să treacă ora anterior configurată (sau așteaptă).</li><li>Verifică dacă apare notificarea de sincronizare automată.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Câmpul „Oră Sincronizare” <b>dispare</b> din interfață.</li>
+      <li>La ora respectivă <b>nu</b> se declanșează nicio sincronizare automată și nu apare nicio notificare.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-012</span><span class="tc-t">Sincronizarea automată se sare în tăcere dacă serverul WME nu e configurat</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Golește câmpul „Adresă IP Server WME” și salvează.</li><li>Activează sincronizarea automată cu ora la 2 minute în viitor și salvează.</li><li>Așteaptă trecerea orei.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Nu apare nicio notificare, nici de succes, nici de eroare &mdash; operația este pur și simplu ignorată.</li>
+      <li><b>Defect de raportat:</b> utilizatorul nu are cum să afle că sincronizarea programată nu se execută. Recomandare: afișarea unui avertisment.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-SIN-013</span><span class="tc-t">Indicatorul Online/Offline reflectă internetul, nu serverul WME</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> antet</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Cu internetul activ, oprește <b>doar</b> serverul WME (sau deconectează-l din rețeaua locală).</li>
+      <li>Urmărește indicatorul din antet timp de un minut.</li>
+      <li>Încearcă o sincronizare.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Indicatorul rămâne <b>verde, „Online”</b> &mdash; el verifică doar accesul la internet, nu accesul la WME.</li>
+      <li>Sincronizarea eșuează cu mesaj de eroare, deși aplicația se declară „Online”.</li>
+      <li>Se notează ca observație importantă pentru instruirea utilizatorilor: „Online” nu înseamnă „conectat la WinMentor”.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

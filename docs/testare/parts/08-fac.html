@@ -1,0 +1,525 @@
+<!-- ============ CAP 8 ============ -->
+<div class="page">
+<h2>8. Emiterea unei facturi (wizard în 4 pași)</h2>
+
+<p>Acesta este fluxul central al aplicației. Se parcurge în patru pași: <b>Partener &rarr; Locație &rarr; Produse &rarr; Revizuire</b>, iar la final aplicația creează factura, o printează, propune emiterea unei chitanțe și o trimite în WME.</p>
+
+<div class="warn"><b>Ce se întâmplă de fapt la apăsarea butonului „Trimite” din pasul 4</b><br>
+1. Se creează factura local (primește număr din intervalul configurat) &rarr; 2. Se printează <b>factura</b> &rarr; 3. Se printează automat și <b>certificatul de calitate</b> (al doilea document, la aceeași imprimantă) &rarr; 4. Se deschide fereastra „Generezi și chitanță?” &rarr; 5. După închiderea ferestrei se revine în lista de facturi &rarr; 6. În fundal, factura se trimite în WME.<br>
+Testerul trebuie să urmărească <b>toate</b> aceste șase etape, nu doar prima.</div>
+
+<h3>8.1 Pasul 1 &mdash; Partener</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-001</span><span class="tc-t">Deschiderea wizardului și indicatorul de pași</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Factură nouă</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Acasă &rarr; <b>„Factură Nouă”</b> (sau Facturi &rarr; „Factură nouă”).</li><li>Observă antetul și indicatorul de pași.</li><li>Apasă săgeata de întoarcere din stânga sus.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Titlu <b>„Factură nouă”</b>, subtitlu „Creează o nouă factură pentru un partener”.</li>
+      <li>Se afișează 4 pași: <b>Partener, Locație, Produse, Revizuire</b>, cu pasul 1 evidențiat.</li>
+      <li>Butonul <b>„Înapoi”</b> este inactiv la pasul 1; <b>„Continuă”</b> este inactiv până la selectarea unui partener.</li>
+      <li>Săgeata de întoarcere duce în lista de facturi.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-002</span><span class="tc-t">Căutarea și selectarea partenerului</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 1</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Scrie în căsuța de căutare primele litere ale unui partener cunoscut. <b>Nu apăsa nimic altceva.</b></li>
+      <li>Observă cât durează până se filtrează lista.</li>
+      <li>Apasă pe cardul partenerului dorit.</li>
+      <li>Apasă <b>„Continuă”</b>.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sugestia din câmp: <b>„Caută partener după nume...”</b>.</li>
+      <li>Lista se filtrează automat, la scurt timp după ce te oprești din tastat (fără buton de căutare).</li>
+      <li>Fiecare card afișează denumirea, numărul de locații („N loc.”) și scadența („Scad: N z”).</li>
+      <li>Cardul selectat este evidențiat cu un contur colorat și o bifă.</li>
+      <li>Butonul „Continuă" devine activ și trece la pasul 2.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-003</span><span class="tc-t">Căutare fără rezultate la pasul Partener</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 1</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Scrie un text inexistent, ex. <span class="k">qqqqqq</span>.</li><li>Golește apoi căsuța.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare <b>„Nu s-au găsit parteneri”</b> și <b>„Încearcă cu alt termen de căutare”</b>.</li>
+      <li>Butonul „Continuă” rămâne inactiv.</li>
+      <li>La golirea căsuței revine lista completă.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-004</span><span class="tc-t">Schimbarea partenerului resetează locația aleasă</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pași 1&ndash;2</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Alege partenerul A, treci la pasul 2 și alege o locație.</li>
+      <li>Apasă <b>„Înapoi”</b> și alege partenerul B.</li>
+      <li>Treci din nou la pasul 2.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>La pasul 2 <b>nicio locație nu mai este selectată</b> &mdash; selecția anterioară a fost anulată.</li>
+      <li>Se afișează locațiile partenerului B, nu ale lui A.</li>
+      <li>Butonul „Continuă” este inactiv până la o nouă selecție.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<h3>8.2 Pasul 2 &mdash; Locație</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-005</span><span class="tc-t">Selectarea locației de livrare</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 2</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Partenerul ales are mai multe locații.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Verifică titlul secțiunii.</li><li>Apasă pe o locație.</li><li>Apasă <b>„Continuă”</b>.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Titlu: <b>„Selectează locația”</b>, subtitlu „Alege locația pentru {denumire partener}”.</li>
+      <li>Fiecare locație afișează denumirea și, separate prin „ • ”, adresa, localitatea și județul.</li>
+      <li>Selecția este de tip buton radio &mdash; o singură locație poate fi aleasă.</li>
+      <li>„Continuă” devine activ după selecție.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-006</span><span class="tc-t">Căutarea într-o listă lungă de locații</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 2</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Un partener cu peste 10 locații.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Caută după o parte din denumirea locației.</li>
+      <li>Caută după localitate, apoi după județ, apoi după o parte din adresă.</li>
+      <li>Caută un text inexistent.</li>
+      <li>Verifică dacă lista se poate derula complet și dacă ultima locație este accesibilă.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sugestia din câmp: <b>„Caută locație după nume, adresă, localitate...”</b>.</li>
+      <li>Filtrarea funcționează pentru denumire, adresă, localitate și județ.</li>
+      <li>Fără rezultate: <b>„Nu s-au găsit locații pentru căutarea introdusă.”</b></li>
+      <li>Lista se derulează complet, iar ultima locație poate fi selectată (regresie confirmată în v0.7.3).</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-007</span><span class="tc-t">Partener fără locații configurate</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 2</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Un partener fără nicio locație (vezi tabelul 1.3).</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Alege acest partener la pasul 1 și treci la pasul 2.</li>
+      <li>Observă ce se afișează și starea butonului „Continuă”.</li>
+      <li>Continuă până la pasul 4 și verifică secțiunea „Partener”.</li>
+      <li>Finalizează factura și verifică documentul printat.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se afișează <b>„Acest partener nu are locații configurate.”</b> și <b>nu</b> există câsuță de căutare.</li>
+      <li>Butonul <b>„Continuă” rămâne activ</b> &mdash; pasul se poate sări.</li>
+      <li>La pasul 4, în cardul Partener scrie <b>„Fără sediu specific”</b>.</li>
+      <li>Factura se creează, se printează și se trimite în WME <b>fără eroare</b>.</li>
+      <li>Verifică în WinMentor cum a fost înregistrat sediul pe acest document.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<h3>8.3 Pasul 3 &mdash; Produse</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-008</span><span class="tc-t">Adăugarea produselor în coș</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 3</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Caută un produs și apasă pe cardul lui.</li>
+      <li>Observă ce se întâmplă cu produsul în lista din stânga.</li>
+      <li>Adaugă încă două produse diferite.</li>
+      <li>Apasă din nou pe un produs deja adăugat, dacă mai este vizibil.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sugestia: <b>„Caută produs...”</b>. Titlul din dreapta: <b>„Coș (N)”</b>, cu N actualizat corect.</li>
+      <li>Produsul se adaugă în coș cu <b>cantitatea 1</b> și <b>dispare</b> din lista din stânga.</li>
+      <li>Fiecare card de produs afișează denumirea, clasa, unitatea de măsură, prețul și eticheta <b>„TVA N%”</b>.</li>
+      <li>Un produs nu poate fi adăugat de două ori.</li>
+      <li>Bara de jos afișează <b>„Total:”</b> cu suma <b>fără TVA</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-009</span><span class="tc-t">Se afișează doar produsele din clasa „ouă”</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 3</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Șterge tot din căsuța de căutare și parcurge lista completă de produse.</li><li>Caută explicit un produs din altă clasă (ex. ambalaj, transport).</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>În listă apar <b>numai</b> produse din clasa de ouă.</li>
+      <li>Produsele din alte clase nu apar nici prin căutare directă.</li>
+      <li>Când lista este goală, mesajele afișate sunt <b>„Nu s-au găsit produse din clasa ouă”</b> și <b>„Numai produsele din clasa ouă sunt afișate”</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-010</span><span class="tc-t">Modificarea cantităților în coș</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 3</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă butonul <b>„+”</b> de 3 ori la un produs. Verifică totalul după fiecare apăsare.</li>
+      <li>Apasă butonul <b>„−”</b> o dată.</li>
+      <li>Apasă direct în câmpul de cantitate și tastează <span class="k">120</span>.</li>
+      <li>Apasă pictograma roșie de coș la un alt produs.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Cantitatea crește/scade corect, iar totalul se recalculează <b>imediat</b> la fiecare modificare.</li>
+      <li>La click în câmpul de cantitate, valoarea existentă este <b>selectată automat</b>, astfel încât tastarea o înlocuiește.</li>
+      <li>Totalul reflectă cantitatea &times; prețul unitar pentru fiecare linie.</li>
+      <li>Pictograma de coș elimină linia, iar produsul <b>reapare</b> în lista din stânga.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-011</span><span class="tc-t">Cantități la limită: zero, negativ, text, valoare foarte mare</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 3</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Setează cantitatea unui produs pe <span class="k">0</span>.</li>
+      <li>Adaugă produsul din nou și setează cantitatea pe <span class="k">-5</span>.</li>
+      <li>Adaugă produsul din nou și tastează litere: <span class="k">abc</span>.</li>
+      <li>Adaugă produsul din nou și tastează <span class="k">999999999</span>.</li>
+      <li>Încearcă o cantitate cu zecimale: <span class="k">2,5</span>.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Cantitatea <b>0</b> și cea <b>negativă</b> elimină linia din coș.</li>
+      <li>Textul nenumeric elimină și el linia (este interpretat ca zero) &mdash; se notează dacă apare vreun mesaj sau dispare în tăcere.</li>
+      <li>Valoarea foarte mare este <b>acceptată fără limită superioară</b> &mdash; se notează ca risc, împreună cu totalul rezultat, pentru a verifica dacă suma se afișează corect pe bonul de 80 mm.</li>
+      <li>Aplicația nu se blochează și nu afișează valori de tip „NaN”.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-012</span><span class="tc-t">Coș gol &mdash; nu se poate continua</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 3</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Ajungi la pasul 3 fără a adăuga niciun produs.</li><li>Încearcă să apeși <b>„Continuă”</b>.</li><li>Adaugă un produs, apoi elimină-l.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Butonul „Continuă” este <b>inactiv</b> cât timp coșul este gol.</li>
+      <li>În zona coșului scrie <b>„Adaugă produse din lista de mai sus”</b>.</li>
+      <li>După eliminarea ultimului produs, butonul redevine inactiv.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-013</span><span class="tc-t">Prețul de ofertă se aplică automat</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 3</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Partenerul A are ofertă cu preț special pentru produsul X. Partenerul B nu are. Notează ambele prețuri.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură pentru <b>partenerul A</b> cu produsul X și notează prețul unitar afișat în coș.</li>
+      <li>Emite o factură pentru <b>partenerul B</b> cu același produs X și notează prețul.</li>
+      <li>Compară cu prețurile din WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Pentru partenerul A se folosește <b>prețul din ofertă</b>.</li>
+      <li>Pentru partenerul B se folosește <b>prețul de listă</b>.</li>
+      <li>Aceleași prețuri apar și pe bonul printat, și în documentul din WinMentor.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<h3>8.4 Pasul 4 &mdash; Revizuire și emitere</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-014</span><span class="tc-t">Ecranul de revizuire afișează totalurile corect</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 4</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Coș cu cel puțin 3 produse și cantități diferite. Ai un calculator la îndemână.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Verifică secțiunile „Partener”, „Sumar” și „Produse”.</li>
+      <li>Calculează manual: pentru fiecare linie, cantitate &times; preț unitar = total fără TVA.</li>
+      <li>Adună toate liniile și compară cu <b>„Total fără TVA”</b>.</li>
+      <li>Calculează TVA-ul pe fiecare linie folosind procentul real al produsului și compară cu <b>„Total TVA”</b>.</li>
+      <li>Verifică <b>„Total de plată”</b> = fără TVA + TVA.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Secțiunea „Partener” afișează denumirea, locația și adresa.</li>
+      <li>Secțiunea „Sumar” afișează: Produse, Cantitate totală („N buc”), Total fără TVA, Total TVA, Total de plată.</li>
+      <li>Tabelul afișează pentru fiecare produs: cantitate, preț unitar, preț unitar cu TVA, total fără TVA, total cu TVA.</li>
+      <li><b>Toate cifrele coincid cu calculul manual</b>, la 2 zecimale.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-015</span><span class="tc-t">Câmpul de note / observații</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard pas 4</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Scrie în câmpul <b>„Note (opțional)”</b> un text scurt cu diacritice: <span class="k">Livrare urgentă &mdash; ușa din spate</span>.</li>
+      <li>Emite factura și verifică nota în detaliile facturii și pe bonul printat.</li>
+      <li>Repetă cu un text foarte lung (peste 500 de caractere).</li>
+      <li>Repetă lăsând câmpul gol.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sugestia din câmp: „Adaugă note sau observații pentru această factură...”.</li>
+      <li>Textul cu diacritice se salvează și se afișează corect, fără caractere stricate.</li>
+      <li>Textul lung nu strică aspectul bonului printat &mdash; notează cum se comportă (se taie sau se împarte pe rânduri).</li>
+      <li>Fără note, secțiunea corespunzătoare nu apare în detalii.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-016</span><span class="tc-t">Navigarea înainte și înapoi păstrează datele introduse</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Completează toți cei 4 pași, inclusiv notele.</li>
+      <li>Apasă <b>„Înapoi”</b> de trei ori, până la pasul 1.</li>
+      <li>Apasă <b>„Continuă”</b> de trei ori, până la pasul 4.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Partenerul, locația, coșul (produse și cantități) și notele sunt <b>păstrate</b> integral.</li>
+      <li>Pașii deja parcurși sunt marcați cu o bifă în indicatorul de pași.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-017</span><span class="tc-t">Părăsirea wizardului pierde datele introduse</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Completează pașii 1&ndash;3.</li><li>Apasă săgeata de întoarcere sau navighează în alt ecran din meniu.</li><li>Revino la „Factură nouă”.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Wizardul repornește de la pasul 1, cu coșul gol.</li>
+      <li><b>Nu apare niciun avertisment</b> de tipul „Vei pierde datele introduse” &mdash; se notează ca recomandare de îmbunătățire.</li>
+      <li>Nu se creează nicio factură parțială în listă.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-018</span><span class="tc-t">Emiterea completă a unei facturi &mdash; fluxul de aur</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard &rarr; Facturi</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Aplicație complet configurată, online, imprimantă pornită cu hârtie suficientă.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Parcurge cei 4 pași și apasă <b>„Trimite”</b> la pasul 4.</li>
+      <li>Urmărește <b>fiecare</b> notificare, în ordine, și notează-le.</li>
+      <li>Urmărește imprimanta: câte documente ies și în ce ordine.</li>
+      <li>În fereastra „Generezi și chitanță?” apasă <b>„Nu, mulțumesc”</b>.</li>
+      <li>Verifică lista de facturi și apoi WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat &mdash; bifează în ordine</div>
+    <div class="exp"><ul class="chk">
+      <li>Butonul afișează „Procesează...” cu indicator de progres</li>
+      <li>Notificare verde <b>„Factura a fost creată cu succes!”</b></li>
+      <li>Notificare <b>„Factura s-a trimis la imprimantă!”</b></li>
+      <li>Iese <b>bonul facturii</b> la imprimantă</li>
+      <li>Iese, la scurt timp, și <b>certificatul de calitate</b> (al doilea document)</li>
+      <li>Apare fereastra <b>„Generezi și chitanță?”</b></li>
+      <li>După „Nu, mulțumesc” se ajunge automat în lista de facturi</li>
+      <li>Factura apare în listă, iar statusul devine <b>„Trimisă”</b> (verde) în câteva secunde</li>
+      <li>În WinMentor documentul există, cu aceeași serie, număr, partener și valoare</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-019</span><span class="tc-t">Numerotarea automată și consecutivă a facturilor</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard &rarr; Facturi</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Notează valoarea „Număr Curent” din Setări înainte de test.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite trei facturi consecutive.</li>
+      <li>Notează seria și numărul fiecăreia, de pe bonurile printate.</li>
+      <li>Verifică valoarea „Număr Curent” din Setări după fiecare emitere.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Numerele sunt <b>consecutive</b>, fără salturi și fără repetări.</li>
+      <li>Seria este cea configurată în „Serie Carnet”.</li>
+      <li>„Număr Curent” crește cu 1 după fiecare factură emisă.</li>
+      <li>Aceleași numere apar în WinMentor.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-020</span><span class="tc-t">Ștergerea unei facturi lasă gol în numerotare</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură și notează numărul ei (ex. 1005).</li>
+      <li>Șterge factura din listă (rol Administrator).</li>
+      <li>Emite imediat o factură nouă și notează numărul primit.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Noua factură primește numărul <b>următor</b> (1006), nu numărul eliberat (1005).</li>
+      <li>Rezultă un <b>gol permanent</b> în numerotare &mdash; comportament de confirmat cu clientul și de menționat în raport, întrucât are implicații fiscale.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-021</span><span class="tc-t">Epuizarea intervalului de numere de factură</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator &rarr; Agent</span><span><b>Ecran:</b> Setări &rarr; Wizard</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>În Setări, pune „Număr Final” cu <b>1 mai mare</b> decât „Număr Curent” (astfel mai poți emite o singură factură).</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură &mdash; trebuie să reușească.</li>
+      <li>Încearcă să emiți încă una.</li>
+      <li>Citește mesajul de eroare.</li>
+      <li>Mărește „Număr Final” în Setări și încearcă din nou.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>A doua factură <b>nu se creează</b>.</li>
+      <li>Apare un mesaj care indică depășirea intervalului, de forma „Invoice number N exceeds maximum configured number M. Please update the number range in settings.”</li>
+      <li><b>Mesajul este în engleză</b> &mdash; se raportează ca defect de traducere, cu prioritate Mare (utilizatorul de teren nu îl va înțelege).</li>
+      <li>După mărirea intervalului, emiterea funcționează din nou.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-022</span><span class="tc-t">Emiterea unei facturi în modul offline</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deconectează rețeaua și așteaptă indicatorul <b>„Offline”</b>.</li>
+      <li>Emite o factură completă, cu printare.</li>
+      <li>Verifică statusul în lista de facturi.</li>
+      <li>Reconectează rețeaua și așteaptă trimiterea automată.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Factura <b>se creează normal</b> și primește număr.</li>
+      <li>Bonul <b>se printează</b> &mdash; printarea nu depinde de internet.</li>
+      <li>Statusul rămâne <b>„În așteptare”</b>, iar în detalii poate apărea un mesaj de forma „Salvat local (Offline/Eroare): …”.</li>
+      <li>La reconectare, factura se trimite automat și devine <b>„Trimisă”</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-023</span><span class="tc-t">Emiterea cu setări de agent incomplete</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator &rarr; Agent</span><span><b>Ecran:</b> Setări &rarr; Facturi</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>În Setări, <b>golește pe rând</b> câte unul din câmpurile: Nume Agent, Serie Carnet, Serie Carnet Livrări, Cod Carnet, Cod Carnet Livrări, Simbol Gestiune Livrare. Salvează după fiecare.</li>
+      <li>După fiecare golire, emite o factură și încearcă să o trimiți.</li>
+      <li>Deschide detaliile facturii și notează mesajul exact de eroare.</li>
+      <li>Recompletează câmpul, salvează și retrimite aceeași factură.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Pentru fiecare câmp lipsă apare un mesaj distinct, de forma „… is not configured. Please set it in Settings.”</li>
+      <li>Factura <b>rămâne salvată local</b> și nu se pierde; se poate retrimite după corectare.</li>
+      <li><b>Toate aceste mesaje sunt în engleză</b> &mdash; se raportează ca un singur defect de traducere, cu lista completă a mesajelor.</li>
+      <li>Se notează, de asemenea, că aplicația <b>permite salvarea unei configurări incomplete</b>, fără avertisment în ecranul de Setări.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-FAC-024</span><span class="tc-t">Partener fără cod în WME</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Cere clientului un partener din WME fără cod intern completat (sau simulează-l).</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Emite o factură pentru acest partener.</li><li>Încearcă să o trimiți și citește mesajul.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Factura se creează și se printează, dar trimiterea eșuează.</li>
+      <li>În detalii apare un mesaj de forma <b>„Partner {denumire} does not have a COD set in WME”</b>.</li>
+      <li>Mesajul identifică clar partenerul vinovat.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

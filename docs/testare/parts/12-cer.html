@@ -1,0 +1,229 @@
+<!-- ============ CAP 12 ============ -->
+<div class="page">
+<h2>12. Certificatul de calitate</h2>
+
+<p>Certificatul de calitate (declarația de conformitate) însoțește fiecare livrare de ouă. Aplicația îl generează automat, luând datele de lot, dată de producție și dată de expirare dintr-o <b>comandă</b> existentă în WME.</p>
+
+<div class="note"><b>Cum găsește aplicația datele certificatului</b><br>
+1. Citește din Setări <b>Seria Comandă Certificat</b> (implicit „CCAL”) și <b>ID Client Certificat</b> (implicit „1602”).<br>
+2. Caută în WME comenzile din <b>ziua facturii</b> care au acea serie și acel client, și o alege pe cea mai recentă.<br>
+3. Dacă nu găsește nimic, extinde căutarea pe <b>ultimele 30 de zile</b>.<br>
+4. Dacă tot nu găsește (sau nu are internet), folosește pe rând: datele memorate pentru factura respectivă &rarr; datele memorate pentru ziua curentă &rarr; ultimele date memorate &rarr; <b>linii goale cu liniuțe</b>.<br>
+Ultima variantă este cea mai periculoasă: certificatul se printează oricum, dar cu <b>__ __ în loc de lot și date</b>. Testele TC-CER-005 și TC-CER-006 acoperă exact acest caz.</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-001</span><span class="tc-t">Certificatul se printează automat cu factura</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există o comandă validă în WME pe ziua curentă, cu seria și clientul configurate.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Emite o factură completă.</li><li>Așteaptă ambele documente la imprimantă.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>După bonul facturii iese <b>automat</b> și certificatul de calitate, ca al doilea document, la aceeași imprimantă.</li>
+      <li>Nu este necesară nicio acțiune suplimentară din partea utilizatorului.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-002</span><span class="tc-t">Conținutul certificatului cu comandă găsită</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> document printat</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Ai la îndemână comanda din WME, cu numărul, lotul, data producției și data expirării.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Ia certificatul printat.</li><li>Compară fiecare element cu datele comenzii din WinMentor.</li></ol>
+    <div class="lbl">Rezultat așteptat &mdash; bifează</div>
+    <div class="exp"><ul class="chk">
+      <li>Titlu: „Certificat de calitate - Declarație de conformitate”</li>
+      <li>Subtitlul conține numărul și data comenzii, de forma <b>„Nr.X din data de ZZ.LL.AAAA”</b> &mdash; <b>fără liniuțe</b></li>
+      <li>Numărul buletinului de analiză este completat (<b>nu</b> „BA____/__.__.____”)</li>
+      <li>Pentru fiecare produs: denumirea, <b>LOT</b>, <b>data producției</b>, <b>data expirării</b> &mdash; toate completate</li>
+      <li>Valorile coincid exact cu cele din comanda WME</li>
+      <li>Produsele apar o singură dată (fără duplicate) și sunt ordonate</li>
+      <li>Antetul firmei și codurile de producător sunt corecte (vezi TC-CFG-018)</li>
+      <li>Ștampila și siglele sunt vizibile</li>
+      <li>Numărul auto afișat este cel din Setări</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-003</span><span class="tc-t">Printarea certificatului din detaliile facturii</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Detalii factură</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Deschide detaliile unei facturi.</li><li>Apasă <b>„Printează Certificat”</b>.</li><li>Compară cu certificatul printat automat la emitere.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Butonul afișează temporar <b>„Se printează...”</b>.</li>
+      <li>Apare notificarea <b>„Certificat trimis la imprimantă!”</b>.</li>
+      <li>Iese <b>doar certificatul</b>, nu și factura.</li>
+      <li>Conținutul este identic cu cel printat inițial.</li>
+      <li>În caz de eroare, apare mesajul „Eroare la printare certificat: …”.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-004</span><span class="tc-t">Certificatul folosește seria de comandă din Setări</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări &rarr; Detalii factură</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>În Setări, schimbă <b>„Serie Comandă Certificat”</b> cu o serie inexistentă (ex. <span class="k">ZZZZ</span>). Salvează.</li>
+      <li>Printează un certificat pentru o factură de azi și verifică rezultatul.</li>
+      <li>Repune seria corectă și printează din nou.</li>
+      <li>Repetă modificând <b>„ID Client Certificat”</b> cu o valoare inexistentă.</li>
+      <li>Golește ambele câmpuri, salvează și verifică ce valori sunt folosite.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Cu serie/client inexistente, certificatul se printează cu <b>liniuțe în loc de date</b> (nu se găsește nicio comandă).</li>
+      <li>Cu valorile corecte, datele apar complete.</li>
+      <li>Cu câmpurile goale, aplicația revine la valorile implicite <b>„CCAL”</b> și <b>„1602”</b>.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-005</span><span class="tc-t">Certificat offline, după o sincronizare prealabilă</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există o comandă validă în WME pe ziua curentă.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Fiind <b>online</b>, apasă <b>„Sincronizare”</b> din antet și așteaptă finalizarea completă (aici se pregătesc datele pentru certificate).</li>
+      <li><b>Deconectează</b> rețeaua și așteaptă indicatorul „Offline”.</li>
+      <li>Emite o factură completă.</li>
+      <li>Verifică cu atenție certificatul printat.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Certificatul se printează și <b>conține datele reale</b> (număr comandă, lot, date), preluate din memoria locală.</li>
+      <li><b>Nu apar liniuțe</b> în locul datelor.</li>
+      <li>Acesta este scenariul real de teren: agentul sincronizează dimineața și lucrează toată ziua fără semnal.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-006</span><span class="tc-t">Certificat offline, fără sincronizare prealabilă</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Instalare curată, sincronizată doar cu parteneri și produse, dar <b>fără</b> a fi rulat o sincronizare completă în ziua curentă. Alternativ, șterge baza de date și sincronizează doar prin fereastra de primă pornire.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Deconectează rețeaua.</li><li>Emite o factură și printează certificatul.</li><li>Verifică ce apare în locul datelor.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Certificatul <b>se printează totuși</b>, dar cu marcaje goale: subtitlu <b>„Nr.____ din data de __.__.____”</b>, buletin de analiză <b>„BA____/__.__.____”</b> și o linie de produs cu <b>„Produs / ____ / __.__.____”</b>.</li>
+      <li>Aplicația nu afișează eroare &mdash; documentul iese ca și cum ar fi corect.</li>
+      <li><b>Risc major de raportat:</b> un document oficial incomplet ajunge la client fără niciun avertisment. Recomandare: avertizarea utilizatorului înainte de printare.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-007</span><span class="tc-t">Certificat pentru o factură dintr-o zi anterioară</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Detalii factură</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există o factură emisă cu câteva zile în urmă și comanda corespunzătoare acelei zile în WME.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Deschide factura veche și apasă <b>„Printează Certificat”</b>.</li><li>Compară datele cu comanda din ziua respectivă, nu cu cea de azi.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Certificatul folosește comanda din <b>ziua facturii</b>, nu din ziua curentă.</li>
+      <li>Lotul și datele de producție/expirare corespund acelei zile.</li>
+      <li>Notează dacă data afișată în antet („Data:”) este data de azi în loc de data facturii &mdash; dacă da, se raportează ca inconsecvență.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-008</span><span class="tc-t">Certificat pentru o factură cu mai multe produse</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> document printat</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Emite o factură cu 4&ndash;5 produse diferite (categorii S, M, L, XL, caserole).</li><li>Verifică certificatul.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Fiecare produs apare pe o linie proprie, cu lot și date proprii.</li>
+      <li>Nu există linii duplicate.</li>
+      <li>Tabelul se încadrează în lățimea de 80&nbsp;mm și nu este tăiat.</li>
+      <li>Dacă documentul se întinde pe mai multe „pagini” de hârtie, verifică dacă antetul se repetă sau dacă textul se rupe urât.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-009</span><span class="tc-t">Comanda nu există în ziua facturii, dar există în ultimele 30 de zile</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Detalii factură</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>În WME nu există comandă cu seria configurată în ziua curentă, dar există una în ultimele 30 de zile. Coordonează cu clientul.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Emite o factură azi.</li><li>Printează certificatul și verifică ce comandă a fost folosită.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Aplicația folosește cea mai recentă comandă din ultimele 30 de zile.</li>
+      <li>Certificatul conține date reale, nu liniuțe.</li>
+      <li><b>De discutat cu clientul:</b> este acceptabil ca un certificat de azi să poarte lotul dintr-o comandă de acum 3 săptămâni? Notează răspunsul în raport.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-010</span><span class="tc-t">Certificatul nu filtrează produsele facturii</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> document printat</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură cu <b>un singur</b> produs, dintr-o comandă WME care conține mai multe produse.</li>
+      <li>Printează certificatul și numără liniile de produs.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se notează dacă certificatul afișează <b>doar produsul facturat</b> sau <b>toate produsele din comandă</b>.</li>
+      <li>Începând cu v1.0.5, filtrarea pe produse a fost eliminată intenționat &mdash; deci comportamentul așteptat este afișarea produselor din comandă.</li>
+      <li>Se confirmă cu clientul că această variantă este cea dorită; se notează răspunsul.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CER-011</span><span class="tc-t">Pregătirea datelor de certificat la sincronizare</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> antet</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite 3 facturi fiind online.</li>
+      <li>Apasă <b>„Sincronizare”</b> și așteaptă finalizarea.</li>
+      <li>Deconectează rețeaua.</li>
+      <li>Printează certificatul pentru fiecare dintre cele 3 facturi.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Toate cele 3 certificate conțin date reale, deși aplicația este offline.</li>
+      <li>Datele diferă corect de la o factură la alta, dacă și comenzile diferă.</li>
+      <li>Dacă un certificat iese cu liniuțe, se notează care factură și în ce condiții.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

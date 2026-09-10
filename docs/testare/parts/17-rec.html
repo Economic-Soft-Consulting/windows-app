@@ -1,0 +1,203 @@
+<!-- ============ CAP 17 ============ -->
+<div class="page">
+<h2>17. Reconcilierea cifrelor</h2>
+
+<p>Aceste teste nu verifică butoane, ci <b>corectitudinea sumelor</b>. Se execută cu un calculator la îndemână și cu acces la WinMentor. Sunt cele mai importante teste din întregul document, pentru că o eroare aici înseamnă documente fiscale greșite.</p>
+
+<div class="warn"><b>Regula de bază:</b> aceeași sumă trebuie să apară identic în <b>patru locuri</b>: pe ecranul de revizuire, în fereastra de detalii, pe bonul printat și în WinMentor. Orice diferență, chiar și de un bănuț, se raportează.</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-001</span><span class="tc-t">Lanțul complet al unei sume, în patru locuri</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> toate</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură cu 3 produse și cantități care produc zecimale (ex. 7, 13, 29 bucăți).</li>
+      <li>Notează, la pasul 4, „Total fără TVA”, „Total TVA” și „Total de plată”.</li>
+      <li>După emitere, notează aceleași trei valori din fereastra de detalii.</li>
+      <li>Notează valorile de pe bonul printat.</li>
+      <li>Notează valorile din documentul din WinMentor.</li>
+      <li>Compară toate cele patru seturi.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Toate cele patru seturi de valori sunt <b>identice, la bănuț</b>.</li>
+      <li>Rotunjirea se face la 2 zecimale peste tot.</li>
+      <li>Notează orice diferență, oricât de mică, împreună cu toate cele patru valori.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-002</span><span class="tc-t">TVA cu procente diferite pe aceeași factură</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Detalii / Acasă</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există produse cu cote de TVA diferite (ex. 19% și 9%). Dacă nu, marchează <b>Blocat</b> și notează.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură cu un produs la 19% și unul la 9%.</li>
+      <li>Calculează manual TVA-ul corect pe fiecare linie.</li>
+      <li>Compară cu fereastra de detalii, cu bonul și cu WinMentor.</li>
+      <li>Compară apoi cu totalul afișat pe pagina Acasă.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Detaliile, bonul și WinMentor folosesc <b>cota reală</b> a fiecărui produs.</li>
+      <li><b>Defect așteptat:</b> pagina Acasă aplică 19% pe toată suma, deci va afișa o valoare diferită. Notează ambele cifre și raportează (vezi și TC-HOM-004).</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-003</span><span class="tc-t">Cofrajele = ouă ÷ 30</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Rapoarte</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură cu exact <b>30</b> de bucăți dintr-un produs de categorie. Verifică raportul.</li>
+      <li>Repetă cu <b>90</b> de bucăți.</li>
+      <li>Repetă cu <b>100</b> de bucăți (rezultă un număr cu zecimale).</li>
+      <li>Repetă cu <b>1</b> bucată.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>30 bucăți &rarr; <b>1,00</b> cofraje; 90 &rarr; <b>3,00</b>; 100 &rarr; <b>3,33</b>; 1 &rarr; <b>0,03</b>.</li>
+      <li>Rotunjirea se face la 2 zecimale, atât pe ecran, cât și pe bon.</li>
+      <li>Rândul TOTAL însumează corect valorile cu zecimale.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-004</span><span class="tc-t">Suma categoriilor este egală cu totalul de cofraje</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Rapoarte</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite facturi care acoperă toate cele 5 categorii, cu cantități diferite.</li>
+      <li>Din caseta de sumar, notează: Cofraje total, Cat S, Cat M, Cat L, Cat XL, Cat CAS.</li>
+      <li>Adună cele 5 categorii și compară cu totalul de cofraje.</li>
+      <li>Repetă verificarea pe bonul printat.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li><b>Cat S + Cat M + Cat L + Cat XL + Cat CAS = Cofraje total</b>, exact, fără diferențe.</li>
+      <li>Aceeași egalitate se verifică și pe hârtie.</li>
+      <li>Dacă apare o diferență, notează toate cele 6 valori și verifică apoi denumirile produselor implicate &mdash; cauza cea mai probabilă este un produs a cărui denumire nu conține „categoria”.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-005</span><span class="tc-t">Soldul clientului scade exact cu suma încasată</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Date &rarr; Solduri</span><span><b>Durată:</b> ~15 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Notează soldul total al unui partener (Date &rarr; detalii &rarr; Solduri &rarr; Actualizează).</li>
+      <li>Emite o chitanță pentru o sumă cunoscută.</li>
+      <li>Apasă din nou <b>„Actualizează”</b> și notează noul sold.</li>
+      <li>Verifică și în WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sold nou = sold vechi &minus; suma încasată, exact.</li>
+      <li>Factura încasată integral <b>dispare</b> din listă.</li>
+      <li>Factura încasată parțial rămâne, cu restul actualizat.</li>
+      <li>Valorile coincid cu WinMentor.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-006</span><span class="tc-t">Totalul zilei = suma facturilor zilei</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Acasă / Facturi / Rapoarte</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Adună manual valorile cu TVA ale tuturor facturilor zilei.</li>
+      <li>Compară cu totalul din centralizator.</li>
+      <li>Compară cu „Total cu TVA” de pe pagina Acasă (ca Agent, care vede doar ziua curentă).</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Cele trei valori coincid (cu excepția diferenței de TVA din TC-REC-002, dacă există produse cu cote diferite).</li>
+      <li>Facturile netrimise sunt incluse peste tot.</li>
+      <li>Facturile șterse nu apar nicăieri.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-007</span><span class="tc-t">Totalul încasărilor = suma chitanțelor zilei</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Chitanțe / Rapoarte</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deschide lista de chitanțe pe ziua curentă și adună manual toate valorile.</li>
+      <li>Compară cu „Total general” din centralizator.</li>
+      <li>Verifică separat împărțirea pe „încasat pe zi” și „din solduri”.</li>
+      <li>Verifică modul în care este numărată o chitanță emisă pentru <b>mai multe</b> facturi.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Suma manuală = „Total general” din centralizator.</li>
+      <li>Împărțirea pe cele două categorii este corectă.</li>
+      <li>O chitanță pe mai multe facturi este numărată <b>o singură dată</b> ca document, cu valoarea ei totală.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-008</span><span class="tc-t">Rotunjiri la cantități și prețuri cu multe zecimale</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard / Detalii</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Un produs cu preț care are mai mult de 2 zecimale (ex. 0,4567 RON). Coordonează cu clientul.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură cu 777 de bucăți din acest produs.</li>
+      <li>Calculează manual valoarea exactă și compar-o cu cea afișată.</li>
+      <li>Verifică apoi totalul cu TVA.</li>
+      <li>Compară cu WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Valorile sunt rotunjite consecvent la 2 zecimale.</li>
+      <li>Suma liniilor este egală cu totalul afișat (fără diferențe de rotunjire acumulate).</li>
+      <li>Valoarea din WinMentor coincide cu cea de pe bon.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-REC-009</span><span class="tc-t">Formatarea numerelor în stil românesc</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> toate</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură cu o valoare de peste 1.000 RON.</li>
+      <li>Verifică modul de afișare a sumei în: coș, revizuire, card, detalii, bon, centralizator.</li>
+      <li>Verifică și modul de afișare a datelor calendaristice în aceleași locuri.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sumele folosesc formatul românesc, consecvent în toate ecranele.</li>
+      <li>Moneda este afișată ca <b>RON</b> peste tot.</li>
+      <li>Datele sunt afișate în format zi.lună.an (sau zi/lună/an), consecvent.</li>
+      <li>Se notează orice loc în care formatul diferă de restul aplicației.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

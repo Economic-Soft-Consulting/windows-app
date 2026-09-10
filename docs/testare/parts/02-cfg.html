@@ -1,0 +1,429 @@
+<!-- ============ CAP 2 ============ -->
+<div class="page">
+<h2>2. Configurarea inițială a firmei și a agentului</h2>
+
+<p>Acest capitol acoperă tot ce trebuie făcut pe un calculator nou, de la instalare până la momentul în care se poate emite prima factură validă. Se execută <b>o singură dată</b>, pe o instalare curată (secțiunea 1.4), și în ordinea de mai jos.</p>
+
+<div class="note"><b>Ordinea contează</b>
+Aplicația nu are un „wizard de configurare firmă”. Configurarea se face din <b>Setări</b>, care este vizibil <b>doar pentru Administrator</b>. Prin urmare prima autentificare pe un calculator nou trebuie făcută ca Administrator, nu ca Agent. Vezi TC-CFG-002, care este cel mai frecvent motiv pentru care o instalare nouă „nu pornește”.</div>
+
+<h3>2.1 Instalare și prima deschidere</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-001</span><span class="tc-t">Instalarea aplicației pe un calculator curat</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> &mdash;</span><span><b>Ecran:</b> Windows</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Calculator Windows 10/11 pe care aplicația nu a fost instalată niciodată.</li><li>Kitul de instalare (<span class="k">.msi</span> sau <span class="k">*-setup.exe</span>) pentru v1.0.9.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Rulează kitul de instalare și parcurge pașii propuși, fără a schimba folderul implicit.</li>
+      <li>La final, pornește aplicația de pe scurtătura din meniul Start.</li>
+      <li>Verifică versiunea afișată în partea de jos a meniului lateral.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Instalarea se termină fără erori și fără avertismente de securitate blocante.</li>
+      <li>Aplicația pornește și afișează ecranul de autentificare cu titlul „eSoft Facturi”.</li>
+      <li>În subsolul meniului lateral scrie <b>„v1.0.9 &bull; &copy; 2026 eSoft”</b>.</li>
+      <li>Fereastra se poate redimensiona și maximiza.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-002</span><span class="tc-t">Instalare nouă: Agentul nu poate finaliza configurarea (blocaj așteptat)</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Prima pornire</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Instalare curată, conform secțiunii 1.4. Serverul WME <b>nu</b> este încă configurat.</li><li>Calculatorul are internet.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Pornește aplicația. Pe ecranul de autentificare alege <b>Agent</b>, apoi <b>Continuă</b>.</li>
+      <li>Așteaptă apariția ferestrei de primă pornire.</li>
+      <li>Citește mesajul afișat și apasă butonul propus.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare fereastra „eSoft Facturi &mdash; Pregătire aplicație pentru prima utilizare” cu titlul <b>„Server WME neconfigurat”</b> și textul „Înainte de prima sincronizare trebuie să configurezi adresa IP a serverului WME în Setări.”</li>
+      <li>Butonul afișat este <b>„Mergi la Setări”</b>.</li>
+      <li><b>La apăsarea butonului, agentul este trimis înapoi pe pagina Acasă</b> cu notificarea roșie „Acces interzis - doar pentru Administrator”, deci <b>nu poate finaliza configurarea</b>.</li>
+    </ul></div>
+    <div class="bug"><b>Acesta este un defect confirmat, nu o eroare de testare.</b> Notează-l ca atare. Soluția de lucru: deconectare (<b>Schimbă utilizator</b>) și autentificare ca Administrator. Verifică dacă în versiunea testată butonul a fost corectat &mdash; dacă duce corect în Setări, marchează <b>FAIL</b> pe acest caz și raportează că descrierea din spec trebuie actualizată.</div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<h3>2.2 Configurarea serverului WME</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-003</span><span class="tc-t">Cardul „Server WME” semnalează starea neconfigurată</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~2 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Instalare curată; autentificat ca Administrator.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Meniu lateral &rarr; <b>Setări</b>.</li><li>Privește primul card din pagină.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Cardul se numește <b>„Server WME”</b> și are chenar <b>portocaliu/chihlimbariu</b>.</li>
+      <li>Lângă titlu apare eticheta <b>„Neconfigurat”</b> cu un triunghi de avertizare.</li>
+      <li>Descriere: „Adresa IP și portul serverului WME Winmentor — necesare pentru sincronizare și trimiterea documentelor”.</li>
+      <li>Câmpul „Adresă IP Server WME” este gol, cu sugestia „Ex: 192.168.1.100”; câmpul „Port” are sugestia „8089”.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-004</span><span class="tc-t">Salvarea adresei serverului WME</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Ai IP-ul și portul serverului WME din tabelul 1.3.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>În cardul <b>Server WME</b>, completează „Adresă IP Server WME” cu IP-ul real.</li>
+      <li>Completează „Port” cu portul real (implicit 8089).</li>
+      <li>Derulează în jos până la cardul <b>Date Agent</b> și apasă <b>„Salvează date agent”</b>.</li>
+      <li>Ieși din Setări (mergi pe Acasă) și revino în Setări.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare notificarea verde <b>„Setările agentului au fost salvate!”</b>.</li>
+      <li>După revenire, IP-ul și portul sunt <b>păstrate</b>, iar chenarul portocaliu și eticheta „Neconfigurat” au dispărut.</li>
+    </ul></div>
+    <div class="warn"><b>Capcană de testat explicit:</b> cardul „Server WME” <b>nu are buton propriu de salvare</b>. Singurul buton care salvează IP-ul este „Salvează date agent” din cardul următor. Vezi TC-CFG-005.</div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-005</span><span class="tc-t">IP-ul se pierde dacă se apasă butonul greșit de salvare</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>În cardul <b>Server WME</b>, schimbă IP-ul cu o valoare diferită (ex. <span class="k">192.168.1.222</span>).</li>
+      <li><b>Nu</b> apăsa „Salvează date agent”. Derulează până la cardul <b>Setări Printare</b> și apasă <b>„Salvează setările”</b>.</li>
+      <li>Navighează pe Acasă și revino în Setări.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare notificarea „Setările au fost salvate!” (aceasta se referă doar la imprimantă).</li>
+      <li>La revenire, <b>IP-ul a revenit la valoarea veche</b> &mdash; modificarea s-a pierdut fără niciun avertisment.</li>
+    </ul></div>
+    <div class="bug"><b>Defect de confirmat:</b> două butoane de salvare pe același ecran, fără indicație vizuală care card salvează ce. Recomandare de raportat: cardul Server WME să aibă buton propriu sau un singur buton global.</div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-006</span><span class="tc-t">Validarea portului WME</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Introdu în câmpul „Port” valoarea <span class="k">0</span> și salvează cu „Salvează date agent”. Reîncarcă pagina Setări și notează valoarea afișată.</li>
+      <li>Repetă cu valoarea <span class="k">70000</span>.</li>
+      <li>Repetă cu valoarea <span class="k">8089</span>.</li>
+      <li>Repetă cu câmpul lăsat gol.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Valorile în afara intervalului 1&ndash;65535 sunt corectate automat la <b>8089</b> la salvare.</li>
+      <li>Valoarea 8089 se păstrează neschimbată.</li>
+      <li>Aplicația nu se blochează și nu afișează eroare tehnică netradusă.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-007</span><span class="tc-t">IP invalid: comportamentul la sincronizare</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Introdu în „Adresă IP Server WME” un text fără sens: <span class="k">abcdef</span>. Salvează.</li>
+      <li>Apasă <b>„Sincronizează Acum”</b> din cardul Sincronizare Date.</li>
+      <li>Notează mesajul primit și timpul până la apariția lui.</li>
+      <li>Repune IP-ul corect și salvează.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Câmpul acceptă textul (nu există validare de format &mdash; acest lucru se notează ca observație).</li>
+      <li>Sincronizarea eșuează cu o notificare roșie de forma „Eroare la sincronizare: …”.</li>
+      <li>Eroarea apare în cel mult ~35 de secunde (timeout-ul de rețea) și <b>aplicația rămâne utilizabilă</b>, nu se blochează.</li>
+      <li>Datele existente local nu se pierd.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<h3>2.3 Configurarea datelor agentului</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-008</span><span class="tc-t">Completarea integrală a cardului „Date Agent”</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Tabelul din secțiunea 1.3 este completat cu valorile reale.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Completează, în ordine, toate câmpurile din cardul <b>Date Agent</b>: Nume Agent, Marca Agent, Nume Casă, Serie Carnet, Serie Carnet Livrări, Simbol Gestiune Livrare, Tip Contabil, Serie Comandă Certificat, ID Client Certificat, Cod Carnet Facturi, Cod Carnet Livrări, Cod Delegat, Numele Delegatului, Act Delegat, Număr Auto.</li>
+      <li>Apasă <b>„Salvează date agent”</b>.</li>
+      <li>Navighează pe Acasă, revino în Setări și verifică fiecare câmp.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Butonul afișează temporar „Se salvează...”.</li>
+      <li>Apare notificarea verde „Setările agentului au fost salvate!”.</li>
+      <li><b>Toate</b> cele 15 câmpuri își păstrează valoarea după reîncărcare, inclusiv diacriticele din nume.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-009</span><span class="tc-t">Marca Agent nenumerică &mdash; acceptată la salvare, respinsă la trimitere</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări + Facturi</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există cel puțin un partener sincronizat și un produs disponibil.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>În câmpul <b>Marca Agent</b> introdu exact valoarea sugerată de aplicație: <span class="k">AG123</span>. Salvează.</li>
+      <li>Emite o factură de test (capitolul 8) și încearcă să o trimiți din lista de facturi.</li>
+      <li>Deschide factura și citește mesajul de eroare.</li>
+      <li>Repune Marca Agent la valoarea numerică corectă, salvează și retrimite factura.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Salvarea reușește fără avertisment (defect de raportat: sugestia din câmp induce în eroare).</li>
+      <li>Trimiterea eșuează, iar în detaliile facturii apare mesajul <b>„Marca Agent must be numeric for WME sending.”</b></li>
+      <li>Mesajul este <b>în limba engleză</b> într-o interfață în română &mdash; se notează ca defect de traducere.</li>
+      <li>După corectarea mărcii, aceeași factură se trimite cu succes, fără a fi nevoie să fie recreată.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-010</span><span class="tc-t">Schimbarea Mărcii Agent șterge și resincronizează partenerii</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Aplicația este <b>online</b> și are parteneri sincronizați. Notează numărul de parteneri din ecranul Date.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Schimbă <b>Marca Agent</b> cu o altă valoare numerică validă și apasă „Salvează date agent”.</li>
+      <li>Urmărește succesiunea de notificări.</li>
+      <li>Mergi în ecranul <b>Date</b> și verifică numărul de parteneri.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare notificarea albastră <b>„Marca Agent a fost schimbată. Se reîncarcă partenerii pentru noul agent...”</b></li>
+      <li>Partenerii locali <b>fără facturi asociate</b> sunt șterși, apoi se declanșează automat o sincronizare completă.</li>
+      <li>Apare „Partenerii au fost resincronizați după modificarea mărcii.” și „Setările agentului au fost salvate!”.</li>
+      <li>Lista de parteneri se repopulează cu partenerii noii mărci.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-011</span><span class="tc-t">Schimbarea Mărcii Agent în modul offline &mdash; scenariu periculos</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Aplicația are parteneri sincronizați. Notează câți.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deconectează calculatorul de la rețea și așteaptă ca indicatorul din antet să devină roșu <b>„Offline”</b>.</li>
+      <li>Schimbă <b>Marca Agent</b> cu altă valoare numerică și salvează.</li>
+      <li>Mergi în ecranul <b>Date</b> și verifică lista de parteneri.</li>
+      <li>Încearcă să emiți o factură.</li>
+      <li>Reconectează rețeaua, apasă butonul <b>Sincronizare</b> din antet și verifică din nou lista.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare notificarea galbenă <b>„Marca Agent a fost salvată, dar ești offline. Fă sincronizarea când revii online.”</b></li>
+      <li>Partenerii au fost <b>șterși local</b> și lista este goală &mdash; agentul nu mai poate emite facturi până la reconectare.</li>
+      <li>Aplicația <b>nu se blochează</b> și afișează un mesaj inteligibil, nu o eroare tehnică.</li>
+      <li>După reconectare și sincronizare, partenerii revin complet.</li>
+    </ul></div>
+    <div class="warn">Acest scenariu este un risc real de teren: dacă agentul schimbă marca în mașină, fără semnal, rămâne fără parteneri. Raportează recomandarea de a bloca schimbarea mărcii în modul offline.</div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<h3>2.4 Numerotarea documentelor</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-012</span><span class="tc-t">Configurarea intervalului de numere pentru facturi</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări &rarr; Numerotare Facturi</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Completează „Număr Start” cu valoarea alocată de client (ex. <span class="k">1001</span>).</li>
+      <li>Completează „Număr Final” (ex. <span class="k">1010</span> &mdash; interval mic, intenționat, pentru testul TC-FAC-021).</li>
+      <li>Observă câmpul „Număr Curent”.</li>
+      <li>Salvează și reîncarcă pagina.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Câmpul <b>„Număr Curent” este gri și nu poate fi editat</b> &mdash; se actualizează automat la fiecare factură emisă.</li>
+      <li>După salvare, dacă „Număr Curent” era mai mic decât „Număr Start”, este ridicat automat la valoarea de start.</li>
+      <li>Textul explicativ afișat: „Setează intervalul de numerotare pentru facturi. Numărul curent se actualizează automat la fiecare factură creată.”</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-013</span><span class="tc-t">Valori limită la numerotare: zero, start &gt; final</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Introdu „Număr Start” = <span class="k">0</span>, salvează, reîncarcă și notează ce valoare este afișată.</li>
+      <li>Introdu „Număr Start” = <span class="k">5000</span> și „Număr Final” = <span class="k">100</span> (start mai mare decât finalul). Salvează.</li>
+      <li>Încearcă să emiți o factură.</li>
+      <li>Readu intervalul la valorile corecte.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Valoarea <span class="k">0</span> este tratată ca „nesetat” (câmpul rămâne gol) &mdash; se notează ca observație.</li>
+      <li>Aplicația <b>nu împiedică</b> salvarea unui interval inversat &mdash; acesta este un defect de raportat (lipsă validare start &le; final).</li>
+      <li>La emiterea facturii apare mesajul de depășire a intervalului sau factura nu se creează; aplicația nu se blochează.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-014</span><span class="tc-t">Configurarea seriei și numerotării pentru chitanțe</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări &rarr; Numerotare Chitanțe</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Completează „Serie Chitanțe” (ex. <span class="k">CH</span>), „Număr Start”, „Număr Final”.</li>
+      <li>Salvează și emite o chitanță de test (capitolul 13).</li>
+      <li>Verifică seria și numărul de pe chitanța printată.</li>
+      <li>Golește câmpul „Serie Chitanțe”, salvează și emite încă o chitanță.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Chitanța printată poartă seria și numărul configurate, iar numărul se incrementează la fiecare emitere.</li>
+      <li>Cu seria goală, aplicația folosește <b>Seria Carnet</b> a facturilor; dacă și aceea lipsește, folosește literal <b>„CH”</b>, conform textului explicativ din ecran.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<h3>2.5 Configurarea imprimantei</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-015</span><span class="tc-t">Selectarea imprimantei termice</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări &rarr; Setări Printare</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Imprimanta termică este instalată în Windows și pornită.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deschide lista <b>„Imprimantă”</b> și verifică faptul că imprimanta termică apare în listă.</li>
+      <li>Selecteaz-o și apasă <b>„Salvează setările”</b>.</li>
+      <li>Repornește aplicația și revino în Setări.</li>
+      <li>Apasă <b>„Reîncarcă imprimante”</b>.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Lista conține toate imprimantele instalate în Windows.</li>
+      <li>Apare notificarea „Setările au fost salvate!”.</li>
+      <li>După repornire, imprimanta selectată este <b>reținută</b>.</li>
+      <li>„Reîncarcă imprimante” reîmprospătează lista fără a pierde selecția, dacă imprimanta încă există.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-016</span><span class="tc-t">Opțiunile de printare care nu au efect</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Setări &rarr; Setări Printare</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Imprimanta este configurată și există cel puțin o factură.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Setează „Număr de copii” = <span class="k">3</span>, salvează, apoi printează o factură. <b>Numără foile ieșite.</b></li>
+      <li>Setează comutatorul „Printare automată” pe <b>oprit</b>, salvează, apoi emite o factură nouă. Observă dacă se printează totuși.</li>
+      <li>Setează „Previzualizare PDF” pe <b>pornit</b>, salvează, apoi printează o factură. Observă dacă se deschide vreo previzualizare.</li>
+      <li>Setează „Lățime hârtie” = <b>A4</b>, salvează, printează. Măsoară lățimea documentului rezultat.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat (comportamentul actual, defectuos)</div>
+    <div class="exp"><ul>
+      <li>Se printează <b>o singură copie</b>, deși sunt configurate 3.</li>
+      <li>Factura <b>se printează automat</b>, deși opțiunea este oprită.</li>
+      <li><b>Nu apare nicio previzualizare</b>, deși opțiunea este pornită.</li>
+      <li>Documentul rămâne format <b>80&nbsp;mm</b>, deși este selectat A4.</li>
+    </ul></div>
+    <div class="bug"><b>Defect confirmat de raportat:</b> patru setări de printare se salvează, dar nu sunt folosite nicăieri de aplicație. Singura setare cu efect real este alegerea imprimantei. Notează fiecare din cele patru ca element separat în raport, ca să nu fie închise ca unul singur.</div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<h3>2.6 Verificarea datelor de firmă pe documente</h3>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-017</span><span class="tc-t">Datele firmei emitente pe factura printată</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> document printat</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există o factură emisă și printată. Ai la îndemână datele oficiale ale firmei (certificat înregistrare, extras ONRC).</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Ia bonul printat al facturii (sau deschide fișierul HTML corespunzător din folderul <span class="k">invoices</span>).</li>
+      <li>Compară, caracter cu caracter, fiecare dintre datele de mai jos cu documentele oficiale ale firmei.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat &mdash; bifează fiecare element</div>
+    <div class="exp"><ul class="chk">
+      <li>Denumire: <b>KARIN SRL</b></li>
+      <li>Cod fiscal: <b>RO5379259</b></li>
+      <li>Reg. Comerțului: <b>J24/380/1994</b></li>
+      <li>Adresă: <b>Str. Nicolae Bălcescu 43</b></li>
+      <li>Localitate: <b>Seini, jud. Maramureș</b>, cod poștal <b>435500</b></li>
+      <li>Bancă: <b>Banca Transilvania</b>; IBAN: <b>RO03BTRL02501202L70970XX</b></li>
+      <li>Capital social: <b>200020 RON</b></li>
+      <li>Numele agentului, delegatul, actul delegatului și numărul auto sunt cele configurate în Setări</li>
+      <li>Seria și numărul facturii corespund configurării din Setări</li>
+    </ul></div>
+    <div class="warn">Dacă vreo valoare este greșită, ea <b>nu se poate corecta din aplicație</b> &mdash; necesită modificare în cod și o versiune nouă. Raportează cu prioritate <b>Critică</b> și oprește emiterea de documente reale.</div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-CFG-018</span><span class="tc-t">Datele firmei și codurile de producător pe certificatul de calitate</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> document printat</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Printează un certificat de calitate (vezi capitolul 12) sau deschide fișierul HTML din folderul <span class="k">certificates</span>.</li>
+      <li>Verifică antetul și codurile de producător.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat &mdash; bifează fiecare element</div>
+    <div class="exp"><ul class="chk">
+      <li>Titlu: <b>„Certificat de calitate - Declarație de conformitate”</b></li>
+      <li>Antet firmă: <b>SC KARIN SRL, J24/380/1994, SEINI, N.BĂLCESCU, 43, jud. MM</b></li>
+      <li>Coduri de producător: <b>RO MM 023</b>, <b>3RO MM 013</b>, <b>2RO MM 040</b></li>
+      <li>Sigla și ștampila apar corect, nu ca pătrate goale sau imagini lipsă</li>
+      <li>Textul de conformitate cu reglementările europene este integral, netăiat la marginea hârtiei</li>
+      <li>Numărul auto afișat la „Transport auto” este cel din Setări</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

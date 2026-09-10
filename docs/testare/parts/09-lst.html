@@ -1,0 +1,451 @@
+<!-- ============ CAP 9 ============ -->
+<div class="page">
+<h2>9. Lista de facturi și trimiterea în WME</h2>
+
+<table class="t">
+  <tr><th style="width:32mm">Status</th><th style="width:26mm">Culoare</th><th>Ce înseamnă</th></tr>
+  <tr><td><b>În așteptare</b></td><td>Galben</td><td>Salvată local, netrimisă încă. Se va trimite automat.</td></tr>
+  <tr><td><b>Se trimite...</b></td><td>Albastru</td><td>În curs de transmitere către WME. Stare tranzitorie, de câteva secunde.</td></tr>
+  <tr><td><b>Trimisă</b></td><td>Verde</td><td>Confirmată de WinMentor.</td></tr>
+  <tr><td><b>Eșuată</b></td><td>Roșu</td><td>Respinsă de WME cu o eroare de validare.</td></tr>
+</table>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-001</span><span class="tc-t">Filele de filtrare și contoarele</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există facturi în cel puțin două stări diferite.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă, pe rând, fiecare filă: <b>Toate, În așteptare, Trimise, Eșuate</b>.</li><li>Numără facturile afișate pe fiecare filă și compară cu contorul din titlul filei.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Fiecare filă afișează exclusiv facturile cu statusul respectiv.</li>
+      <li>Contoarele coincid cu numărul de rânduri afișate.</li>
+      <li>Fila „Toate” afișează întotdeauna contorul; celelalte îl afișează doar când valoarea este mai mare decât zero.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-002</span><span class="tc-t">Comutarea între vizualizarea tabel și grilă</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Observă vizualizarea implicită la deschiderea ecranului.</li>
+      <li>Comută pe <b>tabel</b> și verifică coloanele.</li>
+      <li>Navighează în alt ecran și revino pe Facturi.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Vizualizarea implicită este <b>grila de carduri</b>.</li>
+      <li>Tabelul conține coloanele: <b>Partener, Locație, Data, Ora, Valoare, Status, Acțiuni</b>.</li>
+      <li>La revenire, vizualizarea și fila selectată revin la valorile implicite &mdash; alegerea <b>nu</b> se memorează. Se notează ca recomandare de îmbunătățire.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-003</span><span class="tc-t">Informațiile de pe cardul de factură</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Alege o factură trimisă și una eșuată (dacă există).</li><li>Compară fiecare element de pe card cu detaliile facturii și cu bonul printat.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Cardul afișează: denumire partener, <b>„Factura: {serie} {număr}”</b>, locația, eticheta de status, <b>„N produse”</b>, totalul și data/ora.</li>
+      <li>Factura trimisă afișează, cu verde, <b>„Trimisă: {data ora}”</b>.</li>
+      <li>Factura eșuată afișează o casetă roșie cu mesajul de eroare.</li>
+      <li>Seria și numărul coincid cu bonul printat.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-004</span><span class="tc-t">Trimiterea manuală a unei facturi în așteptare</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există o factură cu statusul „În așteptare”. Aplicația este online.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Trimite”</b> pe card sau din meniul „⋯”.</li><li>Urmărește evoluția statusului.</li><li>Verifică documentul în WinMentor.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Statusul trece prin <b>„Se trimite...”</b> și ajunge la <b>„Trimisă”</b>.</li>
+      <li>Apare notificarea <b>„Factura a fost trimisă cu succes!”</b>.</li>
+      <li>Lista se actualizează singură, fără a fi nevoie de reîmprospătare manuală.</li>
+      <li>În WinMentor apare exact un document, cu valorile corecte.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-005</span><span class="tc-t">Trimiterea repetată a aceleiași facturi nu produce duplicate</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Trimite o factură și așteaptă statusul „Trimisă”.</li>
+      <li>Încearcă să o trimiți din nou (verifică dacă opțiunea mai este disponibilă).</li>
+      <li>Apasă butonul <b>„Sincronizare”</b> din antet de două ori la rând.</li>
+      <li>Verifică în WinMentor numărul de documente cu acel număr de factură.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Opțiunea „Trimite” <b>nu mai este disponibilă</b> pentru o factură deja trimisă; dacă totuși se declanșează, apare mesajul „Factura are deja statusul '…'. Nu poate fi trimisă din nou.”</li>
+      <li>În WinMentor există <b>un singur</b> document. <b>Acesta este cel mai important criteriu al testului.</b></li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-006</span><span class="tc-t">Reîncercarea unei facturi eșuate</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>O factură eșuată &mdash; se poate obține golind temporar un câmp obligatoriu din Setări (vezi TC-FAC-023).</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Identifică factura eșuată și citește mesajul de eroare din caseta roșie.</li>
+      <li>Corectează cauza în Setări.</li>
+      <li>Apasă <b>„Reîncearcă”</b>.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Opțiunea afișată pentru o factură eșuată se numește <b>„Reîncearcă”</b>, nu „Trimite”.</li>
+      <li>După corectare, factura se trimite cu succes și devine „Trimisă”.</li>
+      <li>Mesajul de eroare dispare de pe card.</li>
+      <li>Nu este necesară recrearea facturii.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-007</span><span class="tc-t">Facturile netrimise revin la „În așteptare”, nu la „Eșuată”</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deconectează rețeaua și emite o factură.</li>
+      <li>Apasă <b>„Trimite”</b> manual, fiind offline.</li>
+      <li>Observă statusul rezultat și mesajul din detalii.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Factura <b>rămâne „În așteptare”</b>, nu devine „Eșuată”.</li>
+      <li>În detalii apare un mesaj de forma <b>„Salvat local (Offline/Eroare): …”</b>.</li>
+      <li>Comportamentul este intenționat: eroarea de rețea nu marchează documentul ca respins, astfel încât să fie reîncercat automat.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-008</span><span class="tc-t">Anularea trimiterii în curs</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă <b>„Trimite”</b> și, cât timp statusul este <b>„Se trimite...”</b>, încearcă rapid să apeși <b>„Anulează”</b>.</li><li>Notează dacă ai reușit să prinzi momentul.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Dacă reușești: apare <b>„Trimitere anulată!”</b> și factura revine la „În așteptare” cu mesajul „Trimitere anulată de utilizator”.</li>
+      <li>Fereastra de oportunitate este de doar câteva secunde &mdash; dacă nu reușești, notează acest lucru. Butonul este practic inutilizabil în condiții normale de rețea; se raportează ca observație.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-009</span><span class="tc-t">Ștergerea unei facturi cu confirmare (Administrator)</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă pictograma roșie de coș pe o factură de test.</li>
+      <li>Citește fereastra de confirmare, apoi apasă <b>„Anulează”</b>. Verifică faptul că factura a rămas.</li>
+      <li>Repetă și apasă <b>„Șterge”</b>.</li>
+      <li>Verifică dacă factura mai apare în WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Fereastra are titlul <b>„Șterge factura?”</b> și textul „Această acțiune nu poate fi anulată. Factura va fi ștearsă permanent.”</li>
+      <li>„Anulează” nu șterge nimic.</li>
+      <li>După confirmare apare <b>„Factura a fost ștearsă”</b> și dispare din listă.</li>
+      <li><b>Atenție:</b> dacă factura fusese deja trimisă, ea <b>rămâne în WinMentor</b> &mdash; ștergerea este doar locală. Se notează explicit ca risc de utilizare.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-010</span><span class="tc-t">Agentul vede doar facturile zilei curente</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Există facturi emise ieri sau mai demult.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Ca <b>Administrator</b>, notează numărul total de facturi și data celei mai vechi.</li><li>Schimbă utilizatorul pe <b>Agent</b> și deschide Facturi.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Agentul vede <b>doar</b> facturile cu data de azi.</li>
+      <li>Contoarele filelor reflectă tot doar ziua curentă.</li>
+      <li>Facturile din zilele anterioare nu sunt accesibile în niciun fel din contul de Agent.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-011</span><span class="tc-t">Actualizarea automată a listei în timpul trimiterii</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Selectează fila „În așteptare” și comută pe vizualizarea <b>tabel</b>.</li>
+      <li>Apasă „Trimite” pe o factură.</li>
+      <li>Observă lista <b>fără</b> a atinge nimic, până la finalizarea trimiterii.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Statusul se actualizează singur, la câteva secunde, fără intervenția utilizatorului.</li>
+      <li><b>De verificat cu atenție:</b> dacă, la finalizare, întreaga pagină se reîncarcă și fila selectată revine la „Toate”, iar vizualizarea revine la grilă. Dacă da, se raportează ca defect de utilizabilitate.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-012</span><span class="tc-t">Mesajele pentru listă goală</span><span class="pr p4">Mică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Selectează o filă pe care nu există nicio factură (ex. „Eșuate”).</li><li>Citește mesajul afișat, cuvânt cu cuvânt.</li><li>Pe o instalare fără nicio factură, verifică și fila „Toate”.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Pe fila „Toate”: <b>„Nu există facturi”</b> / „Creează prima ta factură pentru a începe” + butonul „Creează factură”.</li>
+      <li><b>Defect de confirmat:</b> pe celelalte file, mesajul afișează statusul în engleză, de forma <b>Nu există facturi cu statusul „pending”</b> în loc de „În așteptare”. Verifică pentru toate cele trei file și raportează.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-013</span><span class="tc-t">Trimiterea în masă a tuturor facturilor restante</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~12 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Cel puțin 5 facturi în așteptare, emise offline.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Reconectează rețeaua și apasă <b>„Sincronizare”</b>.</li>
+      <li>Urmărește lista și notează ordinea în care se trimit facturile.</li>
+      <li>Verifică în WinMentor toate cele 5 documente.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Facturile se trimit una câte una, <b>în ordinea emiterii</b> (cea mai veche prima).</li>
+      <li>Apare notificarea cu numărul total trimis.</li>
+      <li>În WinMentor sunt exact 5 documente, cu numere consecutive, fără duplicate și fără lipsuri.</li>
+      <li>Dacă una eșuează, restul continuă să se trimită.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-014</span><span class="tc-t">Legătura cu comanda din WME (câmpurile LEGCOM)</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> WinMentor</span><span><b>Durată:</b> ~10 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>În WME există o comandă pe ziua curentă pentru partenerul de test, cu produsele care vor fi facturate.</li><li>Acces la WinMentor pentru a inspecta documentul rezultat.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură pentru acel partener, cu produsele din comandă.</li>
+      <li>Trimite-o și deschide documentul în WinMentor.</li>
+      <li>Verifică, pe fiecare linie, dacă legătura cu comanda este completată.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Fiecare linie a facturii din WME are completată legătura către linia corespunzătoare din comandă.</li>
+      <li>Funcționalitatea a fost introdusă în v1.0.7 &mdash; dacă lipsește, este o regresie și se raportează cu prioritate Mare.</li>
+      <li>Pentru produsele care nu există în comandă, se notează cum se comportă aplicația.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-015</span><span class="tc-t">Comportament cu volum mare de facturi</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Peste 100 de facturi în baza de date.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol><li>Deschide ecranul Facturi și cronometrează încărcarea.</li><li>Derulează până la capătul listei.</li><li>Comută rapid între file de câteva ori.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Lista se încarcă în cel mult 3 secunde.</li>
+      <li>Derularea este fluidă, fără blocaje.</li>
+      <li>Comutarea între file nu produce erori și nu duplică rândurile.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-LST-016</span><span class="tc-t">Ordinea de afișare a facturilor</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Administrator</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Emite o factură nouă.</li><li>Deschide lista pe fila „Toate”.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Factura cea mai recentă apare <b>prima</b> în listă.</li>
+      <li>Ordinea este descrescătoare după data și ora emiterii, atât în grilă, cât și în tabel.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>
+
+<!-- ============ CAP 10 ============ -->
+<div class="page">
+<h2>10. Detalii factură</h2>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DET-001</span><span class="tc-t">Deschiderea ferestrei de detalii</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Facturi</span><span><b>Durată:</b> ~3 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Apasă pe o factură sau alege <b>„Detalii”</b> din meniul „⋯”.</li><li>Verifică toate secțiunile.</li><li>Închide fereastra cu tasta <b>Esc</b>, apoi redeschide-o și închide-o cu butonul X.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Titlu: <b>„Detalii factură”</b>.</li>
+      <li>Se afișează partenerul, locația și casetele <b>„Data emitere”</b> și <b>„Data scadență”</b>.</li>
+      <li>Tabelul de produse afișează Produs, Cantitate și Preț.</li>
+      <li>Fereastra se închide corect cu Esc, cu X și cu clic în afara ei.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DET-002</span><span class="tc-t">Calculul datei de scadență</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Detalii factură</span><span><b>Durată:</b> ~8 min</span></div>
+    <div class="lbl">Precondiții</div>
+    <ul><li>Un partener cu scadență de 30 de zile și, dacă e posibil, unul fără scadență configurată.</li></ul>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Emite o factură pentru partenerul cu 30 de zile scadență.</li>
+      <li>Deschide detaliile și verifică „Data scadență” față de „Data emitere”.</li>
+      <li>Repetă pentru partenerul fără scadență configurată.</li>
+      <li>Compară cu scadența afișată pe bonul printat.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Pentru scadență 30 de zile: data scadenței = data emiterii + 30 de zile.</li>
+      <li>Pentru partener fără scadență configurată se aplică valoarea implicită de <b>7 zile</b> &mdash; se confirmă cu clientul dacă este corect.</li>
+      <li>Data de pe bonul printat coincide cu cea din fereastra de detalii.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DET-003</span><span class="tc-t">Defalcarea TVA pe fiecare produs</span><span class="pr p1">Critică</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Detalii factură</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Deschide detaliile unei facturi cu mai multe produse.</li>
+      <li>Pentru fiecare linie, verifică cele trei valori afișate în coloana de preț.</li>
+      <li>Verifică rândul de total.</li>
+      <li>Compară cu totalul de pe bonul printat și cu documentul din WinMentor.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Fiecare linie afișează <b>„Preț fără TVA”</b>, <b>„TVA N%”</b> și <b>„Preț cu TVA”</b>.</li>
+      <li>Procentul afișat este cel real al produsului; unde lipsește, se folosește 19% (se notează dacă apare acest caz).</li>
+      <li>Rândul final <b>„Total general cu TVA”</b> arată suma netă mai mic, iar suma brută îngroșată.</li>
+      <li>Totalul coincide cu bonul și cu WinMentor, la bănuț.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DET-004</span><span class="tc-t">Afișarea sumelor mari fără a strica aspectul</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Detalii factură + bon</span><span><b>Durată:</b> ~6 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Emite o factură cu o valoare foarte mare (ex. cantitate 100.000).</li><li>Deschide detaliile și verifică afișarea.</li><li>Printează și verifică bonul.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Sumele mari se afișează complet, fără a fi tăiate sau suprapuse peste alte coloane.</li>
+      <li>Pe bonul de 80&nbsp;mm valorile rămân lizibile (funcționalitate introdusă în v1.0.4).</li>
+      <li>Separatorul de mii și cel zecimal sunt cele românești.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DET-005</span><span class="tc-t">Afișarea erorii pe o factură eșuată</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Detalii factură</span><span><b>Durată:</b> ~4 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Deschide detaliile unei facturi eșuate.</li><li>Citește caseta de eroare.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Apare o casetă roșie de forma <b>„Eroare: {mesaj}”</b>.</li>
+      <li>Mesajul este suficient de clar pentru a identifica problema.</li>
+      <li>Caseta nu conține căi de fișiere de pe disc sau text tehnic ilizibil; dacă totuși conține, se notează.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DET-006</span><span class="tc-t">Butonul „Vezi certificat”</span><span class="pr p2">Mare</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> oricare</span><span><b>Ecran:</b> Detalii factură</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol>
+      <li>Apasă <b>„Vezi certificat”</b> în partea de jos a ferestrei.</li>
+      <li>Observă ce se întâmplă: se deschide un fișier, apare un mesaj, sau nu se întâmplă nimic.</li>
+      <li>Repetă cu aplicația deconectată de la rețea.</li>
+    </ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Se deschide certificatul în aplicația implicită pentru PDF a calculatorului.</li>
+      <li><b>Risc cunoscut:</b> dacă generarea eșuează, butonul <b>nu afișează niciun mesaj</b> &mdash; utilizatorul are impresia că butonul nu funcționează. Dacă observi acest comportament, raportează-l ca defect de utilizabilitate.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+<div class="tc">
+  <div class="tc-h"><span class="tc-id">TC-DET-007</span><span class="tc-t">Factură cu un singur produs și cantitate 1</span><span class="pr p3">Medie</span></div>
+  <div class="tc-body">
+    <div class="meta"><span><b>Rol:</b> Agent</span><span><b>Ecran:</b> Wizard &rarr; Detalii</span><span><b>Durată:</b> ~5 min</span></div>
+    <div class="lbl">Pași</div>
+    <ol><li>Emite o factură cu un singur produs, cantitate 1.</li><li>Verifică detaliile și bonul printat.</li></ol>
+    <div class="lbl">Rezultat așteptat</div>
+    <div class="exp"><ul>
+      <li>Pe card scrie <b>„1 produse”</b> &mdash; dacă apare astfel, se notează ca defect minor de acord gramatical („1 produs”).</li>
+      <li>Totalurile sunt corecte, iar bonul se printează complet, fără spații goale anormale.</li>
+    </ul></div>
+    <table class="verdict"><tr><td class="v vp">PASS</td><td class="v vf">FAIL</td><td class="v vb">BLOCAT</td><td class="ob">Observații:</td></tr></table>
+  </div>
+</div>
+
+</div>

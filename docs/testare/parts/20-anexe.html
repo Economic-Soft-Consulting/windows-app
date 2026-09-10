@@ -1,0 +1,295 @@
+<!-- ============ CAP 20 ============ -->
+<div class="page">
+<h2>20. Matricea de permisiuni Agent vs. Administrator</h2>
+
+<p>Se parcurge la finalul testării, ca verificare de ansamblu. Fiecare rând se bifează în ambele roluri.</p>
+
+<table class="t">
+  <tr><th style="width:66mm">Element / acțiune</th><th class="c" style="width:32mm">Agent &mdash; așteptat</th><th class="c" style="width:32mm">Admin &mdash; așteptat</th><th class="c" style="width:14mm">Agent</th><th class="c" style="width:14mm">Admin</th></tr>
+  <tr><td>Autentificare fără parolă</td><td class="c">DA</td><td class="c">NU (cu parolă)</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Sesiunea se păstrează după repornire</td><td class="c">DA</td><td class="c">NU</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Meniu lateral &mdash; intrarea „Setări”</td><td class="c">ascuns</td><td class="c">vizibil</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Acasă &mdash; cardul „Configurare”</td><td class="c">ascuns</td><td class="c">vizibil</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Acces la ecranul de Setări</td><td class="c">refuzat + mesaj</td><td class="c">permis</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Acasă &mdash; domeniul statisticilor</td><td class="c">doar azi</td><td class="c">tot istoricul</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Lista de facturi</td><td class="c">doar azi</td><td class="c">toate</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Lista de chitanțe</td><td class="c">doar azi</td><td class="c">toate</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Emitere factură</td><td class="c">DA</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Emitere chitanță</td><td class="c">DA</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Printare (toate documentele)</td><td class="c">DA</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Ștergere factură</td><td class="c">NU</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Ștergere chitanță</td><td class="c">NU</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Ștergere parteneri + sedii</td><td class="c">NU</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Ascunderea unei facturi din solduri</td><td class="c">NU</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Rapoarte &mdash; alegerea intervalului</td><td class="c">blocat pe azi</td><td class="c">liber</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Rapoarte &mdash; printare</td><td class="c">DA</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Sincronizare manuală din antet</td><td class="c">DA</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Actualizarea soldurilor unui partener</td><td class="c">DA</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+  <tr><td>Vizualizare oferte și prețuri</td><td class="c">DA</td><td class="c">DA</td><td class="c">&#9744;</td><td class="c">&#9744;</td></tr>
+</table>
+
+<h3>20.1 Alte comportamente condiționate (nu de rol)</h3>
+<table class="t">
+  <tr><th style="width:56mm">Condiție</th><th>Ce se schimbă în interfață</th><th class="c" style="width:14mm">Verificat</th></tr>
+  <tr><td>Aplicație offline</td><td>Indicator roșu „Offline”; butoanele de sincronizare inactive; în Setări scrie „Offline - Nu se poate sincroniza”; chitanțele se salvează în așteptare</td><td class="c">&#9744;</td></tr>
+  <tr><td>Server WME neconfigurat</td><td>Cardul Server WME devine portocaliu, cu eticheta „Neconfigurat”; la prima pornire apare mesajul corespunzător; sincronizarea programată este ignorată în tăcere</td><td class="c">&#9744;</td></tr>
+  <tr><td>Sincronizare automată oprită</td><td>Câmpul „Oră Sincronizare” dispare</td><td class="c">&#9744;</td></tr>
+  <tr><td>Partener fără locații</td><td>Pasul „Locație” afișează mesajul corespunzător, iar butonul „Continuă” rămâne activ</td><td class="c">&#9744;</td></tr>
+  <tr><td>Status factură</td><td>Determină ce acțiuni apar: Trimite / Reîncearcă / Anulează</td><td class="c">&#9744;</td></tr>
+  <tr><td>Fereastră îngustă</td><td>Apare butonul de meniu; unele coloane de tabel se ascund; eticheta „În așteptare” devine „Așteptare”</td><td class="c">&#9744;</td></tr>
+  <tr><td>Factură deja încasată</td><td>Fereastra de chitanță nu se mai deschide</td><td class="c">&#9744;</td></tr>
+</table>
+</div>
+
+<!-- ============ ANEXA A ============ -->
+<div class="page">
+<h2>21. Anexa A &mdash; Mesaje de eroare așteptate</h2>
+
+<p>Lista mesajelor pe care testerul le poate întâlni. Coloana „Limbă” marchează mesajele care ar trebui traduse &mdash; acestea se raportează împreună, ca un singur defect de traducere.</p>
+
+<h3>A.1 Autentificare și acces</h3>
+<table class="t">
+  <tr><th style="width:78mm">Mesaj</th><th>Când apare</th><th class="c" style="width:16mm">Limbă</th></tr>
+  <tr><td>„Introduceți parola”</td><td>Administrator, câmp de parolă gol</td><td class="c">RO</td></tr>
+  <tr><td>„Parolă incorectă”</td><td>Administrator, parolă greșită</td><td class="c">RO</td></tr>
+  <tr><td>„Acces interzis - doar pentru Administrator”</td><td>Agent care ajunge în ecranul de Setări</td><td class="c">RO</td></tr>
+</table>
+
+<h3>A.2 Sincronizare</h3>
+<table class="t">
+  <tr><th style="width:78mm">Mesaj</th><th>Când apare</th><th class="c" style="width:16mm">Limbă</th></tr>
+  <tr><td>„Datele au fost actualizate”</td><td>Sincronizare reușită din antet</td><td class="c">RO</td></tr>
+  <tr><td>„Datele au fost sincronizate cu succes!”</td><td>Sincronizare reușită din Setări</td><td class="c">RO</td></tr>
+  <tr><td>„Eroare la sincronizare: …”</td><td>Server indisponibil sau IP greșit</td><td class="c">RO</td></tr>
+  <tr><td>„Nu există conexiune la internet”</td><td>Încercare de sincronizare offline</td><td class="c">RO</td></tr>
+  <tr><td>„Soldurile nu au putut fi sincronizate acum. Chitanțele continuă să se sincronizeze.”</td><td>Eșec parțial de sincronizare</td><td class="c">RO</td></tr>
+  <tr><td>„Nu există parteneri locali. Fă mai întâi sincronizarea partenerilor.”</td><td>Actualizare de solduri fără parteneri</td><td class="c">RO</td></tr>
+  <tr><td>„Conexiune restabilită! Se trimit documentele în așteptare...”</td><td>Revenirea internetului</td><td class="c">RO</td></tr>
+  <tr><td>„Sincronizarea automată completă a fost executată.”</td><td>Sincronizarea programată</td><td class="c">RO</td></tr>
+</table>
+
+<h3>A.3 Facturi &mdash; validări la trimitere</h3>
+<table class="t">
+  <tr><th style="width:78mm">Mesaj</th><th>Când apare</th><th class="c" style="width:16mm">Limbă</th></tr>
+  <tr><td>„Factura a fost creată cu succes!”</td><td>Creare reușită</td><td class="c">RO</td></tr>
+  <tr><td>„Factura a fost trimisă cu succes!”</td><td>Trimitere reușită</td><td class="c">RO</td></tr>
+  <tr><td>„Salvat local (Offline/Eroare): …”</td><td>Trimitere eșuată din cauza rețelei</td><td class="c">RO</td></tr>
+  <tr><td>„Factura are deja statusul '…'. Nu poate fi trimisă din nou.”</td><td>Retrimitere blocată</td><td class="c">RO</td></tr>
+  <tr><td>„Agent name is not configured. Please set it in Settings.”</td><td>Lipsește numele agentului</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Carnet series is not configured. Please set it in Settings.”</td><td>Lipsește seria de carnet</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Simbol Carnet Livrări is not configured. …”</td><td>Lipsește seria de livrări</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Cod Carnet is not configured. …”</td><td>Lipsește codul de carnet</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Cod Carnet Livrări is not configured. …”</td><td>Lipsește codul de livrări</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Simbol Gestiune Livrare is not configured. …”</td><td>Lipsește gestiunea</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Marca Agent is not configured. …”</td><td>Lipsește marca agentului</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Marca Agent must be numeric for WME sending.”</td><td>Marca agentului conține litere</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Partner … does not have a COD set in WME”</td><td>Partener fără cod în WME</td><td class="c"><b>EN</b></td></tr>
+  <tr><td>„Invoice number … exceeds maximum configured number …”</td><td>Interval de numere epuizat</td><td class="c"><b>EN</b></td></tr>
+</table>
+
+<h3>A.4 Chitanțe</h3>
+<table class="t">
+  <tr><th style="width:78mm">Mesaj</th><th>Când apare</th><th class="c" style="width:16mm">Limbă</th></tr>
+  <tr><td>„Suma introdusă este invalidă.”</td><td>Sumă goală, zero, negativă sau text</td><td class="c">RO</td></tr>
+  <tr><td>„Suma încasată nu poate depăși totalul facturii cu TVA (…)”</td><td>Sumă peste totalul facturii</td><td class="c">RO</td></tr>
+  <tr><td>„Suma încasată (…) depășește restul disponibil (…)”</td><td>Sumă peste restul rămas</td><td class="c">RO</td></tr>
+  <tr><td>„Factura este deja încasată integral”</td><td>Factură achitată complet</td><td class="c">RO</td></tr>
+  <tr><td>„Factura are total 0. Nu se poate genera chitanță.”</td><td>Factură cu valoare zero</td><td class="c">RO</td></tr>
+  <tr><td>„S-a atins limita de numere pentru chitanțe (…)”</td><td>Interval de numere epuizat</td><td class="c">RO</td></tr>
+  <tr><td>„Valoarea trebuie să fie &gt; 0 și ≤ sold.”</td><td>Repartizare invalidă pe o factură</td><td class="c">RO</td></tr>
+  <tr><td>„Factura … nu există în baza centrală. Trimite mai întâi factura, apoi retrimite chitanța.”</td><td>Chitanță pe o factură netrimisă</td><td class="c">RO</td></tr>
+  <tr><td>„Chitanța a fost salvată în așteptare și va fi trimisă automat când revine internetul.”</td><td>Emitere offline</td><td class="c">RO</td></tr>
+  <tr><td>„Serverul a respins trimiterea chitanței. Verifică datele documentului și încearcă din nou.”</td><td>Eroare returnată de server</td><td class="c">RO</td></tr>
+</table>
+
+<h3>A.5 Printare</h3>
+<table class="t">
+  <tr><th style="width:78mm">Mesaj</th><th>Când apare</th><th class="c" style="width:16mm">Limbă</th></tr>
+  <tr><td>„Factura s-a trimis la imprimantă!”</td><td>Printare pornită</td><td class="c">RO</td></tr>
+  <tr><td>„Certificat trimis la imprimantă!”</td><td>Printare certificat</td><td class="c">RO</td></tr>
+  <tr><td>„Nu s-a putut genera PDF-ul facturii: Microsoft Edge (sau Google Chrome) nu este instalat sau nu a răspuns. Reinstalați Microsoft Edge și încercați din nou.”</td><td>Lipsă Edge/Chrome</td><td class="c">RO</td></tr>
+  <tr><td>„Nu s-a găsit aplicația de printare. Instalează SumatraPDF sau verifică setările de imprimare.”</td><td>Lipsă SumatraPDF</td><td class="c">RO</td></tr>
+  <tr><td>„Chitanța nu s-a putut salva local. Verifică permisiunile de scriere și spațiul disponibil.”</td><td>Fără drepturi de scriere</td><td class="c">RO</td></tr>
+  <tr><td>„Raportul de vânzări nu a putut fi trimis la print”</td><td>Eșec la printarea centralizatorului</td><td class="c">RO</td></tr>
+</table>
+</div>
+
+<!-- ============ ANEXA B ============ -->
+<div class="page">
+<h2>22. Anexa B &mdash; Fișiere, foldere și resetare</h2>
+
+<h3>B.1 Unde se află fiecare lucru</h3>
+<table class="t">
+  <tr><th style="width:50mm">Ce</th><th>Cale</th></tr>
+  <tr><td>Baza de date locală</td><td><span class="k">%APPDATA%\facturi.softconsulting.com\facturi.db</span></td></tr>
+  <tr><td>Facturi (HTML + PDF)</td><td><span class="k">%APPDATA%\facturi.softconsulting.com\invoices\</span></td></tr>
+  <tr><td>Certificate de calitate</td><td><span class="k">…\invoices\certificates\</span></td></tr>
+  <tr><td>Chitanțe</td><td><span class="k">%APPDATA%\facturi.softconsulting.com\receipts\</span></td></tr>
+  <tr><td>Rapoarte / centralizatoare</td><td><span class="k">%APPDATA%\facturi.softconsulting.com\reports\</span></td></tr>
+  <tr><td>Fișier de log</td><td><span class="k">%LOCALAPPDATA%\facturi.softconsulting.com\logs\app.log</span></td></tr>
+  <tr><td>Setări de imprimantă și sesiune</td><td><span class="k">%LOCALAPPDATA%\facturi.softconsulting.com\EBWebView\</span></td></tr>
+  <tr><td>Folder temporar de conversie PDF</td><td><span class="k">%TEMP%\esoft_edge_pdf</span></td></tr>
+</table>
+
+<h3>B.2 Scenarii de resetare</h3>
+<table class="t">
+  <tr><th style="width:52mm">Vreau să...</th><th>Fac următoarele (cu aplicația închisă)</th></tr>
+  <tr><td>Resetez complet, ca la o instalare nouă</td><td>Șterg tot din <span class="k">%APPDATA%\facturi.softconsulting.com</span> și folderul <span class="k">EBWebView</span></td></tr>
+  <tr><td>Păstrez setările, dar șterg documentele</td><td>Șterg doar folderele <span class="k">invoices</span>, <span class="k">receipts</span>, <span class="k">reports</span></td></tr>
+  <tr><td>Resetez doar imprimanta și sesiunea</td><td>Șterg folderul <span class="k">EBWebView</span></td></tr>
+  <tr><td>Rezolv un blocaj de printare</td><td>Opresc toate procesele <span class="k">msedge.exe</span> și șterg <span class="k">%TEMP%\esoft_edge_pdf</span>; dacă nu se poate, repornesc calculatorul</td></tr>
+  <tr><td>Refac partenerii și articolele</td><td>Deschid aplicația ca Administrator și apăs „Sincronizează Acum”</td></tr>
+  <tr><td>Salvez starea pentru raportarea unui defect</td><td>Copiez <span class="k">facturi.db</span>, <span class="k">app.log</span> și documentul HTML problematic într-un folder separat, denumit cu ID-ul cazului de test</td></tr>
+</table>
+
+<h3>B.3 Ce se atașează la un raport de defect</h3>
+<ul>
+  <li>Captură de ecran sau fotografie a mesajului de eroare, cu ora vizibilă.</li>
+  <li>Bonul printat, dacă defectul este legat de printare (fotografiat sau scanat).</li>
+  <li>Fișierul HTML al documentului din folderul corespunzător.</li>
+  <li>Ultimele ~200 de rânduri din <span class="k">app.log</span>, din intervalul orar al problemei.</li>
+  <li>Versiunea aplicației, rolul folosit și starea conexiunii (Online/Offline).</li>
+</ul>
+</div>
+
+<!-- ============ ANEXA C ============ -->
+<div class="page">
+<h2>23. Anexa C &mdash; Defecte cunoscute de confirmat</h2>
+
+<p>Elementele de mai jos au fost identificate la analiza aplicației, <b>înainte</b> de testare. Sarcina testerului este să le <b>confirme sau să le infirme</b> pe teren. Un element infirmat înseamnă că problema a fost deja rezolvată &mdash; se notează ca atare.</p>
+
+<table class="t">
+  <tr><th class="c" style="width:12mm">Nr.</th><th style="width:60mm">Problemă suspectată</th><th style="width:24mm">Test</th><th class="c" style="width:20mm">Prioritate</th><th class="c" style="width:26mm">Confirmat?</th></tr>
+  <tr><td class="c">1</td><td>Agentul rămâne blocat la prima pornire: butonul „Mergi la Setări” îl trimite într-un ecran interzis</td><td>TC-CFG-002</td><td class="c"><span class="pr p1">Critică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">2</td><td>Setările de printare (copii, printare automată, previzualizare, lățime hârtie) se salvează, dar nu au niciun efect</td><td>TC-CFG-016</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">3</td><td>Cardul „Server WME” nu are buton propriu de salvare; IP-ul se pierde</td><td>TC-CFG-005</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">4</td><td>Sugestia „Ex: AG123” la Marca Agent contrazice regula reală (doar cifre)</td><td>TC-CFG-009</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">5</td><td>Printarea centralizatorului poate eșua fără niciun mesaj</td><td>TC-CEN-012</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">6</td><td>La printare, secțiunea de chitanțe folosește o singură zi, deși intervalul este mai lung</td><td>TC-CEN-011</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">7</td><td>Codul de partener trunchiat la 7 caractere face imposibilă distingerea a doi clienți</td><td>TC-CEN-007</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">8</td><td>Mesajele pentru listă goală afișează statusul în engleză („pending”, „sent”, „failed”)</td><td>TC-LST-012</td><td class="c"><span class="pr p4">Mică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">9</td><td>Zece mesaje de validare la trimiterea facturii sunt în limba engleză</td><td>TC-FAC-023, Anexa A.3</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">10</td><td>Ștergerea unei chitanțe nu cere confirmare, spre deosebire de facturi</td><td>TC-CHI-021</td><td class="c"><span class="pr p1">Critică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">11</td><td>Butonul „Vezi certificat” eșuează în tăcere, fără niciun mesaj</td><td>TC-DET-006</td><td class="c"><span class="pr p3">Medie</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">12</td><td>Pagina Acasă calculează TVA fix la 19%, ignorând cotele reale</td><td>TC-HOM-004, TC-REC-002</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">13</td><td>Există o a doua pagină de configurare a serverului, care nu are niciun efect</td><td>TC-DEV-002</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">14</td><td>Pagina Acasă interoghează fiecare factură separat &mdash; încărcare lentă la volum mare</td><td>TC-HOM-007</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">15</td><td>Schimbarea Mărcii Agent în modul offline șterge partenerii, fără posibilitate de recuperare</td><td>TC-CFG-011</td><td class="c"><span class="pr p1">Critică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">16</td><td>Ascunderea unei facturi din solduri este ireversibilă din interfață</td><td>TC-CHI-015</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">17</td><td>Certificatul se printează cu liniuțe, fără a avertiza utilizatorul</td><td>TC-CER-006</td><td class="c"><span class="pr p1">Critică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">18</td><td>Restul disponibil la încasare parțială poate fi calculat greșit (net în loc de brut)</td><td>TC-CHI-007</td><td class="c"><span class="pr p1">Critică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">19</td><td>Ștergerea unui document lasă un gol permanent în numerotare</td><td>TC-FAC-020, TC-CHI-022</td><td class="c"><span class="pr p2">Mare</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">20</td><td>Folderul temporar de printare crește nelimitat, fără curățare</td><td>TC-PRN-010</td><td class="c"><span class="pr p3">Medie</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">21</td><td>Lista se reîncarcă complet la trimiterea automată, pierzând fila și modul de vizualizare</td><td>TC-LST-011</td><td class="c"><span class="pr p3">Medie</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">22</td><td>Indicatorul „Online” nu reflectă disponibilitatea serverului WME</td><td>TC-SIN-013</td><td class="c"><span class="pr p3">Medie</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">23</td><td>Sincronizarea programată este ignorată în tăcere când serverul nu e configurat</td><td>TC-SIN-012</td><td class="c"><span class="pr p3">Medie</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">24</td><td>Ora implicită afișată pentru sincronizarea automată diferă de cea folosită efectiv</td><td>TC-SIN-010</td><td class="c"><span class="pr p4">Mică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">25</td><td>Butonul de anulare a trimiterii este practic inutilizabil (fereastră de timp prea scurtă)</td><td>TC-LST-008</td><td class="c"><span class="pr p4">Mică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">26</td><td>Câmpurile Bancă, IBAN și Agent din fișa partenerului afișează mereu „-”</td><td>TC-DAT-005</td><td class="c"><span class="pr p4">Mică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">27</td><td>Etichetele „Paid” / „Unpaid” din fila Solduri sunt în engleză</td><td>TC-DAT-008</td><td class="c"><span class="pr p4">Mică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">28</td><td>Fila „Oferte &amp; Prețuri” menționează o căutare care nu există în ecran</td><td>TC-DAT-007</td><td class="c"><span class="pr p4">Mică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">29</td><td>Butonul de pe cardul de factură scrie „Printeaza”, fără diacritice</td><td>TC-PRN-003</td><td class="c"><span class="pr p4">Mică</span></td><td class="c">DA / NU</td></tr>
+  <tr><td class="c">30</td><td>Pagina de diagnosticare permite modificarea scadenței tuturor partenerilor, ireversibil</td><td>TC-DEV-005</td><td class="c"><span class="pr p1">Critică</span></td><td class="c">DA / NU</td></tr>
+</table>
+
+<div class="note"><b>Observație de securitate, în afara testării funcționale</b><br>
+Parola de Administrator este verificată local, în aplicație, și poate fi descoperită de o persoană cu cunoștințe tehnice care are acces la calculator. Rolul de Administrator trebuie tratat ca o măsură de ordine internă, <b>nu</b> ca o măsură de securitate reală. Se recomandă discutarea acestui aspect cu clientul înainte de punerea în funcțiune.</div>
+</div>
+
+<!-- ============ ANEXA D ============ -->
+<div class="page">
+<h2>24. Anexa D &mdash; Formular de raportare defect</h2>
+
+<p>Se completează câte un formular pentru fiecare defect. Se fotocopiază după nevoie.</p>
+
+<table class="t">
+  <tr><th style="width:44mm">Câmp</th><th>Completare</th></tr>
+  <tr><td>Număr defect</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Data și ora</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Tester</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Cazul de test</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Versiunea aplicației</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Rol folosit</td><td>&#9744; Agent &nbsp;&nbsp; &#9744; Administrator</td></tr>
+  <tr><td>Stare conexiune</td><td>&#9744; Online &nbsp;&nbsp; &#9744; Offline &nbsp;&nbsp; &#9744; WME oprit</td></tr>
+  <tr><td>Prioritate propusă</td><td>&#9744; Critică &nbsp;&nbsp; &#9744; Mare &nbsp;&nbsp; &#9744; Medie &nbsp;&nbsp; &#9744; Mică</td></tr>
+  <tr><td>Se reproduce de fiecare dată?</td><td>&#9744; Da &nbsp;&nbsp; &#9744; Uneori (de câte ori din câte încercări: <span class="fill">&nbsp;</span>) &nbsp;&nbsp; &#9744; O singură dată</td></tr>
+</table>
+
+<p><b>Pași exacți de reproducere</b> (numerotați, de la deschiderea aplicației):</p>
+<div style="border:0.3mm solid #b9c7d6;border-radius:1.5mm;height:46mm;margin-bottom:3mm;"></div>
+
+<p><b>Ce s-a întâmplat</b> (textul exact al mesajului, dacă există):</p>
+<div style="border:0.3mm solid #b9c7d6;border-radius:1.5mm;height:30mm;margin-bottom:3mm;"></div>
+
+<p><b>Ce ar fi trebuit să se întâmple</b>:</p>
+<div style="border:0.3mm solid #b9c7d6;border-radius:1.5mm;height:26mm;margin-bottom:3mm;"></div>
+
+<p><b>Impact asupra activității zilnice</b> (ce nu mai poate face agentul din cauza acestei probleme):</p>
+<div style="border:0.3mm solid #b9c7d6;border-radius:1.5mm;height:22mm;margin-bottom:3mm;"></div>
+
+<p><b>Documente atașate:</b> &nbsp; &#9744; captură de ecran &nbsp; &#9744; bon printat &nbsp; &#9744; fișier HTML &nbsp; &#9744; extras din log &nbsp; &#9744; copie bază de date</p>
+<p><b>Numere de documente afectate</b> (serie și număr factură / chitanță): <span class="fill">&nbsp;</span></p>
+</div>
+
+<!-- ============ ANEXA E ============ -->
+<div class="page">
+<h2>25. Anexa E &mdash; Sumar de execuție</h2>
+
+<h3>E.1 Rezultatele pe capitole</h3>
+<table class="t">
+  <tr><th style="width:64mm">Capitol</th><th class="c" style="width:16mm">Total</th><th class="c" style="width:16mm">PASS</th><th class="c" style="width:16mm">FAIL</th><th class="c" style="width:18mm">Blocat</th><th class="c">Data</th></tr>
+  <tr><td>2. Configurare firmă și agent (TC-CFG)</td><td class="c">18</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>3. Autentificare și roluri (TC-AUT)</td><td class="c">12</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>4. Prima pornire (TC-FR)</td><td class="c">7</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>5. Sincronizare (TC-SIN)</td><td class="c">13</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>6. Panou principal (TC-HOM)</td><td class="c">8</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>7. Date &mdash; parteneri și articole (TC-DAT)</td><td class="c">14</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>8. Emitere factură (TC-FAC)</td><td class="c">24</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>9. Listă facturi și trimitere (TC-LST)</td><td class="c">16</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>10. Detalii factură (TC-DET)</td><td class="c">7</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>11. Printare (TC-PRN)</td><td class="c">14</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>12. Certificat de calitate (TC-CER)</td><td class="c">11</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>13. Chitanțe (TC-CHI)</td><td class="c">22</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>14. Centralizator zi (TC-CEN)</td><td class="c">15</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>15. Setări (TC-SET)</td><td class="c">16</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>16. Offline și reziliență (TC-OFF)</td><td class="c">11</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>17. Reconcilierea cifrelor (TC-REC)</td><td class="c">9</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>18. Regresie pe versiuni (TC-REG)</td><td class="c">12</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td>19. Ecrane ascunse (TC-DEV)</td><td class="c">6</td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+  <tr><td><b>TOTAL</b></td><td class="c"><b>235</b></td><td class="c"></td><td class="c"></td><td class="c"></td><td></td></tr>
+</table>
+
+<h3>E.2 Documente consumate în timpul testării</h3>
+<table class="t">
+  <tr><th style="width:56mm">Tip document</th><th style="width:36mm">Serie</th><th style="width:32mm">De la nr.</th><th>Până la nr.</th></tr>
+  <tr><td>Facturi</td><td></td><td></td><td></td></tr>
+  <tr><td>Chitanțe</td><td></td><td></td><td></td></tr>
+</table>
+<p>Aceste numere se comunică departamentului de contabilitate, pentru ca documentele de test să fie anulate sau ignorate.</p>
+
+<h3>E.3 Concluzia testării</h3>
+<table class="t">
+  <tr><th style="width:56mm">Criteriu</th><th>Rezultat</th></tr>
+  <tr><td>Defecte critice deschise</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Defecte majore deschise</td><td><span class="fill">&nbsp;</span></td></tr>
+  <tr><td>Se poate emite, printa și trimite o factură completă?</td><td>&#9744; Da &nbsp;&nbsp; &#9744; Nu</td></tr>
+  <tr><td>Se poate emite și trimite o chitanță?</td><td>&#9744; Da &nbsp;&nbsp; &#9744; Nu</td></tr>
+  <tr><td>Certificatul de calitate conține date reale?</td><td>&#9744; Da &nbsp;&nbsp; &#9744; Nu</td></tr>
+  <tr><td>Centralizatorul zilei este corect și complet?</td><td>&#9744; Da &nbsp;&nbsp; &#9744; Nu</td></tr>
+  <tr><td>Cifrele se reconciliază cu WinMentor?</td><td>&#9744; Da &nbsp;&nbsp; &#9744; Nu</td></tr>
+  <tr><td>Aplicația funcționează o zi întreagă fără internet?</td><td>&#9744; Da &nbsp;&nbsp; &#9744; Nu</td></tr>
+</table>
+
+<p style="margin-top:6mm"><b>Recomandare finală:</b> &nbsp; &#9744; Se poate pune în funcțiune &nbsp;&nbsp; &#9744; Se poate pune în funcțiune cu rezerve &nbsp;&nbsp; &#9744; Nu se poate pune în funcțiune</p>
+
+<p style="margin-top:4mm"><b>Motivare:</b></p>
+<div style="border:0.3mm solid #b9c7d6;border-radius:1.5mm;height:34mm;margin-bottom:6mm;"></div>
+
+<table class="t">
+  <tr><th style="width:56mm">Tester</th><th>Semnătură și dată</th></tr>
+  <tr><td style="height:14mm"></td><td></td></tr>
+</table>
+</div>
+
+</body>
+</html>
