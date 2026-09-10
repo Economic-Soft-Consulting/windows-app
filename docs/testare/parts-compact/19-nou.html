@@ -1,0 +1,273 @@
+<div class="page"></div>
+<h2>19. Modificări în v1.0.15</h2>
+
+<p>Capitolul acoperă comportamentele schimbate în v1.0.10&ndash;v1.0.15. Fiecare caz de aici
+verifică o problemă raportată din teren sau găsită la analiza codului, așa că un
+<b>FAIL</b> înseamnă o regresie, nu o funcție lipsă.</p>
+
+<div class="warn"><b>De citit înainte:</b> secțiunile 19.1 și 19.2 cer trecerea prin
+offline &rarr; online. Cel mai simplu mod de a simula: oprește Wi-Fi-ul de pe tabletă, nu
+serverul WME &mdash; aplicația verifică internetul, nu serverul.</div>
+
+<h3>19.1 Ordinea trimiterii: factură înainte de chitanță</h3>
+
+<p>O chitanță identifică factura pe care o plătește doar prin serie și număr. Dacă factura
+nu a ajuns încă în WinMentor, încasarea nu poate fi alocată și WME răspunde
+<i>„nu gasesc in baza de date factura ...”</i>. Aplicația ține acum chitanța în așteptare
+până trece factura.</p>
+
+<table class="cases">
+<thead><tr><th>ID</th><th>Caz</th><th>Pași</th><th>Rezultat așteptat</th><th>P/F</th></tr></thead>
+<tbody>
+<tr>
+  <td class="c-id">TC-NEW-001<span class="c-pr p1">C</span><span class="c-role">Agent</span></td>
+  <td class="c-t">Chitanța așteaptă factura netrimisă</td>
+  <td class="c-s"><ol>
+    <li>Oprește Wi-Fi-ul.</li>
+    <li>Emite o factură completă pentru un partener.</li>
+    <li>Emite chitanța pentru acea factură, achitată total.</li>
+    <li>Verifică lista Chitanțe, fără să repornești conexiunea.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Chitanța apare cu status <b>În așteptare</b>, nu <b>Eșuată</b>.</li>
+    <li>La detaliile chitanței, mesajul spune că <b>se așteaptă trimiterea facturii</b>, cu seria și numărul ei.</li>
+    <li>Chitanța se poate tipări pe hârtie normal.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-002<span class="c-pr p1">C</span><span class="c-role">Agent</span></td>
+  <td class="c-t">La revenirea conexiunii, ordinea e respectată</td>
+  <td class="c-s"><ol>
+    <li>Continuă de la TC-NEW-001.</li>
+    <li>Pornește Wi-Fi-ul și așteaptă până la 30 de secunde.</li>
+    <li>Verifică lista Facturi, apoi lista Chitanțe.</li>
+    <li>Verifică în WinMentor tranzacția de casă.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Factura ajunge la status <b>Trimisă</b> prima.</li>
+    <li>Abia după aceea chitanța trece pe <b>Sincronizată</b>.</li>
+    <li>În WinMentor, încasarea este <b>alocată pe factură</b>, nu rămâne plată în avans.</li>
+    <li>Notificare cu numărul de documente trimise, nu tăcere.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-003<span class="c-pr p2">I</span><span class="c-role">Agent</span></td>
+  <td class="c-t">Factura eșuată ține chitanța pe loc</td>
+  <td class="c-s"><ol>
+    <li>Șterge Marca Agent din Setări, ca factura să fie respinsă la trimitere.</li>
+    <li>Emite o factură și chitanța ei, online.</li>
+    <li>Așteaptă un ciclu de sincronizare.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Factura rămâne netrimisă, cu mesaj de eroare vizibil.</li>
+    <li>Chitanța <b>nu</b> este trimisă la WME și <b>nu</b> apare ca eșuată &mdash; rămâne în așteptare.</li>
+    <li>După reintroducerea Mărcii Agent și o resincronizare, ambele trec.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-004<span class="c-pr p2">I</span><span class="c-role">Agent</span></td>
+  <td class="c-t">Chitanță pe sold vechi din WinMentor</td>
+  <td class="c-s"><ol>
+    <li>Alege din Chitanță nouă un sold venit prin sincronizare (nu o factură emisă pe tabletă).</li>
+    <li>Emite chitanța, online.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Chitanța pleacă <b>imediat</b>, fără să aștepte nimic &mdash; WME cunoaște deja documentul.</li>
+    <li>Status <b>Sincronizată</b>.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+</tbody></table>
+
+<h3>19.2 Coadă și raportare</h3>
+
+<table class="cases">
+<thead><tr><th>ID</th><th>Caz</th><th>Pași</th><th>Rezultat așteptat</th><th>P/F</th></tr></thead>
+<tbody>
+<tr>
+  <td class="c-id">TC-NEW-005<span class="c-pr p2">I</span><span class="c-role">Agent</span></td>
+  <td class="c-t">Coadă mare, ordine păstrată</td>
+  <td class="c-s"><ol>
+    <li>Offline, emite <b>3 facturi</b> la parteneri diferiți și câte o chitanță pentru fiecare.</li>
+    <li>Revino online și așteaptă.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Toate cele 3 facturi pleacă înaintea oricărei chitanțe.</li>
+    <li>Notificarea rezumă: „3 facturi și 3 chitanțe trimise automat”.</li>
+    <li>Nicio factură sau chitanță duplicată în WinMentor.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-006<span class="c-pr p3">M</span><span class="c-role">Agent</span></td>
+  <td class="c-t">Eșecurile sunt vizibile</td>
+  <td class="c-s"><ol>
+    <li>Configurează o adresă IP de server greșită în Setări.</li>
+    <li>Emite o factură, online, și așteaptă un ciclu.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Apare o notificare că documentele au rămas în așteptare.</li>
+    <li>Nu se termină în tăcere &mdash; înainte, un ciclu în care eșuau toate documentele nu afișa nimic.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+</tbody></table>
+
+<h3>19.3 Rotunjirea la 2 zecimale</h3>
+
+<p>Facturile emise pe tabletă trimiteau spre WME sume cu 3 zecimale (de exemplu 85,914 în loc
+de 85,91), iar diferența rămânea nealocată în tranzacția de casă.</p>
+
+<table class="cases">
+<thead><tr><th>ID</th><th>Caz</th><th>Pași</th><th>Rezultat așteptat</th><th>P/F</th></tr></thead>
+<tbody>
+<tr>
+  <td class="c-id">TC-NEW-007<span class="c-pr p1">C</span><span class="c-role">Agent</span></td>
+  <td class="c-t">Chitanța se potrivește exact cu factura</td>
+  <td class="c-s"><ol>
+    <li>Emite o factură cu produse cu TVA 9%, astfel încât totalul fără TVA să aibă zecimale (ex. 78,82).</li>
+    <li>Emite chitanța achitată total.</li>
+    <li>Deschide în WinMentor tranzacția de casă corespunzătoare.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Câmpul <b>Valoare</b> din antet și <b>Suma</b> din distribuire sunt <b>identice</b>, ambele cu 2 zecimale.</li>
+    <li>Nu rămâne nicio diferență nedistribuită.</li>
+    <li>Suma de pe chitanța tipărită este aceeași cu cea din WinMentor.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-008<span class="c-pr p2">I</span><span class="c-role">Agent</span></td>
+  <td class="c-t">Factura dispare din solduri după achitare</td>
+  <td class="c-s"><ol>
+    <li>Continuă de la TC-NEW-007.</li>
+    <li>Intră în Chitanță nouă și caută partenerul.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Factura achitată integral <b>nu mai apare</b> în lista de solduri.</li>
+    <li>Nu rămâne un rest de câțiva bani.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+</tbody></table>
+
+<h3>19.4 Setări</h3>
+
+<table class="cases">
+<thead><tr><th>ID</th><th>Caz</th><th>Pași</th><th>Rezultat așteptat</th><th>P/F</th></tr></thead>
+<tbody>
+<tr>
+  <td class="c-id">TC-NEW-009<span class="c-pr p1">C</span><span class="c-role">Administrator</span></td>
+  <td class="c-t">Salvarea setărilor agentului</td>
+  <td class="c-s"><ol>
+    <li>Completează toate câmpurile din Setări, inclusiv adresa serverului.</li>
+    <li>Apasă <b>Salvează setările agentului</b>.</li>
+    <li>Ieși din Setări, revino și verifică valorile.</li>
+    <li>Repornește aplicația și verifică din nou.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Apare confirmarea de salvare, fără eroare.</li>
+    <li>Toate valorile sunt păstrate după revenire <b>și</b> după repornire.</li>
+    <li>În jurnal nu mai apare „MarcaAgent not set”.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-010<span class="c-pr p1">C</span><span class="c-role">Administrator</span></td>
+  <td class="c-t">Tabletă nouă: Setările sunt accesibile</td>
+  <td class="c-s"><ol>
+    <li>Pe o instalare curată, fără date sincronizate, autentifică-te ca Administrator.</li>
+    <li>La ecranul „Server WME neconfigurat”, apasă <b>Mergi la Setări</b>.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Pagina de Setări se deschide și este <b>utilizabilă</b>, nu acoperită de ecranul de întâmpinare.</li>
+    <li>După completarea adresei și revenirea în aplicație, sincronizarea pornește.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-011<span class="c-pr p3">M</span><span class="c-role">Administrator</span></td>
+  <td class="c-t">Setările se deschid repede</td>
+  <td class="c-s"><ol>
+    <li>Cu aplicația online și parteneri sincronizați, intră în Setări.</li>
+    <li>Cronometrează de la apăsare până când câmpurile sunt vizibile.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Pagina se deschide în <b>sub 2 secunde</b>. Înainte putea dura ~10 secunde.</li>
+    <li>Lista de imprimante se completează din mers, fără să blocheze restul paginii.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-012<span class="c-pr p3">M</span><span class="c-role">Administrator</span></td>
+  <td class="c-t">Aspectul noii pagini de Setări</td>
+  <td class="c-s"><ol>
+    <li>Parcurge Setările de sus până jos, pe tabletă.</li>
+    <li>Apasă butonul <b>(i)</b> de lângă câteva etichete.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Titlul fiecărei secțiuni este în stânga, lângă câmpuri.</li>
+    <li>Câmpurile intră pe 2&ndash;3 coloane, fără casete lungi și goale.</li>
+    <li>Butonul <b>(i)</b> se deschide <b>la atingere cu degetul</b>, nu doar cu mausul.</li>
+    <li>Nicio etichetă tăiată; toate valorile salvate sunt vizibile în casete.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+</tbody></table>
+
+<h3>19.5 Sincronizare și tipărire</h3>
+
+<table class="cases">
+<thead><tr><th>ID</th><th>Caz</th><th>Pași</th><th>Rezultat așteptat</th><th>P/F</th></tr></thead>
+<tbody>
+<tr>
+  <td class="c-id">TC-NEW-013<span class="c-pr p1">C</span><span class="c-role">Administrator</span></td>
+  <td class="c-t">Soldurile nu dispar la sincronizare</td>
+  <td class="c-s"><ol>
+    <li>Notează câte solduri are un partener în Chitanță nouă.</li>
+    <li>Forțează câteva sincronizări la rând.</li>
+    <li>Verifică din nou lista de solduri.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Lista rămâne completă după fiecare sincronizare.</li>
+    <li>Nu apare o listă goală sau parțială.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-014<span class="c-pr p2">I</span><span class="c-role">Agent</span></td>
+  <td class="c-t">Viteza de tipărire</td>
+  <td class="c-s"><ol>
+    <li>Tipărește o factură cu certificat de calitate și cronometrează.</li>
+    <li>Tipărește o chitanță și cronometrează.</li>
+    <li>Tipărește raportul zilnic.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Fiecare tipărire pornește în <b>câteva secunde</b>, nu zeci de secunde.</li>
+    <li>Certificatul are siglele și ștampila lizibile &mdash; imaginile au fost înlocuite cu versiuni mai mici.</li>
+    <li>Dacă tipărirea eșuează, apare o <b>eroare</b>; raportul zilnic nu mai raportează succes fals.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+<tr>
+  <td class="c-id">TC-NEW-015<span class="c-pr p2">I</span><span class="c-role">Administrator</span></td>
+  <td class="c-t">Sincronizarea articolelor</td>
+  <td class="c-s"><ol>
+    <li>Configurează serverul WME și pornește o sincronizare completă.</li>
+    <li>Verifică lista de produse.</li>
+  </ol></td>
+  <td class="c-e"><ul>
+    <li>Sincronizarea nu mai cade cu <i>„missing field ID”</i>.</li>
+    <li>Produsele apar în listă.</li>
+  </ul></td>
+  <td class="c-v"></td>
+</tr>
+</tbody></table>
+
+<div class="note"><b>De știut:</b> aplicația cere de la WinMentor doar articolele din clasa
+<b>OUA</b>. Pe un server de test fără această clasă, sincronizarea se termină cu succes și
+aduce <b>zero produse</b> &mdash; asta nu este un defect al cazului TC-NEW-015. Verifică
+întâi ce clase de articole există pe serverul folosit.</div>
