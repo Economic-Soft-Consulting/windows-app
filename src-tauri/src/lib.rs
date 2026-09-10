@@ -3,7 +3,6 @@ use tauri::Manager;
 
 mod commands;
 mod database;
-mod mock_api;
 mod models;
 mod print_invoice;
 mod print_receipt;

@@ -523,28 +523,6 @@ fn normalize_or_placeholder(value: Option<String>, placeholder: &str) -> String 
     normalized.unwrap_or_else(|| placeholder.to_string())
 }
 
-fn normalize_product_label(value: &str) -> String {
-    value
-        .trim()
-        .to_lowercase()
-        .chars()
-        .map(|ch| if ch.is_alphanumeric() { ch } else { ' ' })
-        .collect::<String>()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn product_matches_invoice(product: &str, invoice_products: &[String]) -> bool {
-    let normalized = normalize_product_label(product);
-
-    invoice_products.iter().any(|invoice_product| {
-        normalized == *invoice_product
-            || normalized.contains(invoice_product)
-            || invoice_product.contains(&normalized)
-    })
-}
-
 fn apply_cached_certificate_payload(ctx: &mut QualityCertificateContext, payload: CertificateCachePayload) {
     ctx.subtitle = payload.subtitle;
     ctx.bon_analiza = payload.bon_analiza;
