@@ -808,8 +808,205 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
         info!("Migration 23 completed");
     }
 
+    if current_version < 24 {
+        info!("Applying migration 24: key products by CodIntern");
+
+        // Rekeying a product moves both the parent row and the invoice lines under it, and
+        // there is no order in which invoice_items.product_id -> products.id holds throughout.
+        // Same reason clear_sync_data drops the constraint while it rebuilds the sync tables.
+        conn.execute("PRAGMA foreign_keys = OFF", []).ok();
+
+        // products.id used to be whichever of ID / CodObiect / a fresh UUID the sync happened
+        // to find first. When WME started sending "ID" for articles that had previously come
+        // back without one, the key changed underneath us: the next sync matched nothing on
+        // ON CONFLICT(id) and inserted a second row for the same article. CodIntern is the
+        // identifier WME keeps stable - it is what we already send back as IDArticol - so it
+        // becomes the key, here and in the sync.
+        let stale: Vec<(String, String)> = {
+            let mut stmt = conn.prepare(
+                "SELECT id, TRIM(cod_intern) FROM products                  WHERE TRIM(COALESCE(cod_intern, '')) <> '' AND id <> TRIM(cod_intern)",
+            )?;
+            let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+            rows.filter_map(|r| r.ok()).collect()
+        };
+
+        for (old_id, cod_intern) in &stale {
+            // Invoice history follows the article, not the row that is about to go away.
+            let moved = conn
+                .execute(
+                    "UPDATE invoice_items SET product_id = ?1 WHERE product_id = ?2",
+                    [cod_intern, old_id],
+                )
+                .unwrap_or(0);
+
+            let canonical_exists: i64 = conn
+                .query_row("SELECT COUNT(*) FROM products WHERE id = ?1", [cod_intern], |r| r.get(0))
+                .unwrap_or(0);
+
+            if canonical_exists > 0 {
+                match conn.execute("DELETE FROM products WHERE id = ?1", [old_id]) {
+                    Ok(_) => info!(
+                        "Migration 24: merged duplicate product {} into {} ({} invoice lines moved)",
+                        old_id, cod_intern, moved
+                    ),
+                    Err(e) => warn!("Migration 24: could not drop duplicate product {}: {}", old_id, e),
+                }
+            } else {
+                match conn.execute("UPDATE products SET id = ?1 WHERE id = ?2", [cod_intern, old_id]) {
+                    Ok(_) => info!("Migration 24: rekeyed product {} to {}", old_id, cod_intern),
+                    Err(e) => warn!("Migration 24: could not rekey product {}: {}", old_id, e),
+                }
+            }
+        }
+
+        // An article with no CodIntern cannot be invoiced - IDArticol would carry a code WME
+        // does not accept - so it has no business in the picker either. Rows an invoice still
+        // points at are left alone, so that history stays readable.
+        let dropped = conn
+            .execute(
+                "DELETE FROM products                  WHERE TRIM(COALESCE(cod_intern, '')) = ''                    AND id NOT IN (SELECT product_id FROM invoice_items WHERE product_id IS NOT NULL)",
+                [],
+            )
+            .unwrap_or(0);
+        if dropped > 0 {
+            info!("Migration 24: removed {} products with no CodIntern", dropped);
+        }
+
+        conn.execute("PRAGMA foreign_keys = ON", []).ok();
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (24, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 24 completed");
+    }
+
     info!("All migrations completed successfully");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{seed_invoice, temp_db};
+
+    /// `temp_db` already applied every migration, so drop the marker and run them again to
+    /// exercise migration 24 against rows seeded the way the field database looked.
+    fn rerun_migration_24(conn: &Connection) {
+        conn.execute("DELETE FROM db_migrations WHERE version >= 24", []).unwrap();
+        run_migrations(conn).unwrap();
+    }
+
+    fn product_ids(conn: &Connection, name: &str) -> Vec<String> {
+        let mut stmt = conn
+            .prepare("SELECT id FROM products WHERE name = ?1 ORDER BY id")
+            .unwrap();
+        let out = stmt
+            .query_map([name], |r| r.get::<_, String>(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        out
+    }
+
+    #[test]
+    fn migration_24_merges_a_product_stored_under_two_keys() {
+        let (dir, db) = temp_db("mig24_merge");
+        {
+            let conn = db.conn.lock().unwrap();
+            seed_invoice(&conn, "INV1", 1, "P1", "FF");
+
+            // The two rows found on the tablet: one article, stored once under its CodObiect
+            // (before WME sent "ID" for it) and once under its CodIntern.
+            for id in ["129", "1027"] {
+                conn.execute(
+                    "INSERT INTO products (id, name, unit_of_measure, price, cod_intern)                      VALUES (?1, 'OUA MARIMEA L', 'Buc', 0.88, '1027')",
+                    [id],
+                )
+                .unwrap();
+            }
+            conn.execute(
+                "INSERT INTO invoice_items (id, invoice_id, product_id, quantity, unit_price, total_price)                  VALUES ('IT1', 'INV1', '129', 10, 0.88, 8.8)",
+                [],
+            )
+            .unwrap();
+
+            rerun_migration_24(&conn);
+
+            assert_eq!(
+                product_ids(&conn, "OUA MARIMEA L"),
+                vec!["1027".to_string()],
+                "the row keyed by CodObiect must be merged away"
+            );
+            let moved: String = conn
+                .query_row("SELECT product_id FROM invoice_items WHERE id = 'IT1'", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(moved, "1027", "the invoice line must follow the article, not the deleted row");
+        }
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn migration_24_rekeys_a_product_that_has_no_counterpart() {
+        let (dir, db) = temp_db("mig24_rekey");
+        {
+            let conn = db.conn.lock().unwrap();
+            seed_invoice(&conn, "INV1", 1, "P1", "FF");
+            conn.execute(
+                "INSERT INTO products (id, name, unit_of_measure, price, cod_intern)                  VALUES ('130', 'OUA MARIMEA XL', 'Buc', 0.85, '1028')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO invoice_items (id, invoice_id, product_id, quantity, unit_price, total_price)                  VALUES ('IT1', 'INV1', '130', 10, 0.85, 8.5)",
+                [],
+            )
+            .unwrap();
+
+            rerun_migration_24(&conn);
+
+            assert_eq!(
+                product_ids(&conn, "OUA MARIMEA XL"),
+                vec!["1028".to_string()],
+                "with nothing to merge into, the row is rekeyed in place"
+            );
+            let moved: String = conn
+                .query_row("SELECT product_id FROM invoice_items WHERE id = 'IT1'", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(moved, "1028", "the invoice line follows the rekeyed article");
+        }
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn migration_24_drops_products_with_no_cod_intern_unless_an_invoice_needs_them() {
+        let (dir, db) = temp_db("mig24_no_cod_intern");
+        {
+            let conn = db.conn.lock().unwrap();
+            seed_invoice(&conn, "INV1", 1, "P1", "FF");
+            // seed_invoice leaves 'PR1' behind with no cod_intern and nothing pointing at it.
+            conn.execute(
+                "INSERT INTO products (id, name, unit_of_measure, price)                  VALUES ('ORPHAN', 'Articol fara cod intern', 'Buc', 1.0)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO invoice_items (id, invoice_id, product_id, quantity, unit_price, total_price)                  VALUES ('IT1', 'INV1', 'PR1', 1, 1.0, 1.0)",
+                [],
+            )
+            .unwrap();
+
+            rerun_migration_24(&conn);
+
+            assert!(
+                product_ids(&conn, "Articol fara cod intern").is_empty(),
+                "an article we could never invoice must not stay in the picker"
+            );
+            assert_eq!(
+                product_ids(&conn, "Oua"),
+                vec!["PR1".to_string()],
+                "one an invoice still points at stays, so that history keeps reading"
+            );
+        }
+        std::fs::remove_dir_all(dir).ok();
+    }
 }
 
 pub fn init_database(app: &AppHandle) -> Result<Database, Box<dyn std::error::Error>> {

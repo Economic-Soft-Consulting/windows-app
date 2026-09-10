@@ -967,17 +967,33 @@ fn convert_api_partners_to_model(
 }
 
 // Convert API articles to our internal model
+/// CodIntern is the article's identity, both as the local key and as `IDArticol` on the way
+/// back to WME.
+///
+/// It used to be whichever of "ID" or CodObiect the response happened to carry, with a fresh
+/// UUID if neither was there. That key is not stable: an article WME first returned without
+/// an "ID" was stored under its CodObiect, and once WME started sending "ID" for it the next
+/// sync stored the very same article a second time under the new key. CodIntern does not move
+/// like that, and it is the code WME accepts back on an invoice line.
+///
+/// An article with no CodIntern is skipped rather than given a made-up id. We could not
+/// invoice it anyway - WME rejects any other article reference - so offering it in the picker
+/// only sets the agent up to fail at send time.
 fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> Vec<Product> {
-    api_articles
+    let mut skipped: Vec<String> = Vec::new();
+
+    let products: Vec<Product> = api_articles
         .into_iter()
-        .map(|api_article| {
-            // Generate ID if empty - use CodObiect or UUID as fallback
-            let product_id = if api_article.id.is_empty() {
-                api_article.cod_obiect.clone()
-                    .filter(|c| !c.is_empty())
-                    .unwrap_or_else(|| Uuid::new_v4().to_string())
-            } else {
-                api_article.id.clone()
+        .filter_map(|api_article| {
+            let cod_intern = api_article
+                .cod_intern
+                .as_ref()
+                .map(|c| c.trim().to_string())
+                .filter(|c| !c.is_empty());
+
+            let Some(cod_intern) = cod_intern else {
+                skipped.push(api_article.denumire);
+                return None;
             };
 
             // Parse price from string
@@ -989,26 +1005,27 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
                 None => None,
             };
 
-            // The code WME wants back on the invoice line, kept apart from the local id above.
-            // On a server that fills "ID" the two usually agree; on one that does not, `id`
-            // falls back to CodObiect, which WME does not accept as an article reference.
-            let cod_intern = api_article
-                .cod_intern
-                .as_ref()
-                .map(|c| c.trim().to_string())
-                .filter(|c| !c.is_empty());
-
-            Product {
-                id: product_id,
+            Some(Product {
+                id: cod_intern.clone(),
                 name: api_article.denumire,
                 unit_of_measure: api_article.um,
                 price,
                 class: api_article.clasa,
                 tva_percent,
-                cod_intern,
-            }
+                cod_intern: Some(cod_intern),
+            })
         })
-        .collect()
+        .collect();
+
+    if !skipped.is_empty() {
+        warn!(
+            "Skipped {} article(s) with no CodIntern, they cannot be invoiced: {}",
+            skipped.len(),
+            skipped.join(", ")
+        );
+    }
+
+    products
 }
 
 #[tauri::command]
@@ -5763,6 +5780,81 @@ mod tests {
         drop(stmt);
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn article(json: &str) -> crate::api_client::ArticleInfo {
+        serde_json::from_str(json).expect("article payload must parse")
+    }
+
+    /// The article that was stored twice, taken verbatim from GetInfoArticole on 10.30.0.57.
+    ///
+    /// It arrived once without "ID" and was keyed by CodObiect (129); once WME began sending
+    /// "ID" the same article came back as 1027 and was inserted a second time. CodIntern was
+    /// 1027 throughout, which is why it is now the key.
+    #[test]
+    fn a_product_is_keyed_by_cod_intern_not_by_id_or_cod_obiect() {
+        let products = super::convert_api_articles_to_model(vec![article(
+            r#"{
+                "ID": "1027",
+                "CodObiect": "129",
+                "CodIntern": "1027",
+                "CodExtern": "5580000055941",
+                "Denumire": "OUA MARIMEA L",
+                "UM": "Buc",
+                "PretVanzare": "0,88",
+                "SimbolClasa": "OUA"
+            }"#,
+        )]);
+
+        assert_eq!(products.len(), 1);
+        assert_eq!(products[0].id, "1027", "the local key is CodIntern");
+        assert_eq!(products[0].cod_intern.as_deref(), Some("1027"));
+    }
+
+    /// Pins the choice on a server where the two identifiers disagree: CodIntern wins,
+    /// because it is the only one WME accepts back as IDArticol.
+    #[test]
+    fn cod_intern_wins_over_a_differing_id() {
+        let products = super::convert_api_articles_to_model(vec![article(
+            r#"{
+                "ID": "9999",
+                "CodObiect": "129",
+                "CodIntern": "1027",
+                "Denumire": "OUA MARIMEA L",
+                "UM": "Buc",
+                "PretVanzare": "0,88"
+            }"#,
+        )]);
+
+        assert_eq!(products[0].id, "1027", "not the ID, not the CodObiect");
+    }
+
+    /// Without CodIntern the article cannot be invoiced at all, so it is dropped rather than
+    /// stored under a made-up id that a later sync would duplicate.
+    #[test]
+    fn an_article_without_cod_intern_is_not_stored() {
+        let products = super::convert_api_articles_to_model(vec![
+            article(
+                r#"{
+                    "CodObiect": "102",
+                    "Denumire": "Prestari servicii manopera",
+                    "UM": "Lei",
+                    "PretVanzare": "0"
+                }"#,
+            ),
+            article(
+                r#"{
+                    "CodObiect": "129",
+                    "CodIntern": "  1027  ",
+                    "Denumire": "OUA MARIMEA L",
+                    "UM": "Buc",
+                    "PretVanzare": "0,88"
+                }"#,
+            ),
+        ]);
+
+        assert_eq!(products.len(), 1, "the article with no CodIntern is skipped");
+        assert_eq!(products[0].id, "1027", "and the surviving key is trimmed");
     }
 
 }
