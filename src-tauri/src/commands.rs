@@ -1686,14 +1686,17 @@ fn convert_api_partners_to_model(
             clasa == "AGENTI" || simbol_clasa == "AGENTI"
         })
         .filter_map(|api_partner| {
-            // Generate ID if empty - use COD or CIF or UUID as fallback
-            let partner_id = if api_partner.id.is_empty() {
+            // Generate ID if empty - use COD or CIF or UUID as fallback.
+            // Always trimmed: client_balances and collections store trimmed partner ids, so
+            // a padded id here would silently break every join between them.
+            let partner_id = if api_partner.id.trim().is_empty() {
                 api_partner.cod.clone()
+                    .map(|c| c.trim().to_string())
                     .filter(|c| !c.is_empty())
-                    .or_else(|| api_partner.cod_fiscal.clone().filter(|c| !c.is_empty()))
+                    .or_else(|| api_partner.cod_fiscal.clone().map(|c| c.trim().to_string()).filter(|c| !c.is_empty()))
                     .unwrap_or_else(|| Uuid::new_v4().to_string())
             } else {
-                api_partner.id.clone()
+                api_partner.id.trim().to_string()
             };
 
             let now = Utc::now().to_rfc3339();
@@ -2364,7 +2367,7 @@ pub fn create_invoice(
     // Insert invoice with number from settings
     conn.execute(
         "INSERT INTO invoices (id, invoice_number, invoice_series, partner_id, location_id, status, total_amount, total_amount_gross, notes, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9)",
-        (&invoice_id, invoice_number, &carnet_series, &request.partner_id, &request.location_id, total_amount, total_amount_gross, &request.notes, &now),
+        (&invoice_id, invoice_number, &carnet_series, request.partner_id.trim(), request.location_id.trim(), total_amount, total_amount_gross, &request.notes, &now),
     )
     .map_err(|e| e.to_string())?;
 
@@ -5090,15 +5093,37 @@ fn build_client_balances_query() -> String {
                 ))";
 
     // Amount already collected against a WME balance row, matched on the 4-part document key.
+    // Every side is trimmed: the three tables are written by different code paths that did
+    // not agree on whitespace, and a single stray space left the invoice looking unpaid.
     const WME_COLLECTED: &str = "(
                         SELECT COALESCE(SUM(c.valoare), 0)
                         FROM collections c
-                        WHERE c.id_partener = cb.id_partener
-                          AND COALESCE(c.serie_factura, '') = COALESCE(cb.serie, '')
-                          AND COALESCE(c.numar_factura, '') = COALESCE(cb.numar, '')
-                          AND COALESCE(c.cod_document, '') = COALESCE(cb.cod_document, '')
+                        WHERE TRIM(c.id_partener) = TRIM(cb.id_partener)
+                          AND TRIM(COALESCE(c.serie_factura, '')) = TRIM(COALESCE(cb.serie, ''))
+                          AND TRIM(COALESCE(c.numar_factura, '')) = TRIM(COALESCE(cb.numar, ''))
+                          AND TRIM(COALESCE(c.cod_document, '')) = TRIM(COALESCE(cb.cod_document, ''))
                           AND c.status IN ('pending', 'sending', 'synced')
                     )";
+
+    // Amount already collected against a locally created invoice.
+    //
+    // Prefers the direct invoice_id link written since v1.0.11; older receipts fall back to
+    // matching partner + number + series as strings. A correlated subquery rather than a
+    // GROUP BY join, so an invoice can never be duplicated by matching two receipt groups.
+    const LOCAL_COLLECTED: &str = "COALESCE((
+                        SELECT SUM(c.valoare)
+                        FROM collections c
+                        WHERE c.status IN ('pending', 'sending', 'synced')
+                          AND (
+                            c.invoice_id = i.id
+                            OR (
+                                c.invoice_id IS NULL
+                                AND TRIM(c.id_partener) = TRIM(i.partner_id)
+                                AND TRIM(COALESCE(c.numar_factura, '')) = CAST(i.invoice_number AS TEXT)
+                                AND TRIM(COALESCE(c.serie_factura, '')) = TRIM(COALESCE(i.invoice_series, ''))
+                            )
+                          )
+                    ), 0)";
 
     // Combine synced balances from WME with local invoices from DB.
     // Local collections still in-flight (pending/sending) are subtracted from remaining amount.
@@ -5123,21 +5148,23 @@ fn build_client_balances_query() -> String {
             -- Exclude invoices that exist locally — those are handled by the invoices branch
             WHERE NOT EXISTS (
                 SELECT 1 FROM invoices i_local
-                WHERE i_local.partner_id = cb.id_partener
+                WHERE TRIM(i_local.partner_id) = TRIM(cb.id_partener)
                   AND i_local.invoice_number = CAST(COALESCE(cb.numar, '0') AS INTEGER)
                   AND (
-                      COALESCE(i_local.invoice_series, '') = COALESCE(cb.serie, '')
+                      TRIM(COALESCE(i_local.invoice_series, '')) = TRIM(COALESCE(cb.serie, ''))
                       OR trim(COALESCE(i_local.invoice_series, '')) = ''
                       OR trim(COALESCE(cb.serie, '')) = ''
                   )
             )
-            -- Exclude invoices hidden by the agent (phantom test invoices)
+            -- Exclude invoices hidden by the agent (phantom test invoices).
+            -- hide_client_balance trims before storing, so match trimmed on both sides or
+            -- hiding a padded row silently does nothing.
             AND NOT EXISTS (
                 SELECT 1 FROM ignored_balances ib
-                WHERE ib.id_partener = cb.id_partener
-                  AND ib.cod_document = COALESCE(cb.cod_document, '')
-                  AND ib.serie = COALESCE(cb.serie, '')
-                  AND ib.numar = COALESCE(cb.numar, '')
+                WHERE TRIM(ib.id_partener) = TRIM(cb.id_partener)
+                  AND TRIM(ib.cod_document) = TRIM(COALESCE(cb.cod_document, ''))
+                  AND TRIM(ib.serie) = TRIM(COALESCE(cb.serie, ''))
+                  AND TRIM(ib.numar) = TRIM(COALESCE(cb.numar, ''))
             )
 
             UNION ALL
@@ -5155,8 +5182,8 @@ fn build_client_balances_query() -> String {
                 strftime('%d/%m/%Y', replace(substr(i.created_at, 1, 19), 'T', ' ')) AS data,
                 LOCAL_GROSS_TOTAL AS valoare,
                 CASE
-                    WHEN ROUND(LOCAL_GROSS_TOTAL - COALESCE(c2.total_collected, 0), 2) > 0
-                        THEN ROUND(LOCAL_GROSS_TOTAL - COALESCE(c2.total_collected, 0), 2)
+                    WHEN ROUND(LOCAL_GROSS_TOTAL - LOCAL_COLLECTED, 2) > 0
+                        THEN ROUND(LOCAL_GROSS_TOTAL - LOCAL_COLLECTED, 2)
                     ELSE 0
                 END AS rest,
                 strftime(
@@ -5177,24 +5204,19 @@ fn build_client_balances_query() -> String {
             FROM invoices i
             JOIN partners p ON p.id = i.partner_id
             JOIN locations l ON l.id = i.location_id
-            LEFT JOIN (
-                SELECT
-                    id_partener,
-                    COALESCE(numar_factura, '') AS numar_factura,
-                    COALESCE(serie_factura, '') AS serie_factura,
-                    SUM(valoare) AS total_collected
-                FROM collections
-                WHERE status IN ('pending', 'sending', 'synced')
-                GROUP BY id_partener, COALESCE(numar_factura, ''), COALESCE(serie_factura, '')
-            ) c2 ON (
-                c2.id_partener = i.partner_id AND
-                c2.numar_factura = CAST(i.invoice_number AS TEXT) AND
-                COALESCE(c2.serie_factura, '') = COALESCE(i.invoice_series, '')
-            )
             WHERE i.status IN ('pending', 'sending', 'sent', 'failed')
+            -- Exclude invoices hidden by the agent. This filter used to exist only on the
+            -- WME branch, so hiding a locally created ghost did nothing: the card was
+            -- dropped optimistically in the UI and came back on the next load.
+            AND NOT EXISTS (
+                SELECT 1 FROM ignored_balances ib
+                WHERE TRIM(ib.id_partener) = TRIM(i.partner_id)
+                  AND TRIM(ib.numar) = CAST(i.invoice_number AS TEXT)
+            )
         ) q
         WHERE COALESCE(q.rest, 0) > 0"
         .replace("LOCAL_GROSS_TOTAL", LOCAL_GROSS_TOTAL)
+        .replace("LOCAL_COLLECTED", LOCAL_COLLECTED)
         .replace("WME_COLLECTED", WME_COLLECTED)
 }
 
@@ -5414,12 +5436,31 @@ pub fn record_collection_group(
 
     for allocation in &request.allocations {
         let row_id = Uuid::new_v4().to_string();
+
+        // Link straight to the local invoice when this allocation unambiguously identifies
+        // one. Balances coming from WME have no local invoice and stay NULL, falling back to
+        // the string key.
+        let invoice_id: Option<String> = conn
+            .query_row(
+                "SELECT i.id FROM invoices i
+                 WHERE TRIM(i.partner_id) = TRIM(?1)
+                   AND CAST(i.invoice_number AS TEXT) = TRIM(COALESCE(?2, ''))
+                   AND (
+                       SELECT COUNT(*) FROM invoices i2
+                       WHERE TRIM(i2.partner_id) = TRIM(?1)
+                         AND CAST(i2.invoice_number AS TEXT) = TRIM(COALESCE(?2, ''))
+                   ) = 1",
+                params![&partner_id, &allocation.numar_factura],
+                |row| row.get(0),
+            )
+            .ok();
+
         if let Err(e) = conn.execute(
             "INSERT INTO collections (
                 id, receipt_group_id, receipt_series, receipt_number,
                 id_partener, partner_name, numar_factura, serie_factura,
-                cod_document, valoare, data_incasare, status, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                cod_document, valoare, data_incasare, status, created_at, invoice_id
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 row_id,
                 &receipt_group_id,
@@ -5433,7 +5474,8 @@ pub fn record_collection_group(
                 round2(allocation.valoare),
                 &now,
                 "pending",
-                &now
+                &now,
+                &invoice_id
             ],
         ) {
             let _ = conn.execute("ROLLBACK", []);
@@ -5533,14 +5575,14 @@ pub fn record_collection_from_invoice(
         "INSERT INTO collections (
             id, receipt_group_id, receipt_series, receipt_number,
             id_partener, partner_name, numar_factura, serie_factura,
-            cod_document, valoare, data_incasare, status, created_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            cod_document, valoare, data_incasare, status, created_at, invoice_id
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         params![
             &collection_id,
             &collection_id,
             receipt_series,
             receipt_number,
-            &partner_id,
+            partner_id.trim(),
             &partner_name,
             &invoice_number_str,
             &series,
@@ -5549,6 +5591,9 @@ pub fn record_collection_from_invoice(
             Utc::now().to_rfc3339(),
             "pending",
             Utc::now().to_rfc3339(),
+            // Direct link to the invoice, so matching no longer depends on partner id,
+            // invoice number and series all being written in exactly the same shape.
+            &invoice_id,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -5715,8 +5760,22 @@ pub async fn sync_collections(
     }
     let _guard = LockGuard(&db.is_syncing_collections);
 
-    // Only retry pending — failed must be retried manually
-    let pending_collections = get_collections(db.clone(), Some("pending".to_string()))?;
+    // Retry 'failed' alongside 'pending'.
+    //
+    // A receipt WME rejects is written as 'failed', and 'failed' is not counted as collected
+    // by get_client_balances — so leaving it un-retried silently reverted the invoice to
+    // unpaid while the client was already holding a printed receipt. Note the asymmetry it
+    // caused: a network error wrote 'pending' and healed itself, while a business rejection
+    // wrote 'failed' and became a permanent ghost.
+    //
+    // send_collection is idempotent (it skips rows already 'sending'/'synced' and detects
+    // receipts WME has already booked), so retrying is safe.
+    let mut pending_collections = get_collections(db.clone(), Some("pending".to_string()))?;
+    let failed_collections = get_collections(db.clone(), Some("failed".to_string()))?;
+    if !failed_collections.is_empty() {
+        info!("[SYNC] Reincercare {} chitante esuate anterior", failed_collections.len());
+        pending_collections.extend(failed_collections);
+    }
 
     if pending_collections.is_empty() {
         return get_sync_status(db.clone());
@@ -6124,6 +6183,26 @@ pub async fn send_collection(
 #[tauri::command]
 pub fn delete_collection(db: State<'_, Database>, collection_id: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    // Refuse to delete a receipt WME has already accepted. Deleting one removes the only
+    // local record of the payment while the money stays booked upstream, so the invoice
+    // reappears at full value on the next balance sync with no way to clear it.
+    let synced_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM collections \
+             WHERE (COALESCE(receipt_group_id, id) = ?1 OR id = ?1) AND status = 'synced'",
+            [&collection_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if synced_count > 0 {
+        return Err(
+            "Chitanța a fost deja trimisă la WME și nu poate fi ștearsă. \
+             Storneaz-o în WME dacă încasarea trebuie anulată."
+                .to_string(),
+        );
+    }
 
     conn.execute(
         "DELETE FROM collections WHERE COALESCE(receipt_group_id, id) = ?1 OR id = ?1",
@@ -6837,31 +6916,22 @@ pub fn print_daily_report(
 mod tests {
     use super::{line_gross, round2};
 
+    /// Creates a real database through Database::new so the schema and every migration
+    /// apply exactly as they do in production.
+    fn temp_db(tag: &str) -> (std::path::PathBuf, crate::database::Database) {
+        let dir = std::env::temp_dir().join(format!("karin_{}_{}", tag, uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let db = crate::database::Database::new(dir.clone()).expect("init db");
+        (dir, db)
+    }
+
     /// The balance query is assembled by text substitution, so a malformed result would
     /// only show up as a runtime error on the collections screen. Parse it against the
     /// real schema instead.
     #[test]
     fn client_balances_query_is_valid_sql() {
-        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory db");
-        conn.execute_batch(crate::database::SCHEMA).expect("apply schema");
-        conn.execute_batch(
-            "ALTER TABLE invoices ADD COLUMN marca_agent TEXT;
-             CREATE TABLE IF NOT EXISTS client_balances (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, id_partener TEXT NOT NULL,
-                cod_fiscal TEXT, denumire TEXT, tip_document TEXT, cod_document TEXT,
-                serie TEXT, numar TEXT, data TEXT, valoare REAL, rest REAL, termen TEXT,
-                moneda TEXT, sediu TEXT, id_sediu TEXT, curs REAL, observatii TEXT,
-                cod_obligatie TEXT, marca_agent TEXT, synced_at TEXT);
-             CREATE TABLE IF NOT EXISTS collections (
-                id TEXT PRIMARY KEY, receipt_group_id TEXT, receipt_series TEXT,
-                receipt_number TEXT, id_partener TEXT NOT NULL, partner_name TEXT,
-                numar_factura TEXT, serie_factura TEXT, cod_document TEXT,
-                valoare REAL NOT NULL, data_incasare TEXT NOT NULL, status TEXT,
-                synced_at TEXT, error_message TEXT, created_at TEXT NOT NULL);
-             CREATE TABLE IF NOT EXISTS agent_settings (
-                id INTEGER PRIMARY KEY CHECK (id = 1), marca_agent TEXT);",
-        )
-        .expect("create tables missing from base schema");
+        let (dir, db) = temp_db("sql");
+        let conn = db.conn.lock().unwrap();
 
         let mut query = super::build_client_balances_query();
         query.push_str(" AND TRIM(q.id_partener) = TRIM(?1)");
@@ -6877,6 +6947,141 @@ mod tests {
             .filter_map(|r| r.ok())
             .collect();
         assert!(rows.is_empty());
+
+        drop(stmt);
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Seeds one partner, one location, one product and one invoice for `number`.
+    fn seed_invoice(conn: &rusqlite::Connection, invoice_id: &str, number: i64, partner: &str, series: &str) {
+        conn.execute(
+            "INSERT OR IGNORE INTO partners (id, name, created_at, updated_at) VALUES (?1, 'Test', '2026-01-01', '2026-01-01')",
+            [partner],
+        ).unwrap();
+        conn.execute(
+            "INSERT OR IGNORE INTO locations (id, partner_id, name) VALUES ('L1', ?1, 'Sediu')",
+            [partner],
+        ).unwrap();
+        conn.execute(
+            "INSERT OR IGNORE INTO products (id, name, unit_of_measure, price, procent_tva) VALUES ('PR1', 'Oua', 'BUC', 1.0, '9')",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO invoices (id, invoice_number, invoice_series, partner_id, location_id, status, total_amount, total_amount_gross, created_at)
+             VALUES (?1, ?2, ?3, ?4, 'L1', 'sent', 78.82, 85.91, '2026-01-01')",
+            rusqlite::params![invoice_id, number, series, partner],
+        ).unwrap();
+    }
+
+    fn balance_rest(conn: &rusqlite::Connection, partner: &str) -> Vec<f64> {
+        let mut query = super::build_client_balances_query();
+        query.push_str(" AND TRIM(q.id_partener) = TRIM(?1)");
+        let mut stmt = conn.prepare(&query).unwrap();
+        let out: Vec<f64> = stmt
+            .query_map([partner], |r| r.get::<_, Option<f64>>(10))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .map(|v| v.unwrap_or(0.0))
+            .collect();
+        out
+    }
+
+    /// A fully paid invoice must leave the balance list.
+    #[test]
+    fn paid_invoice_disappears_from_balances() {
+        let (dir, db) = temp_db("paid");
+        let conn = db.conn.lock().unwrap();
+        seed_invoice(&conn, "I1", 1, "P1", "FONG");
+
+        assert_eq!(balance_rest(&conn, "P1"), vec![85.91], "unpaid invoice must be listed");
+
+        conn.execute(
+            "INSERT INTO collections (id, id_partener, numar_factura, serie_factura, cod_document, valoare, data_incasare, status, created_at, invoice_id)
+             VALUES ('C1', 'P1', '1', 'FONG', '1', 85.91, '2026-01-02', 'pending', '2026-01-02', 'I1')",
+            [],
+        ).unwrap();
+
+        assert!(balance_rest(&conn, "P1").is_empty(), "paid invoice must disappear");
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Ghost #2: partner ids written with different whitespace by different code paths.
+    /// The invoice_id link, and TRIM on the fallback, must both survive it.
+    #[test]
+    fn receipt_still_matches_when_partner_id_is_padded() {
+        let (dir, db) = temp_db("pad");
+        let conn = db.conn.lock().unwrap();
+        seed_invoice(&conn, "I1", 1, "P1 ", "FONG");
+
+        // Receipt written by a path that trims, invoice by one that does not.
+        conn.execute(
+            "INSERT INTO collections (id, id_partener, numar_factura, serie_factura, cod_document, valoare, data_incasare, status, created_at, invoice_id)
+             VALUES ('C1', 'P1', '1', 'FONG', '1', 85.91, '2026-01-02', 'pending', '2026-01-02', NULL)",
+            [],
+        ).unwrap();
+
+        assert!(balance_rest(&conn, "P1").is_empty(), "padded partner id must not create a ghost");
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Ghost #5: the receipt carries a different series than the invoice (the agent changed
+    /// the carnet in Settings). The invoice_id link must still match it.
+    #[test]
+    fn receipt_matches_invoice_despite_series_drift() {
+        let (dir, db) = temp_db("series");
+        let conn = db.conn.lock().unwrap();
+        seed_invoice(&conn, "I1", 1, "P1", "FONG");
+
+        conn.execute(
+            "INSERT INTO collections (id, id_partener, numar_factura, serie_factura, cod_document, valoare, data_incasare, status, created_at, invoice_id)
+             VALUES ('C1', 'P1', '1', 'ALTASERIE', '1', 85.91, '2026-01-02', 'synced', '2026-01-02', 'I1')",
+            [],
+        ).unwrap();
+
+        assert!(balance_rest(&conn, "P1").is_empty(), "invoice_id link must survive a series change");
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Hiding a locally created invoice must stick. The ignored_balances filter used to
+    /// exist only on the WME branch, so the card came back on the next load.
+    #[test]
+    fn hiding_a_local_invoice_persists() {
+        let (dir, db) = temp_db("hide");
+        let conn = db.conn.lock().unwrap();
+        seed_invoice(&conn, "I1", 7, "P1", "FONG");
+
+        assert_eq!(balance_rest(&conn, "P1").len(), 1);
+
+        conn.execute(
+            "INSERT INTO ignored_balances (id_partener, cod_document, serie, numar) VALUES ('P1', '7', 'FONG', '7')",
+            [],
+        ).unwrap();
+
+        assert!(balance_rest(&conn, "P1").is_empty(), "hidden local invoice must stay hidden");
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A partly paid invoice keeps only the remainder, at 2 decimals.
+    #[test]
+    fn partial_payment_leaves_rounded_remainder() {
+        let (dir, db) = temp_db("partial");
+        let conn = db.conn.lock().unwrap();
+        seed_invoice(&conn, "I1", 1, "P1", "FONG");
+
+        conn.execute(
+            "INSERT INTO collections (id, id_partener, numar_factura, serie_factura, cod_document, valoare, data_incasare, status, created_at, invoice_id)
+             VALUES ('C1', 'P1', '1', 'FONG', '1', 50.0, '2026-01-02', 'pending', '2026-01-02', 'I1')",
+            [],
+        ).unwrap();
+
+        assert_eq!(balance_rest(&conn, "P1"), vec![35.91]);
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Migration 22 backfills the gross total for invoices created before it existed.
@@ -6907,7 +7112,7 @@ mod tests {
                    VALUES ('C1', 'P1', 85.9138, '2026-01-01', 'pending', '2026-01-01');
                  INSERT INTO collections (id, id_partener, valoare, data_incasare, status, created_at)
                    VALUES ('C2', 'P1', 85.9138, '2026-01-01', 'synced', '2026-01-01');
-                 DELETE FROM db_migrations WHERE version = 22;",
+                 DELETE FROM db_migrations WHERE version >= 22;",
             )
             .expect("seed pre-migration state");
         }

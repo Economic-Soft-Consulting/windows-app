@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, warn};
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;
 use std::sync::{Mutex, atomic::AtomicBool};
@@ -741,6 +741,71 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
 
         conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (22, ?1)", [&Utc::now().to_rfc3339()])?;
         info!("Migration 22 completed");
+    }
+
+    // Migration 23: Normalize partner ids and give receipts a direct link to the invoice (v1.0.11)
+    //
+    // Ghost invoices: an invoice stayed in the balance list after being paid because the
+    // receipt could not be matched back to it.
+    //
+    // Two causes are addressed here. First, partners.id was stored raw from the API while
+    // client_balances.id_partener and collections.id_partener were trimmed, so any padded id
+    // broke the joins. Second, receipts were matched to invoices by comparing
+    // partner + number + series as strings, which fails whenever any of the three is written
+    // in a different shape (zero-padded number, changed carnet series, whitespace).
+    if current_version < 23 {
+        info!("Applying migration 23: Normalize partner ids, add collections.invoice_id");
+
+        // Trim every copy of a partner id. Ordered so related rows stay consistent even if
+        // one statement fails; partners are re-synced from WME anyway.
+        for (table, column) in [
+            ("partners", "id"),
+            ("locations", "partner_id"),
+            ("invoices", "partner_id"),
+            ("collections", "id_partener"),
+            ("client_balances", "id_partener"),
+        ] {
+            let sql = format!(
+                "UPDATE {t} SET {c} = TRIM({c}) WHERE {c} IS NOT NULL AND {c} <> TRIM({c})",
+                t = table,
+                c = column
+            );
+            match conn.execute(&sql, []) {
+                Ok(n) if n > 0 => info!("Migration 23: trimmed {} rows in {}.{}", n, table, column),
+                Ok(_) => {}
+                Err(e) => warn!("Migration 23: could not trim {}.{}: {}", table, column, e),
+            }
+        }
+
+        let _ = conn.execute("ALTER TABLE collections ADD COLUMN invoice_id TEXT;", []).ok();
+
+        // Backfill only where the match is unambiguous. A receipt that could belong to more
+        // than one invoice is left NULL and keeps using the legacy string matching.
+        let linked = conn.execute(
+            r#"
+            UPDATE collections SET invoice_id = (
+                SELECT i.id FROM invoices i
+                WHERE TRIM(i.partner_id) = TRIM(collections.id_partener)
+                  AND CAST(i.invoice_number AS TEXT) = TRIM(COALESCE(collections.numar_factura, ''))
+            )
+            WHERE invoice_id IS NULL
+              AND (
+                SELECT COUNT(*) FROM invoices i
+                WHERE TRIM(i.partner_id) = TRIM(collections.id_partener)
+                  AND CAST(i.invoice_number AS TEXT) = TRIM(COALESCE(collections.numar_factura, ''))
+              ) = 1
+            "#,
+            [],
+        ).unwrap_or(0);
+        info!("Migration 23: linked {} receipts to their invoice", linked);
+
+        let _ = conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_collections_invoice_id ON collections(invoice_id)",
+            [],
+        ).ok();
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (23, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 23 completed");
     }
 
     info!("All migrations completed successfully");
