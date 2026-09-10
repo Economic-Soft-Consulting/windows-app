@@ -29,7 +29,7 @@ function DashboardLayoutInner({
 }) {
   const { checkIsFirstRun, triggerSync, isSyncing } = useSyncStatus();
   const { isOnline } = useOnlineStatus();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isInitialized } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   // Settings must stay reachable during first run, otherwise a device with no WME
@@ -43,12 +43,15 @@ function DashboardLayoutInner({
   const pendingRetryRef = useRef(false);
   const lastRetryAttemptAtRef = useRef(0);
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated. Effects of child components run before those of
+  // the provider above them, so on the first render this fired while AuthContext had not yet
+  // read the remembered agent back from storage - every restart bounced to the login screen
+  // and "remember agent login" never took effect. Wait for the answer first.
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (isInitialized && !isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isInitialized, router]);
 
   // Re-checked whenever the user enters or leaves Settings, so that saving the WME
   // host and syncing resolves the overlay instead of leaving it stale.
@@ -176,7 +179,7 @@ function DashboardLayoutInner({
   }, [isAuthenticated, triggerSync, isOnline, isSyncing]);
 
   // Show nothing while checking or not authenticated
-  if (!isAuthenticated || isChecking || showFirstRun === null) {
+  if (!isInitialized || !isAuthenticated || isChecking || showFirstRun === null) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground">Se încarcă...</div>
