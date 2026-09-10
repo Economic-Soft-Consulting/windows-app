@@ -146,55 +146,80 @@ fn wait_for_file_ready(path: &str, timeout_ms: u64, stable_ms: u64) -> bool {
     false
 }
 
+/// Locates a Chromium-based browser usable for headless HTML->PDF conversion.
+/// Checks Edge (system and per-user installs) first, then Chrome as fallback.
+fn find_html_to_pdf_engine() -> Option<String> {
+    let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
+
+    let mut candidates = vec![
+        "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe".to_string(),
+        "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe".to_string(),
+        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe".to_string(),
+        "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe".to_string(),
+    ];
+
+    if !local_app_data.is_empty() {
+        candidates.insert(2, format!("{}\\Microsoft\\Edge\\Application\\msedge.exe", local_app_data));
+        candidates.push(format!("{}\\Google\\Chrome\\Application\\chrome.exe", local_app_data));
+    }
+
+    candidates
+        .into_iter()
+        .find(|path| std::path::Path::new(path).exists())
+}
+
 fn try_generate_pdf_from_html(html_path_str: &str, pdf_path_str: &str) -> bool {
     #[cfg(target_os = "windows")]
     {
-        let edge_paths = vec![
-            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-        ];
+        // Remove any stale PDF so a failed conversion can't silently print an old document
+        let _ = std::fs::remove_file(pdf_path_str);
 
-        for edge_path in edge_paths {
-            if std::path::Path::new(edge_path).exists() {
-                let file_url = format!(
-                    "file:///{}",
-                    html_path_str.replace('\\', "/").replace(' ', "%20")
-                );
-
-                let temp_dir = std::env::temp_dir().join("esoft_edge_pdf");
-                let _ = std::fs::create_dir_all(&temp_dir);
-                let user_data_arg = format!("--user-data-dir={}", temp_dir.to_string_lossy());
-                let print_arg = format!("--print-to-pdf={}", pdf_path_str);
-                info!("[CERT][PDF] Generating PDF: {}", pdf_path_str);
-
-                let output = std::process::Command::new(edge_path)
-                    .args(&[
-                        "--headless",
-                        "--disable-gpu",
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        &user_data_arg,
-                        &print_arg,
-                        &file_url,
-                    ])
-                    .output();
-
-                if let Ok(result) = output {
-                    info!("[CERT][PDF] Edge status: {}, stderr: {}", result.status, String::from_utf8_lossy(&result.stderr));
-                    let mut waited = 0;
-                    while waited < 6000 {
-                        if wait_for_file_ready(pdf_path_str, 1200, 400) {
-                            info!("[CERT][PDF] PDF generated OK");
-                            return true;
-                        }
-                        std::thread::sleep(std::time::Duration::from_millis(100));
-                        waited += 100;
-                    }
-                    info!("[CERT][PDF] PDF not ready after 6s");
-                } else {
-                    info!("[CERT][PDF] Edge exec failed");
-                }
+        let engine_path = match find_html_to_pdf_engine() {
+            Some(path) => path,
+            None => {
+                warn!("[PDF] No Edge/Chrome installation found for HTML->PDF conversion");
+                return false;
             }
+        };
+
+        let file_url = format!(
+            "file:///{}",
+            html_path_str.replace('\\', "/").replace(' ', "%20")
+        );
+
+        let temp_dir = std::env::temp_dir().join("esoft_edge_pdf");
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let user_data_arg = format!("--user-data-dir={}", temp_dir.to_string_lossy());
+        let print_arg = format!("--print-to-pdf={}", pdf_path_str);
+        info!("[PDF] Generating PDF with {}: {}", engine_path, pdf_path_str);
+
+        let output = std::process::Command::new(&engine_path)
+            .args(&[
+                "--headless",
+                "--disable-gpu",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--no-pdf-header-footer",
+                &user_data_arg,
+                &print_arg,
+                &file_url,
+            ])
+            .output();
+
+        if let Ok(result) = output {
+            info!("[PDF] Engine status: {}, stderr: {}", result.status, String::from_utf8_lossy(&result.stderr));
+            let mut waited = 0;
+            while waited < 10000 {
+                if wait_for_file_ready(pdf_path_str, 1200, 400) {
+                    info!("[PDF] PDF generated OK");
+                    return true;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                waited += 100;
+            }
+            warn!("[PDF] PDF not ready after 10s");
+        } else {
+            warn!("[PDF] Failed to launch {}", engine_path);
         }
     }
 
@@ -3759,70 +3784,13 @@ pub async fn print_invoice_to_html(
 
     info!("Generated invoice HTML at: {}", html_path_str);
 
-    // Convert HTML to PDF using Edge (headless)
+    // Convert HTML to PDF (headless Edge/Chrome); without a PDF, printing would produce garbage
     #[cfg(target_os = "windows")]
     {
-        // Try to generate PDF using available tools
-        let mut pdf_generated = false;
-        let mut print_file = html_path_str.clone();
-
-        // Try Edge first (Windows 10+)
-        let edge_paths = vec![
-            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-        ];
-
-        for edge_path in edge_paths {
-            if std::path::Path::new(edge_path).exists() {
-                let file_url = format!("file:///{}", html_path_str.replace('\\', "/"));
-
-                let output = std::process::Command::new(edge_path)
-                    .args(&[
-                        "--headless",
-                        "--disable-gpu",
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        &format!("--print-to-pdf={}", pdf_path_str),
-                        &file_url,
-                    ])
-                    .output();
-
-                match output {
-                    Ok(result) => {
-                        info!("Edge command executed. Status: {}", result.status);
-                        if !result.stderr.is_empty() {
-                            let stderr = String::from_utf8_lossy(&result.stderr);
-                            info!("Edge stderr: {}", stderr);
-                        }
-
-                        // Give Edge time to write the file (poll until fully written)
-                        let mut waited = 0;
-                        while waited < 5000 {
-                            if wait_for_file_ready(&pdf_path_str, 1000, 300) {
-                                pdf_generated = true;
-                                print_file = pdf_path_str.clone();
-                                info!("PDF generated successfully at: {}", pdf_path_str);
-                                break;
-                            }
-                            std::thread::sleep(std::time::Duration::from_millis(100));
-                            waited += 100;
-                        }
-                        if pdf_generated {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        info!("Failed to use Edge: {}", e);
-                    }
-                }
-            }
+        if !try_generate_pdf_from_html(&html_path_str, &pdf_path_str) {
+            return Err("Nu s-a putut genera PDF-ul facturii: Microsoft Edge (sau Google Chrome) nu este instalat sau nu a răspuns. Reinstalați Microsoft Edge și încercați din nou.".to_string());
         }
-
-        // If PDF generation failed, use HTML directly for printing
-        if !pdf_generated {
-            info!("PDF generation failed, will print HTML directly");
-            print_file = html_path_str.clone();
-        }
+        let print_file = pdf_path_str.clone();
 
         // Print PDF using SumatraPDF
         let printer = printer_name.unwrap_or_else(|| String::from(""));
@@ -3925,8 +3893,7 @@ pub async fn print_invoice_to_html(
             info!("SumatraPDF not found. PDF saved at: {}", print_file);
         }
 
-        let file_type = if pdf_generated { "PDF" } else { "HTML" };
-        info!("Print dispatched ({}) to printer '{}': {}", file_type, printer, invoice_id);
+        info!("Print dispatched (PDF) to printer '{}': {}", printer, invoice_id);
     }
 
     #[cfg(target_os = "macos")]
@@ -4275,51 +4242,10 @@ pub async fn print_collection_to_html(
 
     #[cfg(target_os = "windows")]
     {
-        let mut pdf_generated = false;
-        let mut print_file = html_path_str.clone();
-
-        let edge_paths = vec![
-            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-        ];
-
-        for edge_path in edge_paths {
-            if std::path::Path::new(edge_path).exists() {
-                let file_url = format!("file:///{}", html_path_str.replace('\\', "/"));
-
-                let output = std::process::Command::new(edge_path)
-                    .args(&[
-                        "--headless",
-                        "--disable-gpu",
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        &format!("--print-to-pdf={}", pdf_path_str),
-                        &file_url,
-                    ])
-                    .output();
-
-                if let Ok(result) = output {
-                    info!("Receipt Edge command executed. Status: {}", result.status);
-                    let mut waited = 0;
-                    while waited < 5000 {
-                        if wait_for_file_ready(&pdf_path_str, 1000, 300) {
-                            pdf_generated = true;
-                            print_file = pdf_path_str.clone();
-                            break;
-                        }
-                        std::thread::sleep(std::time::Duration::from_millis(100));
-                        waited += 100;
-                    }
-                    if pdf_generated {
-                        break;
-                    }
-                }
-            }
+        if !try_generate_pdf_from_html(&html_path_str, &pdf_path_str) {
+            return Err("Nu s-a putut genera PDF-ul chitanței: Microsoft Edge (sau Google Chrome) nu este instalat sau nu a răspuns. Reinstalați Microsoft Edge și încercați din nou.".to_string());
         }
-
-        if !pdf_generated {
-            print_file = html_path_str.clone();
-        }
+        let print_file = pdf_path_str.clone();
 
         let printer = printer_name.unwrap_or_default();
         let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
@@ -4846,35 +4772,10 @@ pub fn print_report_html(
         let pdf_path = reports_dir.join(format!("{}.pdf", stem));
         let pdf_path_str = pdf_path.to_string_lossy().to_string();
 
-        let mut print_file = html_path_str.clone();
-
-        let edge_paths = vec![
-            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-        ];
-
-        for edge_path in edge_paths {
-            if std::path::Path::new(edge_path).exists() {
-                let file_url = format!("file:///{}", html_path_str.replace('\\', "/"));
-                if let Ok(result) = std::process::Command::new(edge_path)
-                    .args(&[
-                        "--headless",
-                        "--disable-gpu",
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        &format!("--print-to-pdf={}", pdf_path_str),
-                        &file_url,
-                    ])
-                    .output()
-                {
-                    info!("Report Edge command executed. Status: {}", result.status);
-                    if wait_for_file_ready(&pdf_path_str, 5000, 300) {
-                        print_file = pdf_path_str.clone();
-                        break;
-                    }
-                }
-            }
+        if !try_generate_pdf_from_html(&html_path_str, &pdf_path_str) {
+            return Err("Nu s-a putut genera PDF-ul raportului: Microsoft Edge (sau Google Chrome) nu este instalat sau nu a răspuns. Reinstalați Microsoft Edge și încercați din nou.".to_string());
         }
+        let print_file = pdf_path_str.clone();
 
         let printer = printer_name.unwrap_or_default();
         let user_profile = std::env::var("USERPROFILE").unwrap_or_default();
@@ -6743,62 +6644,13 @@ pub fn print_daily_report(
 
     info!("Generated report HTML at: {}", html_path_str);
 
-    // Convert HTML to PDF using Edge (headless)
+    // Convert HTML to PDF (headless Edge/Chrome)
     #[cfg(target_os = "windows")]
     {
-        let mut pdf_generated = false;
-        let mut print_file = html_path_str.clone();
-
-        // Try Edge first
-        let edge_paths = vec![
-            "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-        ];
-
-        for edge_path in edge_paths {
-            if std::path::Path::new(edge_path).exists() {
-                let file_url = format!("file:///{}", html_path_str.replace('\\', "/"));
-
-                let output = std::process::Command::new(edge_path)
-                    .args(&[
-                        "--headless",
-                        "--disable-gpu",
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        &format!("--print-to-pdf={}", pdf_path_str),
-                        &file_url,
-                    ])
-                    .output();
-
-                match output {
-                    Ok(result) => {
-                        info!("Edge command executed. Status: {}", result.status);
-                        // Give Edge time to write
-                        let mut waited = 0;
-                        while waited < 5000 {
-                            if wait_for_file_ready(&pdf_path_str, 1000, 300) {
-                                pdf_generated = true;
-                                print_file = pdf_path_str.clone();
-                                info!("PDF generated successfully at: {}", pdf_path_str);
-                                break;
-                            }
-                            std::thread::sleep(std::time::Duration::from_millis(100));
-                            waited += 100;
-                        }
-                        if pdf_generated {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        info!("Failed to use Edge: {}", e);
-                    }
-                }
-            }
+        if !try_generate_pdf_from_html(&html_path_str, &pdf_path_str) {
+            return Err("Nu s-a putut genera PDF-ul raportului: Microsoft Edge (sau Google Chrome) nu este instalat sau nu a răspuns. Reinstalați Microsoft Edge și încercați din nou.".to_string());
         }
-
-        if !pdf_generated {
-            info!("PDF generation failed, will print HTML directly");
-        }
+        let print_file = pdf_path_str.clone();
 
         // Print using SumatraPDF
         let printer = printer_name.unwrap_or_else(|| String::from(""));
