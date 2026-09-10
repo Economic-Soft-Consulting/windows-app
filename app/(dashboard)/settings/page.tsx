@@ -301,8 +301,8 @@ export default function SettingsPage() {
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto min-h-0 space-y-4">
         {/* WME Server Config */}
-        <Card className={!agentSettings.wme_host?.trim() ? "border-amber-400 dark:border-amber-600" : ""}>
-          <CardHeader className="pb-2">
+        <Card className={`gap-2 py-3 ${!agentSettings.wme_host?.trim() ? "border-amber-400 dark:border-amber-600" : ""}`}>
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <Server className="h-4 w-4" />
               Server WME
@@ -314,9 +314,10 @@ export default function SettingsPage() {
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-3">
+          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-3">
             <SettingField
               id="wmeHost"
+              wide
               label="Adresă IP"
               placeholder="Ex: 192.168.1.100"
               value={agentSettings.wme_host}
@@ -339,16 +340,17 @@ export default function SettingsPage() {
         </Card>
 
         {/* Agent identity */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4" />
               Identitate agent
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             <SettingField
               id="agentName"
+              wide
               label="Nume agent"
               placeholder="Ex: Ion Popescu"
               value={agentSettings.agent_name}
@@ -375,14 +377,14 @@ export default function SettingsPage() {
         </Card>
 
         {/* Series and booklets */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
               Serii și carnete
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             <SettingField
               id="carnetSeries"
               label="Serie carnet"
@@ -435,14 +437,14 @@ export default function SettingsPage() {
         </Card>
 
         {/* Delegate */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4" />
               Delegat
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             <SettingField
               id="codDelegat"
               label="Cod delegat"
@@ -453,6 +455,7 @@ export default function SettingsPage() {
             />
             <SettingField
               id="delegateName"
+              wide
               label="Nume delegat"
               placeholder="Ex: Ion Popescu"
               value={agentSettings.delegate_name}
@@ -460,6 +463,7 @@ export default function SettingsPage() {
             />
             <SettingField
               id="delegateAct"
+              wide
               label="Act delegat"
               placeholder="Ex: CI SB 123456"
               value={agentSettings.delegate_act}
@@ -478,14 +482,14 @@ export default function SettingsPage() {
         </Card>
 
         {/* Quality certificate */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
               Certificat de calitate
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2">
             <SettingField
               id="certComandaSerie"
               label="Serie comandă"
@@ -506,8 +510,8 @@ export default function SettingsPage() {
         </Card>
 
         {/* Numbering */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
               Numerotare
@@ -517,7 +521,7 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
               <SettingField
                 id="invoiceSeriesRead"
                 label="Serie facturi"
@@ -558,7 +562,7 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4 pt-4 border-t">
+            <div className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 pt-4 border-t">
               <SettingField
                 id="receiptSeries"
                 label="Serie chitanțe"
@@ -601,8 +605,8 @@ export default function SettingsPage() {
         </Card>
 
         {/* Automatic collection sync */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <RefreshCw className="h-4 w-4" />
               Sincronizare automată încasări
@@ -621,7 +625,7 @@ export default function SettingsPage() {
               />
             </div>
             {agentSettings.auto_sync_collections_enabled && (
-              <div className="grid gap-x-4 gap-y-3 sm:grid-cols-3">
+              <div className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="autoSyncTime" className="text-sm">Oră sincronizare</Label>
                   <Input
@@ -654,8 +658,8 @@ export default function SettingsPage() {
 
 
         {/* Sync Settings */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <RefreshCw className="h-4 w-4" />
               Sincronizare Date
@@ -712,8 +716,8 @@ export default function SettingsPage() {
         </Card>
 
         {/* Printer Settings */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <Printer className="h-4 w-4" />
               Setări Printare
@@ -836,8 +840,8 @@ export default function SettingsPage() {
         </Card>
 
         {/* Info Section */}
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="gap-2 py-3">
+          <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
               Informații
