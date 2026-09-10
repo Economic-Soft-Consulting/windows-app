@@ -1,10 +1,12 @@
 use log::info;
 use tauri::Manager;
 
+mod certificates;
 mod commands;
 mod database;
 mod db;
 mod domain;
+mod receipts;
 mod infra;
 mod models;
 #[cfg(test)]
