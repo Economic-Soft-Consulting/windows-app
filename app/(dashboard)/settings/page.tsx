@@ -490,9 +490,15 @@ export default function SettingsPage() {
           title="Numerotare"
           icon={<FileText className="h-4 w-4" />}
         >
-            <div className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Each numbering row spans the section's grid instead of sitting in one of its
+                three columns - squeezed into a single column, these fields overlapped the
+                next one. The row wraps rather than stretching, so it takes only the width
+                the four short fields need and still fits a narrow window; the shared 104px
+                label column lines the invoice row up with the receipt row below it. */}
+            <div className="col-span-full flex flex-wrap items-center gap-x-6 gap-y-1.5">
               <SettingField
                 id="invoiceSeriesRead"
+                compact
                 label="Serie facturi"
                 value={agentSettings.carnet_series}
                 onChange={() => {}}
@@ -501,6 +507,7 @@ export default function SettingsPage() {
               />
               <SettingField
                 id="invoiceStart"
+                compact
                 label="Număr start"
                 type="number"
                 min="1"
@@ -512,6 +519,7 @@ export default function SettingsPage() {
               />
               <SettingField
                 id="invoiceEnd"
+                compact
                 label="Număr final"
                 type="number"
                 min="1"
@@ -523,6 +531,7 @@ export default function SettingsPage() {
               />
               <SettingField
                 id="invoiceCurrent"
+                compact
                 label="Număr curent"
                 type="number"
                 disabled
@@ -531,9 +540,10 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3 pt-4 border-t">
+            <div className="col-span-full mt-1 flex flex-wrap items-center gap-x-6 gap-y-1.5 border-t pt-2">
               <SettingField
                 id="receiptSeries"
+                compact
                 label="Serie chitanțe"
                 placeholder="Ex: CH"
                 value={agentSettings.receipt_series}
@@ -541,6 +551,7 @@ export default function SettingsPage() {
               />
               <SettingField
                 id="receiptStart"
+                compact
                 label="Număr start"
                 type="number"
                 min="1"
@@ -552,6 +563,7 @@ export default function SettingsPage() {
               />
               <SettingField
                 id="receiptEnd"
+                compact
                 label="Număr final"
                 type="number"
                 min="1"
@@ -563,6 +575,7 @@ export default function SettingsPage() {
               />
               <SettingField
                 id="receiptCurrent"
+                compact
                 label="Număr curent"
                 type="number"
                 disabled

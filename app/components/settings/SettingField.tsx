@@ -19,6 +19,12 @@ interface SettingFieldProps {
   disabled?: boolean;
   /** Use for the few free-text values that need more room than a code does. */
   wide?: boolean;
+  /**
+   * Narrows the field to a short label plus a counter-sized input, and lets it wrap instead
+   * of stretching. Use where fields form a row of their own — the numbering rows — rather
+   * than sitting in the section's aligned columns.
+   */
+  compact?: boolean;
   className?: string;
 }
 
@@ -45,6 +51,7 @@ export function SettingField({
   min,
   disabled,
   wide,
+  compact,
   className,
 }: SettingFieldProps) {
   return (
@@ -52,13 +59,17 @@ export function SettingField({
       className={cn(
         // Fixed label column so the inputs line up down the page, and the input sits right
         // next to its label. Letting the pair stretch pushed the box far from its label.
-        "grid items-center gap-2.5",
-        wide ? "grid-cols-[150px_190px]" : "grid-cols-[150px_130px]",
+        "grid items-center",
+        // Compact fields sit in a row of their own, so they keep their natural width instead
+        // of being squeezed by the row: shrink-0 here, and no truncation on the label below.
+        compact
+          ? "shrink-0 gap-2 grid-cols-[minmax(104px,auto)_84px]"
+          : cn("gap-2.5", wide ? "grid-cols-[150px_190px]" : "grid-cols-[150px_130px]"),
         className,
       )}
     >
-      <div className="flex min-w-0 items-center gap-1">
-        <Label htmlFor={id} className="truncate text-sm font-semibold">
+      <div className={cn("flex items-center gap-1", compact ? "whitespace-nowrap" : "min-w-0")}>
+        <Label htmlFor={id} className={cn("text-sm font-semibold", !compact && "truncate")}>
           {label}
         </Label>
         {hint && (
