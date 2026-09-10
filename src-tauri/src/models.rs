@@ -193,6 +193,21 @@ pub struct SyncStatus {
     pub is_syncing: bool,
 }
 
+/// Result of one automatic send cycle, so the UI can report what happened instead of
+/// inferring it from before/after counts.
+///
+/// The old approach compared pending+failed counts before and after, which reported zero for
+/// a receipt that moved from pending to failed — the failure was invisible.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SyncOutcome {
+    pub invoices_sent: usize,
+    pub invoices_failed: usize,
+    pub receipts_sent: usize,
+    pub receipts_failed: usize,
+    /// Receipts held back because the invoice they pay has not reached WME yet.
+    pub receipts_waiting_for_invoice: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentSettings {
     pub agent_name: Option<String>,

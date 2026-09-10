@@ -94,6 +94,7 @@ pub fn run() {
             commands::get_invoice_remaining_for_collection,
             commands::get_collections,
             commands::sync_collections,
+            commands::send_pending_documents,
             commands::send_collection,
             commands::delete_collection,
             commands::get_sales_report,

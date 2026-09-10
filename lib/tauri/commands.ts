@@ -8,6 +8,7 @@ import type {
   SyncStatus,
   InvoiceStatus,
   AgentSettings,
+  SyncOutcome,
   ClientBalance,
   Collection,
   CreateCollectionGroupRequest,
@@ -181,6 +182,16 @@ export async function getInvoiceRemainingForCollection(invoiceId: string): Promi
 
 export async function getCollections(statusFilter?: string): Promise<Collection[]> {
   return invoke<Collection[]>("get_collections", { statusFilter });
+}
+
+/**
+ * Sends everything queued in the only order WME accepts: all invoices, then all receipts.
+ *
+ * Replaces calling sendAllPendingInvoices / syncClientBalances / syncCollections separately —
+ * the backend now owns the ordering and holds both concurrency guards for the whole cycle.
+ */
+export async function sendPendingDocuments(): Promise<SyncOutcome> {
+  return invoke<SyncOutcome>("send_pending_documents");
 }
 
 export async function syncCollections(): Promise<SyncStatus> {

@@ -34,11 +34,13 @@ import {
 import type { PartnerWithLocations, ClientBalance, CreateCollectionGroupRequest } from "@/lib/tauri/types";
 import { toast } from "sonner";
 import { cn, round2 } from "@/lib/utils";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/app/contexts/AuthContext";
 
 export default function NewCollectionPage() {
     const router = useRouter();
     const { isAdmin } = useAuth();
+    const { isOnline } = useOnlineStatus();
     const [step, setStep] = useState<"partner" | "invoice" | "details">("partner");
 
     // Data
@@ -333,18 +335,30 @@ export default function NewCollectionPage() {
                 toast.warning("Chitanța a fost salvată, dar printarea automată a eșuat.");
             }
 
-            try {
-                const sentCollection = await sendCollection(collectionId);
-                if (sentCollection.status === "synced") {
-                    toast.success("Chitanța a fost trimisă automat.");
-                } else if (sentCollection.status === "failed") {
-                    toast.warning(sentCollection.error_message || "Chitanța a fost salvată, dar trimiterea automată a eșuat.");
-                } else {
-                    toast.info("Chitanța este în curs de trimitere automată...");
+            // This screen had no connectivity check at all, so it attempted a send even
+            // while offline. The backend also refuses to send a receipt whose invoice has not
+            // reached WME yet, and reports that as a wait rather than a failure.
+            if (!isOnline) {
+                toast.info("Chitanța a fost salvată. Se trimite automat când revine conexiunea.");
+            } else {
+                try {
+                    const sentCollection = await sendCollection(collectionId);
+                    if (sentCollection.status === "synced") {
+                        toast.success("Chitanța a fost trimisă automat.");
+                    } else if (sentCollection.status === "failed") {
+                        toast.warning(sentCollection.error_message || "Chitanța a fost salvată, dar trimiterea automată a eșuat.");
+                    } else {
+                        toast.info("Chitanța este în curs de trimitere automată...");
+                    }
+                } catch (sendError) {
+                    console.error("Auto-send collection failed:", sendError);
+                    const message = String(sendError);
+                    toast.info(
+                        message.includes("Se așteaptă trimiterea facturii")
+                            ? message
+                            : "Chitanța a fost salvată. Se retrimite automat."
+                    );
                 }
-            } catch (sendError) {
-                console.error("Auto-send collection failed:", sendError);
-                toast.warning("Chitanța a fost salvată, dar nu s-a putut trimite automat.");
             }
 
             router.push("/collections");

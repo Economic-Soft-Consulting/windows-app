@@ -114,6 +114,17 @@ export interface InvoiceDetail {
   items: InvoiceItem[];
 }
 
+/** Result of one automatic send cycle. Reported by the backend rather than inferred from
+ *  before/after counts, which used to report 0 for a receipt that moved pending -> failed. */
+export interface SyncOutcome {
+  invoices_sent: number;
+  invoices_failed: number;
+  receipts_sent: number;
+  receipts_failed: number;
+  /** Receipts held back because the invoice they pay has not reached WME yet. */
+  receipts_waiting_for_invoice: number;
+}
+
 export interface SyncStatus {
   is_first_run: boolean;
   partners_synced_at: string | null;

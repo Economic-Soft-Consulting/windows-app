@@ -2,3 +2,4 @@
 //! so the SQL can be exercised in tests without a running Tauri app.
 
 pub mod balances;
+pub mod collections;

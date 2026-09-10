@@ -515,29 +515,17 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
         })
     };
 
-    // Auto-process pending invoices if we have internet (implied by sync)
-    // We just try - if it fails it stays pending.
-    let pending_invoices: Vec<String> = {
-        match db.conn.lock() {
-            Ok(conn) => {
-                match conn.prepare("SELECT id FROM invoices WHERE status = 'pending'") {
-                    Ok(mut stmt) => {
-                         stmt.query_map([], |row| row.get(0))
-                            .map(|rows| rows.filter_map(|r| r.ok()).collect())
-                            .unwrap_or_default()
-                    },
-                    Err(_) => Vec::new(),
-                }
-            },
-            Err(_) => Vec::new(),
-        }
-    };
-
-    if !pending_invoices.is_empty() {
-        info!("Found {} pending invoices. Attempting to auto-send...", pending_invoices.len());
-        for id in pending_invoices {
-            info!("Auto-sending invoice: {}", id);
-            // We ignore errors here as send_invoice handles logging and status updates
+    // Auto-process queued invoices now that we clearly have connectivity.
+    //
+    // This used to be a private loop with its own SELECT: it took no guard, ordered by
+    // nothing, and matched only 'pending' — so an invoice stuck in 'failed' was skipped here
+    // while sync_collections would still push its receipt. It now shares one definition with
+    // the send cycle.
+    let sendable = collect_sendable_invoice_ids(&db).unwrap_or_default();
+    if !sendable.is_empty() {
+        info!("Found {} invoices to auto-send after sync...", sendable.len());
+        for id in sendable {
+            // send_invoice logs and records status itself.
             let _ = send_invoice(db.clone(), id).await;
         }
     }
@@ -3783,7 +3771,6 @@ pub async fn print_report_html(
 
 #[tauri::command]
 pub async fn sync_client_balances(
-    _app: tauri::AppHandle,
     db: State<'_, Database>,
 ) -> Result<String, String> {
     let settings = get_agent_settings(db.clone())?;
@@ -4397,6 +4384,125 @@ pub fn get_collections(
     Ok(result)
 }
 
+/// Sends everything queued, in the only order WME can accept: invoices first, then receipts.
+///
+/// A receipt names the invoice it pays by serie and numar, so it can only be allocated once
+/// WME holds that invoice. The two scheduled chains already called the three commands in this
+/// order, but nothing enforced it: `send_all_pending_invoices` and `sync_collections` take
+/// different AtomicBools and could interleave, and `sync_all_data` sent invoices through a
+/// third, unguarded loop of its own.
+///
+/// Holding both guards for the whole cycle makes the ordering a property of the backend
+/// rather than of whichever caller happens to be driving it.
+///
+/// Balances are synced in between deliberately: `send_collection`'s duplicate check reads
+/// them to decide whether an invoice is already settled in WME.
+#[tauri::command]
+pub async fn send_pending_documents(db: State<'_, Database>) -> Result<SyncOutcome, String> {
+    use std::sync::atomic::Ordering;
+
+    if db
+        .is_sending_invoices
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        info!("[SYNC] Send cycle already running (invoices); skipping.");
+        return Ok(SyncOutcome::default());
+    }
+    if db
+        .is_syncing_collections
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        db.is_sending_invoices.store(false, Ordering::SeqCst);
+        info!("[SYNC] Send cycle already running (receipts); skipping.");
+        return Ok(SyncOutcome::default());
+    }
+
+    struct BothGuards<'a>(&'a std::sync::atomic::AtomicBool, &'a std::sync::atomic::AtomicBool);
+    impl Drop for BothGuards<'_> {
+        fn drop(&mut self) {
+            self.0.store(false, std::sync::atomic::Ordering::SeqCst);
+            self.1.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    let _guard = BothGuards(&db.is_sending_invoices, &db.is_syncing_collections);
+
+    let mut outcome = SyncOutcome::default();
+
+    // 1. Invoices. Oldest first, retrying 'failed' as well as 'pending'.
+    for id in collect_sendable_invoice_ids(&db)? {
+        match send_invoice(db.clone(), id.clone()).await {
+            Ok(inv) if inv.status == InvoiceStatus::Sent => outcome.invoices_sent += 1,
+            Ok(_) => outcome.invoices_failed += 1,
+            Err(e) => {
+                warn!("[SYNC] Invoice {} failed: {}", id, e);
+                outcome.invoices_failed += 1;
+            }
+        }
+    }
+
+    // 2. Balances, so the receipt duplicate check sees what WME now holds.
+    if let Err(e) = sync_client_balances(db.clone()).await {
+        warn!("[SYNC] Balance sync failed, continuing to receipts: {}", e);
+    }
+
+    // 3. Receipts, now that their invoices have had their chance.
+    let mut groups = get_collections(db.clone(), Some("pending".to_string()))?;
+    groups.extend(get_collections(db.clone(), Some("failed".to_string()))?);
+
+    for c in groups {
+        // get_collections returns COALESCE(receipt_group_id, id) as the id, so this is
+        // already the group key that send_collection and the guard both expect.
+        let group_id = c.id.clone();
+        let blocked = {
+            let conn = db.conn.lock().map_err(|e| e.to_string())?;
+            db::collections::blocking_unsent_invoice(&conn, &group_id)?
+        };
+        if let Some(invoice_label) = blocked {
+            info!("[SYNC] Receipt {} waits for invoice {}", group_id, invoice_label);
+            outcome.receipts_waiting_for_invoice += 1;
+            continue;
+        }
+        match send_collection(db.clone(), c.id.clone()).await {
+            Ok(_) => outcome.receipts_sent += 1,
+            Err(e) => {
+                warn!("[SYNC] Receipt {} failed: {}", group_id, e);
+                outcome.receipts_failed += 1;
+            }
+        }
+    }
+
+    info!(
+        "[SYNC] Cycle done: invoices {}/{} sent, receipts {}/{} sent, {} waiting for their invoice",
+        outcome.invoices_sent,
+        outcome.invoices_sent + outcome.invoices_failed,
+        outcome.receipts_sent,
+        outcome.receipts_sent + outcome.receipts_failed,
+        outcome.receipts_waiting_for_invoice
+    );
+    Ok(outcome)
+}
+
+/// Invoices eligible for sending, oldest first.
+///
+/// One definition, so `sync_all_data` and the send cycle cannot disagree on scope the way
+/// they used to — that loop selected only 'pending' and skipped anything stuck in 'failed'.
+fn collect_sendable_invoice_ids(db: &State<'_, Database>) -> Result<Vec<String>, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id FROM invoices WHERE status = 'pending' OR status = 'failed'              ORDER BY created_at ASC",
+        )
+        .map_err(|e| e.to_string())?;
+    let ids = stmt
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    Ok(ids)
+}
+
 #[tauri::command]
 pub async fn sync_collections(
     db: State<'_, Database>,
@@ -4626,6 +4732,30 @@ pub async fn send_collection(
     {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
+        // A receipt names the invoice it pays by serie and numar only. If WME has not
+        // accepted that invoice yet it cannot allocate the payment, and rejects the receipt
+        // with "nu gasesc in baza de date factura X". Hold the receipt instead of burning a
+        // rejection on it — it stays 'pending' and the next sync retries it once the invoice
+        // has gone through.
+        if let Some(invoice_label) = db::collections::blocking_unsent_invoice(&conn, &receipt_group_id)? {
+            let waiting = format!(
+                "Se așteaptă trimiterea facturii {}. Chitanța se va trimite automat după.",
+                invoice_label
+            );
+            info!(
+                "[CHITANTE][SEND] Group {} is waiting for invoice {} to reach WME.",
+                receipt_group_id, invoice_label
+            );
+            // Deliberately not 'failed': this is a wait, not a rejection.
+            conn.execute(
+                "UPDATE collections SET error_message = ?1 \
+                 WHERE COALESCE(receipt_group_id, id) = ?2 AND status = 'pending'",
+                params![&waiting, &receipt_group_id],
+            )
+            .map_err(|e| e.to_string())?;
+            return Err(waiting);
+        }
+
         // Check if we can transition to sending state
         // Only allow if not already sending or synced
         // This prevents race conditions when multiple sync triggers happen
@@ -4788,7 +4918,26 @@ pub async fn send_collection(
             let conn = db.conn.lock().map_err(|e| e.to_string())?;
             let err_list = response.result.unwrap_or("".to_string());
 
-            if err_list.to_lowercase() == "ok" || response.error_list.is_empty() {
+            // This condition used to be an OR, so a response with result="ok" AND a non-empty
+            // ErrorList short-circuited to 'synced' and threw the errors away — including
+            // WME's "nu gasesc in baza de date factura X" rejection, which is exactly the
+            // failure the invoice-first ordering exists to prevent.
+            //
+            // CasaBancaResponse carries only result and ErrorList (no echo of the booked
+            // transaction), so "allocated to the invoice" and "booked as an unallocated
+            // payment on account" are indistinguishable to us. Treating a non-empty ErrorList
+            // as failure is the only safe reading. Logged loudly because this combination has
+            // not been observed from the real server yet.
+            let result_ok = err_list.is_empty() || err_list.to_lowercase() == "ok";
+            if result_ok && !response.error_list.is_empty() {
+                warn!(
+                    "[CHITANTE][SEND] Group {}: WME reported result={:?} but a non-empty ErrorList {:?}. \
+                     Treating as FAILED so it is retried rather than silently recorded as sent.",
+                    receipt_group_id, err_list, response.error_list
+                );
+            }
+
+            if result_ok && response.error_list.is_empty() {
                 conn.execute(
                     "UPDATE collections SET status = 'synced', synced_at = ?1, error_message = NULL WHERE COALESCE(receipt_group_id, id) = ?2",
                     params![now_str, receipt_group_id],

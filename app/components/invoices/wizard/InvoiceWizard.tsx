@@ -136,30 +136,37 @@ export function InvoiceWizard() {
       const invoice = await createInvoice(request);
       toast.success("Factura a fost creată cu succes!");
 
-      // Print invoice and open receipt flow. Navigate after receipt flow ends.
-      await printInvoice(invoice.id, () => router.push("/invoices"));
+      // Send the invoice BEFORE opening the receipt flow.
+      //
+      // This used to be fired unawaited after printInvoice, which resolves as soon as it
+      // *opens* the receipt dialog rather than when the dialog closes. The receipt could then
+      // reach WME before its own invoice — and a receipt names the invoice it pays by serie
+      // and numar, so WME rejects it with "nu gasesc in baza de date factura X". Awaiting here
+      // removes the race at the source; the backend guard is the safety net, not the plan.
+      try {
+        const sentInvoice = await sendInvoice(invoice.id);
+        if (sentInvoice.status === "sent") {
+          toast.success("Factura a fost trimisă cu succes!");
+        } else {
+          toast.warning(
+            `Factura a fost salvată local. ${sentInvoice.error_message || "Se retrimite automat când revine conexiunea."}`
+          );
+        }
+      } catch (e) {
+        const errorMessage = String(e);
+        const offline =
+          errorMessage.includes("network") ||
+          errorMessage.includes("internet") ||
+          errorMessage.includes("connection");
+        toast.warning(
+          offline
+            ? "Factura a fost salvată local. Se trimite automat când revine conexiunea."
+            : `Factura a fost salvată local, dar nu a putut fi trimisă: ${errorMessage}`
+        );
+      }
 
-      // Send invoice with better error handling
-      sendInvoice(invoice.id)
-        .then((sentInvoice) => {
-          if (sentInvoice.status === "sent") {
-            toast.success("Factura a fost trimisă cu succes!");
-          } else if (sentInvoice.status === "failed") {
-            toast.error(`Factura a fost salvată, dar nu a putut fi trimisă: ${sentInvoice.error_message || "Verifică conexiunea la internet"}`);
-          }
-        })
-        .catch((e) => {
-          const errorMessage = String(e);
-          if (
-            errorMessage.includes("network") ||
-            errorMessage.includes("internet") ||
-            errorMessage.includes("connection")
-          ) {
-            toast.error("Factura a fost salvată, dar nu a putut fi trimisă din cauza lipsei conexiunii la internet. O poți trimite mai târziu din pagina Facturi.");
-          } else {
-            toast.error(`Factura a fost salvată, dar nu a putut fi trimisă: ${errorMessage}`);
-          }
-        });
+      // Now the receipt flow, with the invoice already accounted for.
+      await printInvoice(invoice.id, () => router.push("/invoices"));
 
     } catch (e) {
       const errorMessage = String(e);

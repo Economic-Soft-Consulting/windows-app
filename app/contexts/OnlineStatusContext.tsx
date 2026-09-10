@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { getCollections, sendAllPendingInvoices, syncClientBalances, syncCollections } from "@/lib/tauri/commands";
+import { sendPendingDocuments } from "@/lib/tauri/commands";
 import { toast } from "sonner";
 
 const LOG_PREFIX = "[AUTO-SEND]";
@@ -37,41 +37,42 @@ export function OnlineStatusProvider({ children }: { children: React.ReactNode }
         console.log(`${LOG_PREFIX} ===== Starting auto-send cycle =====`);
 
         try {
-            const pendingBefore = await getCollections("pending");
-            const failedBefore = await getCollections("failed");
-            console.log(`${LOG_PREFIX} Collections before: pending=${pendingBefore.length}, failed=${failedBefore.length}`);
+            // One backend call owns the order: all invoices, then balances, then receipts.
+            // It also reports what actually happened, instead of the old before/after count
+            // delta — which reported 0 for a receipt that moved pending -> failed, so
+            // failures were invisible.
+            const outcome = await sendPendingDocuments();
 
-            console.log(`${LOG_PREFIX} Calling sendAllPendingInvoices...`);
-            const sentIds = await sendAllPendingInvoices();
-            console.log(`${LOG_PREFIX} sendAllPendingInvoices done. Sent ${sentIds.length} invoices:`, sentIds);
+            const {
+                invoices_sent, invoices_failed,
+                receipts_sent, receipts_failed,
+                receipts_waiting_for_invoice,
+            } = outcome;
 
-            console.log(`${LOG_PREFIX} Calling syncClientBalances...`);
-            try {
-                await syncClientBalances();
-                console.log(`${LOG_PREFIX} syncClientBalances done`);
-            } catch (balanceError) {
-                console.warn(`${LOG_PREFIX} syncClientBalances FAILED:`, balanceError);
+            console.log(`${LOG_PREFIX} Result:`, outcome);
+
+            const sentParts: string[] = [];
+            if (invoices_sent > 0) sentParts.push(`${invoices_sent} ${invoices_sent === 1 ? "factură" : "facturi"}`);
+            if (receipts_sent > 0) sentParts.push(`${receipts_sent} ${receipts_sent === 1 ? "chitanță" : "chitanțe"}`);
+            if (sentParts.length > 0) {
+                toast.success(`${sentParts.join(" și ")} trimise automat.`);
             }
 
-            console.log(`${LOG_PREFIX} Calling syncCollections...`);
-            await syncCollections();
-            console.log(`${LOG_PREFIX} syncCollections done`);
-
-            const pendingAfter = await getCollections("pending");
-            const failedAfter = await getCollections("failed");
-            console.log(`${LOG_PREFIX} Collections after: pending=${pendingAfter.length}, failed=${failedAfter.length}`);
-
-            const collectionsProcessed = Math.max(0, (pendingBefore.length + failedBefore.length) - (pendingAfter.length + failedAfter.length));
-
-            console.log(`${LOG_PREFIX} Result: invoices_sent=${sentIds.length}, collections_processed=${collectionsProcessed}`);
-
-            if (sentIds.length > 0) {
-                toast.success(`${sentIds.length} facturi trimise automat.`);
+            // Previously a cycle where every document failed produced no feedback at all.
+            const failedTotal = invoices_failed + receipts_failed;
+            if (failedTotal > 0) {
+                toast.warning(
+                    `${failedTotal} ${failedTotal === 1 ? "document a rămas" : "documente au rămas"} în așteptare. Se reîncearcă automat.`
+                );
             }
-            if (collectionsProcessed > 0) {
-                toast.success(`${collectionsProcessed} chitanțe procesate automat.`);
+
+            if (receipts_waiting_for_invoice > 0) {
+                toast.info(
+                    `${receipts_waiting_for_invoice} ${receipts_waiting_for_invoice === 1 ? "chitanță așteaptă" : "chitanțe așteaptă"} trimiterea facturii.`
+                );
             }
-            if (sentIds.length > 0 || collectionsProcessed > 0) {
+
+            if (invoices_sent > 0 || receipts_sent > 0) {
                 dispatchSyncUpdates();
             }
 
