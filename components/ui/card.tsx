@@ -20,7 +20,11 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
+        // No grid-rows-[auto_auto]: it declared a second row track that stays 0px tall when
+        // the header has a title and no description, while the gap between tracks still
+        // rendered — 7px of dead space under the title of every such card in the app.
+        // Measured: grid-template-rows computed to "26.39px 0px". Upstream shadcn dropped it.
+        "@container/card-header grid auto-rows-min items-start gap-1 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
         className
       )}
       {...props}
