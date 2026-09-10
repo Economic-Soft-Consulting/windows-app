@@ -441,7 +441,7 @@ export default function SettingsPage() {
           <CardHeader className="pb-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4" />
-              Delegat
+              Delegat și certificat
             </CardTitle>
           </CardHeader>
           <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -478,18 +478,6 @@ export default function SettingsPage() {
               onChange={(v) => setAgentSettings((prev) => ({ ...prev, car_number: v }))}
               hint="Numărul mașinii de transport, tipărit pe factură."
             />
-          </CardContent>
-        </Card>
-
-        {/* Quality certificate */}
-        <Card className="gap-2 py-3">
-          <CardHeader className="pb-0">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4" />
-              Certificat de calitate
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2">
             <SettingField
               id="certComandaSerie"
               label="Serie comandă"
