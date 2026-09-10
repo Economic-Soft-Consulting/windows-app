@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "../components/layout/Sidebar";
 import { Header } from "../components/layout/Header";
 import { FirstRunOverlay } from "../components/sync/FirstRunOverlay";
@@ -31,6 +31,10 @@ function DashboardLayoutInner({
   const { isOnline } = useOnlineStatus();
   const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  // Settings must stay reachable during first run, otherwise a device with no WME
+  // host configured can never be configured: no host -> no sync -> overlay never clears.
+  const isSettingsRoute = pathname?.startsWith("/settings") ?? false;
   const [showFirstRun, setShowFirstRun] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -46,6 +50,8 @@ function DashboardLayoutInner({
     }
   }, [isAuthenticated, router]);
 
+  // Re-checked whenever the user enters or leaves Settings, so that saving the WME
+  // host and syncing resolves the overlay instead of leaving it stale.
   useEffect(() => {
     if (isAuthenticated) {
       checkIsFirstRun().then((result) => {
@@ -53,7 +59,7 @@ function DashboardLayoutInner({
         setIsChecking(false);
       });
     }
-  }, [checkIsFirstRun, isAuthenticated]);
+  }, [checkIsFirstRun, isAuthenticated, isSettingsRoute]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -180,7 +186,7 @@ function DashboardLayoutInner({
 
   return (
     <>
-      {showFirstRun && (
+      {showFirstRun && !isSettingsRoute && (
         <FirstRunOverlay onComplete={() => setShowFirstRun(false)} />
       )}
       <div className="fixed inset-0 flex bg-background">

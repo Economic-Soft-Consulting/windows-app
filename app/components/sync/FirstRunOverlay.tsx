@@ -91,10 +91,16 @@ export function FirstRunOverlay({ onComplete }: FirstRunOverlayProps) {
                   a serverului WME în Setări.
                 </p>
               </div>
-              <Button onClick={() => router.push("/settings")} className="gap-2">
-                <Settings className="h-4 w-4" />
-                Mergi la Setări
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <Button onClick={() => router.push("/settings")} className="gap-2">
+                  <Settings className="h-4 w-4" />
+                  Mergi la Setări
+                </Button>
+                <Button onClick={handleRetry} variant="outline" className="gap-2">
+                  <RefreshCw className="h-4 w-4" />
+                  Reîncearcă
+                </Button>
+              </div>
             </>
           ) : error ? (
             <>
