@@ -14,6 +14,7 @@ import type { AgentSettings } from "@/lib/tauri/types";
 import { toast } from "sonner";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { SettingField } from "@/app/components/settings/SettingField";
+import { SettingSection } from "@/app/components/settings/SettingSection";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { getVersion } from "@tauri-apps/api/app";
@@ -301,20 +302,20 @@ export default function SettingsPage() {
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto min-h-0 space-y-4">
         {/* WME Server Config */}
-        <Card className={`gap-2 py-3 ${!agentSettings.wme_host?.trim() ? "border-amber-400 dark:border-amber-600" : ""}`}>
-          <CardHeader className="pb-0">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Server className="h-4 w-4" />
-              Server WME
-              {!agentSettings.wme_host?.trim() && (
-                <span className="flex items-center gap-1 ml-auto text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-1 rounded-full">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  Neconfigurat
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-3">
+        <SettingSection
+          title="Server WME"
+          icon={<Server className="h-4 w-4" />}
+          badge={
+            !agentSettings.wme_host?.trim() ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" />
+                Neconfigurat
+              </span>
+            ) : undefined
+          }
+          gridClassName="sm:grid-cols-3"
+          className={!agentSettings.wme_host?.trim() ? "border-amber-400 dark:border-amber-600" : ""}
+        >
             <SettingField
               id="wmeHost"
               wide
@@ -336,18 +337,14 @@ export default function SettingsPage() {
               }
               hint="Implicit 8089."
             />
-          </CardContent>
-        </Card>
+        </SettingSection>
 
         {/* Agent identity */}
-        <Card className="gap-2 py-3">
-          <CardHeader className="pb-0">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User className="h-4 w-4" />
-              Identitate agent
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        <SettingSection
+          title="Identitate agent"
+          icon={<User className="h-4 w-4" />}
+          gridClassName="sm:grid-cols-2 lg:grid-cols-3"
+        >
             <SettingField
               id="agentName"
               wide
@@ -373,18 +370,14 @@ export default function SettingsPage() {
               onChange={(v) => setAgentSettings((prev) => ({ ...prev, nume_casa: v }))}
               hint="Casa din WME în care intră încasările."
             />
-          </CardContent>
-        </Card>
+        </SettingSection>
 
         {/* Series and booklets */}
-        <Card className="gap-2 py-3">
-          <CardHeader className="pb-0">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4" />
-              Serii și carnete
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        <SettingSection
+          title="Serii și carnete"
+          icon={<FileText className="h-4 w-4" />}
+          gridClassName="sm:grid-cols-2 lg:grid-cols-3"
+        >
             <SettingField
               id="carnetSeries"
               label="Serie carnet"
@@ -433,18 +426,14 @@ export default function SettingsPage() {
               onChange={(v) => setAgentSettings((prev) => ({ ...prev, tip_contabil: v }))}
               hint="Tipul contabil al liniilor de factură. Implicit „valoare”."
             />
-          </CardContent>
-        </Card>
+        </SettingSection>
 
         {/* Delegate */}
-        <Card className="gap-2 py-3">
-          <CardHeader className="pb-0">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <User className="h-4 w-4" />
-              Delegat și certificat
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+        <SettingSection
+          title="Delegat și certificat"
+          icon={<User className="h-4 w-4" />}
+          gridClassName="sm:grid-cols-2 lg:grid-cols-3"
+        >
             <SettingField
               id="codDelegat"
               label="Cod delegat"
@@ -494,21 +483,13 @@ export default function SettingsPage() {
               onChange={(v) => setAgentSettings((prev) => ({ ...prev, cert_comanda_id_client: v }))}
               hint="Clientul pe care sunt înregistrate comenzile de producție. Implicit 1602."
             />
-          </CardContent>
-        </Card>
+        </SettingSection>
 
         {/* Numbering */}
-        <Card className="gap-2 py-3">
-          <CardHeader className="pb-0">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileText className="h-4 w-4" />
-              Numerotare
-            </CardTitle>
-            <CardDescription>
-              Numărul curent avansează singur la fiecare document emis.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <SettingSection
+          title="Numerotare"
+          icon={<FileText className="h-4 w-4" />}
+        >
             <div className="grid justify-items-start gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
               <SettingField
                 id="invoiceSeriesRead"
@@ -589,8 +570,7 @@ export default function SettingsPage() {
                 onChange={() => {}}
               />
             </div>
-          </CardContent>
-        </Card>
+        </SettingSection>
 
         {/* Automatic collection sync */}
         <Card className="gap-2 py-3">
