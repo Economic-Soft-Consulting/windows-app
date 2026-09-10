@@ -73,7 +73,7 @@ impl Database {
     }
 }
 
-const SCHEMA: &str = r#"
+pub const SCHEMA: &str = r#"
     CREATE TABLE IF NOT EXISTS partners (
         id TEXT PRIMARY KEY,
         cod TEXT,
@@ -275,6 +275,7 @@ const SCHEMA: &str = r#"
         location_id TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
         total_amount REAL NOT NULL DEFAULT 0,
+        total_amount_gross REAL,
         notes TEXT,
         created_at TEXT NOT NULL,
         sent_at TEXT,
@@ -698,6 +699,48 @@ fn run_migrations(conn: &rusqlite::Connection) -> Result<()> {
 
         conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (21, ?1)", [&Utc::now().to_rfc3339()])?;
         info!("Migration 21 completed");
+    }
+
+    // Migration 22: Store the VAT-inclusive invoice total, rounded to 2 decimals (v1.0.10)
+    //
+    // The gross total used to be recomputed on the fly as SUM(total_price * (1 + tva/100))
+    // with no rounding, so an invoice of 78.82 net at 9% VAT yielded 85.9138. That value was
+    // sent to WME as the receipt amount, while WME had rounded the invoice itself to 85.91 —
+    // leaving 0.0038 undistributed on every Casa transaction.
+    //
+    // Rounding is applied PER LINE and then summed, which is what WME does on its side.
+    if current_version < 22 {
+        info!("Applying migration 22: Add rounded gross total to invoices");
+        let _ = conn.execute("ALTER TABLE invoices ADD COLUMN total_amount_gross REAL;", []).ok();
+
+        let backfilled = conn.execute(
+            r#"
+            UPDATE invoices SET total_amount_gross = (
+                SELECT ROUND(COALESCE(SUM(
+                    ROUND(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0), 2)
+                ), 0), 2)
+                FROM invoice_items ii
+                JOIN products p ON p.id = ii.product_id
+                WHERE ii.invoice_id = invoices.id
+            )
+            WHERE total_amount_gross IS NULL
+            "#,
+            [],
+        ).unwrap_or(0);
+        info!("Migration 22: backfilled gross total for {} invoices", backfilled);
+
+        // Repair amounts on receipts that have not reached WME yet. Rows already 'synced'
+        // are left untouched: WME has accepted them, and rewriting local history would hide
+        // a real discrepancy instead of fixing it.
+        let repaired = conn.execute(
+            "UPDATE collections SET valoare = ROUND(valoare, 2) \
+             WHERE status IN ('pending', 'failed') AND valoare <> ROUND(valoare, 2)",
+            [],
+        ).unwrap_or(0);
+        info!("Migration 22: rounded {} unsent collection amounts", repaired);
+
+        conn.execute("INSERT INTO db_migrations (version, applied_at) VALUES (22, ?1)", [&Utc::now().to_rfc3339()])?;
+        info!("Migration 22 completed");
     }
 
     info!("All migrations completed successfully");

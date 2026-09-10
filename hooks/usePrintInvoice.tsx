@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { round2 } from "@/lib/utils";
 
 export function usePrintInvoice() {
   const { isOnline } = useOnlineStatus();
@@ -62,6 +63,9 @@ export function usePrintInvoice() {
         return;
       }
     }
+    // Never send more precision than WME can hold, or the receipt cannot be reconciled
+    // against the invoice it pays.
+    paidAmount = round2(paidAmount);
 
     setSavingReceipt(true);
     try {
@@ -121,13 +125,16 @@ export function usePrintInvoice() {
       const detail = await getInvoiceDetail(invoiceId);
       const netTotal = detail.invoice.total_amount;
 
-      // Calculate Gross Total (Total with VAT) from items
-      const grossTotal = detail.items.reduce((sum, item) => {
-        const itemNet = item.total_price;
-        const tvaPercent = item.tva_percent || 0;
-        const itemVat = itemNet * (tvaPercent / 100);
-        return sum + itemNet + itemVat;
-      }, 0);
+      // Calculate Gross Total (Total with VAT) from items.
+      // Each line is rounded before summing, which is how WME computes the invoice total —
+      // summing raw products gave values like 85.9138 that WME could not reconcile.
+      const grossTotal = round2(
+        detail.items.reduce((sum, item) => {
+          const itemNet = item.total_price;
+          const tvaPercent = item.tva_percent || 0;
+          return sum + round2(itemNet * (1 + tvaPercent / 100));
+        }, 0)
+      );
 
       if (netTotal <= 0) {
         toast.error("Factura are total 0. Nu se poate genera chitanță.");
@@ -138,16 +145,10 @@ export function usePrintInvoice() {
         return;
       }
 
-      const remainingNet = await getInvoiceRemainingForCollection(invoiceId);
-
-      // Calculate remaining Gross based on ratio if partial payment exists, otherwise defaults to Gross Total
-      // If remainingNet ~= netTotal, then remainingGross = grossTotal.
-      // If remainingNet < netTotal, we can estimate: remainingGross = remainingNet * (grossTotal / netTotal)
-
-      let remainingGross = grossTotal;
-      if (netTotal > 0) {
-        remainingGross = remainingNet * (grossTotal / netTotal);
-      }
+      // Returns the VAT-inclusive remaining amount, already rounded to 2 decimals.
+      // It used to return the NET remaining, which this hook then scaled back up by the
+      // gross/net ratio — an estimate that drifted from the invoice by fractions of a ban.
+      const remainingGross = await getInvoiceRemainingForCollection(invoiceId);
 
       if (remainingGross <= 0.01) { // generic epsilon
         toast.info("Factura este deja încasată integral.");

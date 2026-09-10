@@ -7,6 +7,17 @@ export function cn(...inputs: ClassValue[]) {
 
 // ==================== FORMATTING UTILITIES ====================
 
+/**
+ * Rounds a monetary amount to 2 decimals (bani).
+ *
+ * Any amount sent to the backend must go through this. WME keeps money at 2 decimals, so an
+ * unrounded value such as 78.82 * 1.09 = 85.9138 reaches the ERP as "85,914" and cannot be
+ * reconciled against the invoice it pays.
+ */
+export function round2(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("ro-RO", {
     style: "decimal",

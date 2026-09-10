@@ -33,7 +33,7 @@ import {
 } from "@/lib/tauri/commands";
 import type { PartnerWithLocations, ClientBalance, CreateCollectionGroupRequest } from "@/lib/tauri/types";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, round2 } from "@/lib/utils";
 import { useAuth } from "@/app/contexts/AuthContext";
 
 export default function NewCollectionPage() {
@@ -217,18 +217,20 @@ export default function NewCollectionPage() {
         }
     };
 
+    // Rounded here, so the value that gets validated is the same one that gets submitted.
+    // They used to differ: validation rounded, submission did not, letting an amount like
+    // 85.914 through to WME where it could not be reconciled against the invoice.
     const parseAllocated = (key: string) => {
         const raw = (allocatedAmounts[key] || "").replace(",", ".");
         const value = Number.parseFloat(raw);
-        return Number.isFinite(value) ? value : 0;
+        return Number.isFinite(value) ? round2(value) : 0;
     };
 
     const isAllocationValid = (balance: ClientBalance) => {
         const key = getBalanceKey(balance);
         const value = parseAllocated(key);
-        const rest = Math.round((balance.rest || 0) * 100) / 100;
-        const valueRounded = Math.round(value * 100) / 100;
-        return valueRounded > 0 && valueRounded <= rest + 0.005;
+        const rest = round2(balance.rest || 0);
+        return value > 0 && value <= rest + 0.005;
     };
 
     const canGoNext = () => {

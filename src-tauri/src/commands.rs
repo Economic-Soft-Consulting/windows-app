@@ -43,6 +43,66 @@ fn compute_due_date(created_at_rfc3339: &str, payment_term_days: Option<&str>) -
         .to_string())
 }
 
+/// Rounds a monetary amount to 2 decimals (bani).
+///
+/// Every value that is stored, compared against a stored value, or sent to WME must go
+/// through this. WME keeps money at 2 decimals, so an unrounded f64 such as
+/// 78.82 * 1.09 = 85.9138 cannot be reconciled against the invoice it pays.
+pub fn round2(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
+}
+
+/// VAT-inclusive total of one invoice line, rounded the way WME rounds it: per line.
+///
+/// Summing unrounded line grosses and rounding once at the end drifts from WME by a few
+/// bani on multi-line invoices, which is enough to leave a phantom balance.
+pub fn line_gross(total_price: f64, procent_tva: f64) -> f64 {
+    round2(total_price * (1.0 + procent_tva / 100.0))
+}
+
+/// VAT-inclusive total of one invoice, at 2 decimals — the single source of truth for
+/// "how much does this invoice cost", used by the balance list, the receipt validation and
+/// the remaining-amount lookup so the three can never disagree.
+///
+/// Prefers the value stored at creation time; recomputes per line only when it is missing.
+fn invoice_gross_total(conn: &rusqlite::Connection, invoice_id: &str) -> Result<f64, String> {
+    let stored: Option<f64> = conn
+        .query_row(
+            "SELECT total_amount_gross FROM invoices WHERE id = ?1",
+            [invoice_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Factura nu a fost găsită: {}", e))?;
+
+    if let Some(value) = stored {
+        return Ok(round2(value));
+    }
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT ii.total_price, p.procent_tva \
+             FROM invoice_items ii \
+             JOIN products p ON ii.product_id = p.id \
+             WHERE ii.invoice_id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let total: f64 = stmt
+        .query_map([invoice_id], |row| {
+            let price: f64 = row.get(0)?;
+            let tva_str: Option<String> = row.get(1)?;
+            let tva_percent = tva_str
+                .and_then(|s| s.trim().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            Ok(line_gross(price, tva_percent))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .sum();
+
+    Ok(round2(total))
+}
+
 fn normalize_opt_key(value: &Option<String>) -> String {
     value
         .as_ref()
@@ -2227,6 +2287,7 @@ pub fn create_invoice(
 
     // Calculate total and prepare items
     let mut total_amount = 0.0;
+    let mut total_amount_gross = 0.0;
     let mut items_to_insert: Vec<(String, String, String, f64, f64, String, f64)> = Vec::new();
 
     for item in &request.items {
@@ -2239,11 +2300,11 @@ pub fn create_invoice(
             )
             .ok();
 
-        let (product_name, product_price, um): (String, f64, String) = conn
+        let (product_name, product_price, um, procent_tva): (String, f64, String, Option<String>) = conn
             .query_row(
-                "SELECT name, price, unit_of_measure FROM products WHERE id = ?1",
+                "SELECT name, price, unit_of_measure, procent_tva FROM products WHERE id = ?1",
                 [&item.product_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .map_err(|e| format!("Product not found: {}", e))?;
 
@@ -2256,10 +2317,17 @@ pub fn create_invoice(
             info!("No offer price found for product {} (partner {}), using standard price {}", product_name, request.partner_id, price);
         }
 
-        let price_r = (price * 100.0).round() / 100.0;
-        let quantity_r = (item.quantity * 100.0).round() / 100.0;
-        let item_total = (price_r * quantity_r * 100.0).round() / 100.0;
+        let price_r = round2(price);
+        let quantity_r = round2(item.quantity);
+        let item_total = round2(price_r * quantity_r);
         total_amount += item_total;
+
+        // Accumulate the VAT-inclusive total the same way WME does: round each line, then sum.
+        let tva_percent = procent_tva
+            .as_deref()
+            .and_then(|s| s.trim().parse::<f64>().ok())
+            .unwrap_or(0.0);
+        total_amount_gross += line_gross(item_total, tva_percent);
 
         items_to_insert.push((
             Uuid::new_v4().to_string(),
@@ -2271,7 +2339,8 @@ pub fn create_invoice(
             item_total,
         ));
     }
-    let total_amount = (total_amount * 100.0).round() / 100.0;
+    let total_amount = round2(total_amount);
+    let total_amount_gross = round2(total_amount_gross);
 
     // Get invoice number from agent settings (settings-based numbering)
     let (invoice_number, invoice_end, carnet_series): (i64, i64, Option<String>) = conn
@@ -2294,8 +2363,8 @@ pub fn create_invoice(
 
     // Insert invoice with number from settings
     conn.execute(
-        "INSERT INTO invoices (id, invoice_number, invoice_series, partner_id, location_id, status, total_amount, notes, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8)",
-        (&invoice_id, invoice_number, &carnet_series, &request.partner_id, &request.location_id, total_amount, &request.notes, &now),
+        "INSERT INTO invoices (id, invoice_number, invoice_series, partner_id, location_id, status, total_amount, total_amount_gross, notes, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9)",
+        (&invoice_id, invoice_number, &carnet_series, &request.partner_id, &request.location_id, total_amount, total_amount_gross, &request.notes, &now),
     )
     .map_err(|e| e.to_string())?;
 
@@ -5004,17 +5073,37 @@ pub async fn sync_client_balances(
     Ok(format!("Synced client balances"))
 }
 
-#[tauri::command]
-pub fn get_client_balances(
-    db: State<'_, Database>,
-    partner_id: Option<String>,
-) -> Result<Vec<ClientBalance>, String> {
-    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+/// Builds the client-balances query: WME-synced balances UNION locally created invoices,
+/// each with the amount already collected subtracted.
+///
+/// Extracted so the SQL can be parsed in a test - it is assembled by text substitution,
+/// and a malformed result would only surface as a runtime error on the collections screen.
+fn build_client_balances_query() -> String {
+    // The VAT-inclusive total of a locally created invoice, always at 2 decimals.
+    // Prefer the value stored at creation time; fall back to recomputing it per line
+    // (rounding each line, as WME does) for rows the migration could not backfill.
+    const LOCAL_GROSS_TOTAL: &str = "COALESCE(i.total_amount_gross, (
+                    SELECT ROUND(COALESCE(SUM(ROUND(ii.total_price * (1.0 + COALESCE(CAST(pg.procent_tva AS REAL), 0) / 100.0), 2)), 0), 2)
+                    FROM invoice_items ii
+                    JOIN products pg ON pg.id = ii.product_id
+                    WHERE ii.invoice_id = i.id
+                ))";
+
+    // Amount already collected against a WME balance row, matched on the 4-part document key.
+    const WME_COLLECTED: &str = "(
+                        SELECT COALESCE(SUM(c.valoare), 0)
+                        FROM collections c
+                        WHERE c.id_partener = cb.id_partener
+                          AND COALESCE(c.serie_factura, '') = COALESCE(cb.serie, '')
+                          AND COALESCE(c.numar_factura, '') = COALESCE(cb.numar, '')
+                          AND COALESCE(c.cod_document, '') = COALESCE(cb.cod_document, '')
+                          AND c.status IN ('pending', 'sending', 'synced')
+                    )";
 
     // Combine synced balances from WME with local invoices from DB.
     // Local collections still in-flight (pending/sending) are subtracted from remaining amount.
     // An invoice disappears only when the local collected total reaches full amount.
-    let mut query = "SELECT
+    "SELECT
         q.id, q.id_partener, q.cod_fiscal, q.denumire, q.tip_document, q.cod_document,
         q.serie, q.numar, q.data, q.valoare, q.rest, q.termen, q.moneda,
         q.sediu, q.id_sediu, q.curs, q.observatii, q.cod_obligatie, q.marca_agent, q.synced_at
@@ -5024,24 +5113,8 @@ pub fn get_client_balances(
                 cb.id, cb.id_partener, cb.cod_fiscal, cb.denumire, cb.tip_document, cb.cod_document,
                 cb.serie, cb.numar, cb.data, cb.valoare,
                 CASE
-                    WHEN COALESCE(cb.rest, 0) - (
-                        SELECT COALESCE(SUM(c.valoare), 0)
-                        FROM collections c
-                        WHERE c.id_partener = cb.id_partener
-                          AND COALESCE(c.serie_factura, '') = COALESCE(cb.serie, '')
-                          AND COALESCE(c.numar_factura, '') = COALESCE(cb.numar, '')
-                          AND COALESCE(c.cod_document, '') = COALESCE(cb.cod_document, '')
-                          AND c.status IN ('pending', 'sending', 'synced')
-                    ) > 0.01
-                        THEN COALESCE(cb.rest, 0) - (
-                            SELECT COALESCE(SUM(c.valoare), 0)
-                            FROM collections c
-                            WHERE c.id_partener = cb.id_partener
-                              AND COALESCE(c.serie_factura, '') = COALESCE(cb.serie, '')
-                              AND COALESCE(c.numar_factura, '') = COALESCE(cb.numar, '')
-                              AND COALESCE(c.cod_document, '') = COALESCE(cb.cod_document, '')
-                              AND c.status IN ('pending', 'sending', 'synced')
-                        )
+                    WHEN ROUND(COALESCE(cb.rest, 0) - WME_COLLECTED, 2) > 0
+                        THEN ROUND(COALESCE(cb.rest, 0) - WME_COLLECTED, 2)
                     ELSE 0
                 END AS rest,
                 cb.termen, cb.moneda,
@@ -5080,25 +5153,10 @@ pub fn get_client_balances(
                 i.invoice_series AS serie,
                 CAST(i.invoice_number AS TEXT) AS numar,
                 strftime('%d/%m/%Y', replace(substr(i.created_at, 1, 19), 'T', ' ')) AS data,
-                (
-                    SELECT COALESCE(SUM(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0)), 0)
-                    FROM invoice_items ii
-                    JOIN products p ON p.id = ii.product_id
-                    WHERE ii.invoice_id = i.id
-                ) AS valoare,
+                LOCAL_GROSS_TOTAL AS valoare,
                 CASE
-                    WHEN (
-                        SELECT COALESCE(SUM(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0)), 0)
-                        FROM invoice_items ii
-                        JOIN products p ON p.id = ii.product_id
-                        WHERE ii.invoice_id = i.id
-                    ) - COALESCE(c2.total_collected, 0) > 0.01
-                        THEN (
-                            SELECT COALESCE(SUM(ii.total_price * (1.0 + COALESCE(CAST(p.procent_tva AS REAL), 0) / 100.0)), 0)
-                            FROM invoice_items ii
-                            JOIN products p ON p.id = ii.product_id
-                            WHERE ii.invoice_id = i.id
-                        ) - COALESCE(c2.total_collected, 0)
+                    WHEN ROUND(LOCAL_GROSS_TOTAL - COALESCE(c2.total_collected, 0), 2) > 0
+                        THEN ROUND(LOCAL_GROSS_TOTAL - COALESCE(c2.total_collected, 0), 2)
                     ELSE 0
                 END AS rest,
                 strftime(
@@ -5135,7 +5193,19 @@ pub fn get_client_balances(
             )
             WHERE i.status IN ('pending', 'sending', 'sent', 'failed')
         ) q
-        WHERE COALESCE(q.rest, 0) > 0".to_string();
+        WHERE COALESCE(q.rest, 0) > 0"
+        .replace("LOCAL_GROSS_TOTAL", LOCAL_GROSS_TOTAL)
+        .replace("WME_COLLECTED", WME_COLLECTED)
+}
+
+#[tauri::command]
+pub fn get_client_balances(
+    db: State<'_, Database>,
+    partner_id: Option<String>,
+) -> Result<Vec<ClientBalance>, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+
+    let mut query = build_client_balances_query();
 
     let mut params: Vec<String> = Vec::new();
 
@@ -5250,7 +5320,7 @@ pub fn record_collection(
             collection.numar_factura,
             collection.serie_factura,
             collection.cod_document,
-            collection.valoare,
+            round2(collection.valoare),
             collection.data_incasare,
             "pending",
             Utc::now().to_rfc3339()
@@ -5360,7 +5430,7 @@ pub fn record_collection_group(
                 &allocation.numar_factura,
                 &allocation.serie_factura,
                 &allocation.cod_document,
-                allocation.valoare,
+                round2(allocation.valoare),
                 &now,
                 "pending",
                 &now
@@ -5388,11 +5458,13 @@ pub fn record_collection_from_invoice(
 
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    let (partner_id, partner_name, invoice_number, _total_amount, carnet_series): (String, String, i64, f64, Option<String>) = conn
+    // The invoice's own series, not agent_settings.carnet_series: the agent can change the
+    // carnet in Settings at any time, and a receipt carrying the new series would no longer
+    // match the invoice it pays, leaving the invoice permanently unpaid.
+    let (partner_id, partner_name, invoice_number, invoice_series): (String, String, i64, Option<String>) = conn
         .query_row(
             r#"
-            SELECT i.partner_id, p.name, i.invoice_number, i.total_amount,
-                   (SELECT carnet_series FROM agent_settings WHERE id = 1)
+            SELECT i.partner_id, p.name, i.invoice_number, i.invoice_series
             FROM invoices i
             JOIN partners p ON p.id = i.partner_id
             WHERE i.id = ?1
@@ -5404,39 +5476,13 @@ pub fn record_collection_from_invoice(
                     row.get(1)?,
                     row.get(2)?,
                     row.get(3)?,
-                    row.get(4)?,
                 ))
             },
         )
         .map_err(|e| format!("Factura nu a fost găsită: {}", e))?;
 
-    // Calculate Gross Total (Total with VAT)
-    let mut stmt_items = conn
-        .prepare(
-            "SELECT ii.total_price, p.procent_tva \
-             FROM invoice_items ii \
-             JOIN products p ON ii.product_id = p.id \
-             WHERE ii.invoice_id = ?1",
-        )
-        .map_err(|e| e.to_string())?;
-
-    let gross_total: f64 = stmt_items
-        .query_map([&invoice_id], |row| {
-            let price: f64 = row.get(0)?;
-            let tva_str: Option<String> = row.get(1)?;
-            let tva_percent = tva_str
-                .and_then(|s| s.parse::<f64>().ok())
-                .unwrap_or(0.0);
-
-            let vat_amount = price * (tva_percent / 100.0);
-            Ok(price + vat_amount)
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .sum();
-
-    // Drop the statement to release the borrow on conn
-    drop(stmt_items);
+    let gross_total = invoice_gross_total(&conn, &invoice_id)?;
+    let paid_amount = round2(paid_amount);
 
     // Allow a small epsilon for floating point comparison
     const EPSILON: f64 = 0.01;
@@ -5452,7 +5498,7 @@ pub fn record_collection_from_invoice(
 
     let invoice_number_str = invoice_number.to_string();
     let receipt_series = get_receipt_series(&conn)?;
-    let series = carnet_series.unwrap_or_else(|| "FACTURA".to_string());
+    let series = invoice_series.unwrap_or_default();
 
     let receipt_number = generate_receipt_number(&conn)?;
 
@@ -5467,7 +5513,7 @@ pub fn record_collection_from_invoice(
         .map_err(|e| e.to_string())?;
 
     // Calculate remaining based on Gross Total
-    let remaining = (gross_total - collected_total).max(0.0);
+    let remaining = round2((gross_total - collected_total).max(0.0));
 
     if remaining <= EPSILON {
         return Err("Factura este deja încasată integral".to_string());
@@ -5517,17 +5563,22 @@ pub fn get_invoice_remaining_for_collection(
 ) -> Result<f64, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
-    let (partner_id, invoice_number, total_amount): (String, i64, f64) = conn
+    let (partner_id, invoice_number): (String, i64) = conn
         .query_row(
             r#"
-            SELECT i.partner_id, i.invoice_number, i.total_amount
+            SELECT i.partner_id, i.invoice_number
             FROM invoices i
             WHERE i.id = ?1
             "#,
             [&invoice_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| format!("Factura nu a fost găsită: {}", e))?;
+
+    // Must be the VAT-inclusive total: receipts are collected gross, and
+    // record_collection_from_invoice validates against the gross total. Using
+    // invoices.total_amount here (which is NET) understated the remaining by the whole VAT.
+    let gross_total = invoice_gross_total(&conn, &invoice_id)?;
 
     let invoice_number_str = invoice_number.to_string();
 
@@ -5541,7 +5592,7 @@ pub fn get_invoice_remaining_for_collection(
         )
         .map_err(|e| e.to_string())?;
 
-    Ok((total_amount - collected_total).max(0.0))
+    Ok(round2((gross_total - collected_total).max(0.0)))
 }
 
 #[tauri::command]
@@ -5772,7 +5823,11 @@ pub async fn send_collection(
     let partner_name = rows[0].5.clone();
     let doc_date_source = rows[0].10.clone();
 
-    let total_value: f64 = rows.iter().map(|r| r.9).sum();
+    // Round each allocation first, then sum and round again. A naive f64 sum of clean
+    // 2-decimal rows still yields values like 85.91000000000001, which serde_json puts on
+    // the wire verbatim — WME then shows a header that does not match its own distribution
+    // lines and leaves the difference undistributed.
+    let total_value: f64 = round2(rows.iter().map(|r| round2(r.9)).sum::<f64>());
     let invoice_count = rows.len();
 
     let collection_for_print = Collection {
@@ -5839,7 +5894,7 @@ pub async fn send_collection(
             numar_factura: r.6.clone().unwrap_or_default(),
             serie_factura: r.7.clone().unwrap_or_default(),
             termen_factura: "".to_string(),
-            valoare: r.9,
+            valoare: round2(r.9),
         })
         .collect();
 
@@ -6775,5 +6830,146 @@ pub fn print_daily_report(
     #[cfg(not(target_os = "windows"))]
     {
         Ok("Printing is only supported on Windows".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{line_gross, round2};
+
+    /// The balance query is assembled by text substitution, so a malformed result would
+    /// only show up as a runtime error on the collections screen. Parse it against the
+    /// real schema instead.
+    #[test]
+    fn client_balances_query_is_valid_sql() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory db");
+        conn.execute_batch(crate::database::SCHEMA).expect("apply schema");
+        conn.execute_batch(
+            "ALTER TABLE invoices ADD COLUMN marca_agent TEXT;
+             CREATE TABLE IF NOT EXISTS client_balances (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, id_partener TEXT NOT NULL,
+                cod_fiscal TEXT, denumire TEXT, tip_document TEXT, cod_document TEXT,
+                serie TEXT, numar TEXT, data TEXT, valoare REAL, rest REAL, termen TEXT,
+                moneda TEXT, sediu TEXT, id_sediu TEXT, curs REAL, observatii TEXT,
+                cod_obligatie TEXT, marca_agent TEXT, synced_at TEXT);
+             CREATE TABLE IF NOT EXISTS collections (
+                id TEXT PRIMARY KEY, receipt_group_id TEXT, receipt_series TEXT,
+                receipt_number TEXT, id_partener TEXT NOT NULL, partner_name TEXT,
+                numar_factura TEXT, serie_factura TEXT, cod_document TEXT,
+                valoare REAL NOT NULL, data_incasare TEXT NOT NULL, status TEXT,
+                synced_at TEXT, error_message TEXT, created_at TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS agent_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1), marca_agent TEXT);",
+        )
+        .expect("create tables missing from base schema");
+
+        let mut query = super::build_client_balances_query();
+        query.push_str(" AND TRIM(q.id_partener) = TRIM(?1)");
+        query.push_str(" ORDER BY date(q.termen) ASC");
+
+        let mut stmt = conn.prepare(&query).expect("balance query must be valid SQL");
+        // 20 columns are read back by get_client_balances.
+        assert_eq!(stmt.column_count(), 20);
+
+        let rows: Vec<i64> = stmt
+            .query_map(["x"], |_| Ok(1))
+            .expect("query must execute")
+            .filter_map(|r| r.ok())
+            .collect();
+        assert!(rows.is_empty());
+    }
+
+    /// Migration 22 backfills the gross total for invoices created before it existed.
+    /// It runs against real customer data, so verify it end to end.
+    #[test]
+    fn migration_backfills_gross_total_and_rounds_unsent_collections() {
+        let dir = std::env::temp_dir().join(format!("karin_mig_test_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+
+        {
+            let db = crate::database::Database::new(dir.clone()).expect("init db");
+            let conn = db.conn.lock().unwrap();
+
+            // An invoice as it existed before migration 22: gross total not yet stored.
+            // 78.82 net at 9% VAT is the case reported from the field.
+            conn.execute_batch(
+                "INSERT INTO partners (id, name, created_at, updated_at)
+                   VALUES ('P1', 'Test', '2026-01-01', '2026-01-01');
+                 INSERT INTO locations (id, partner_id, name) VALUES ('L1', 'P1', 'Sediu');
+                 INSERT INTO products (id, name, unit_of_measure, price, procent_tva)
+                   VALUES ('PR1', 'Oua', 'BUC', 1.0, '9');
+                 INSERT INTO invoices (id, invoice_number, partner_id, location_id, status, total_amount, created_at)
+                   VALUES ('I1', 1, 'P1', 'L1', 'sent', 78.82, '2026-01-01');
+                 INSERT INTO invoice_items (id, invoice_id, product_id, quantity, unit_price, total_price)
+                   VALUES ('II1', 'I1', 'PR1', 1.0, 78.82, 78.82);
+                 UPDATE invoices SET total_amount_gross = NULL WHERE id = 'I1';
+                 INSERT INTO collections (id, id_partener, valoare, data_incasare, status, created_at)
+                   VALUES ('C1', 'P1', 85.9138, '2026-01-01', 'pending', '2026-01-01');
+                 INSERT INTO collections (id, id_partener, valoare, data_incasare, status, created_at)
+                   VALUES ('C2', 'P1', 85.9138, '2026-01-01', 'synced', '2026-01-01');
+                 DELETE FROM db_migrations WHERE version = 22;",
+            )
+            .expect("seed pre-migration state");
+        }
+
+        // Reopen: migrations run again, this time with migration 22 pending.
+        let db = crate::database::Database::new(dir.clone()).expect("re-init db");
+        let conn = db.conn.lock().unwrap();
+
+        let gross: f64 = conn
+            .query_row("SELECT total_amount_gross FROM invoices WHERE id = 'I1'", [], |r| r.get(0))
+            .expect("gross backfilled");
+        assert_eq!(gross, 85.91, "78.82 at 9% must be 85.91, not 85.9138");
+
+        let pending: f64 = conn
+            .query_row("SELECT valoare FROM collections WHERE id = 'C1'", [], |r| r.get(0))
+            .expect("pending collection");
+        assert_eq!(pending, 85.91, "unsent receipts must be rounded");
+
+        let synced: f64 = conn
+            .query_row("SELECT valoare FROM collections WHERE id = 'C2'", [], |r| r.get(0))
+            .expect("synced collection");
+        assert_eq!(synced, 85.9138, "receipts WME already accepted must not be rewritten");
+
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn round2_rounds_to_bani() {
+        assert_eq!(round2(85.9138), 85.91);
+        assert_eq!(round2(85.915), 85.92);
+        assert_eq!(round2(85.91000000000001), 85.91);
+        assert_eq!(round2(0.0), 0.0);
+    }
+
+    /// The reported defect: 78.82 net at 9% VAT produced 85.9138, which reached WME as
+    /// "85,914" while WME had rounded the invoice itself to 85,91.
+    #[test]
+    fn line_gross_matches_wme_rounding() {
+        assert_eq!(line_gross(78.82, 9.0), 85.91);
+        assert_ne!(line_gross(78.82, 9.0), 85.9138);
+    }
+
+    #[test]
+    fn line_gross_handles_zero_and_standard_rates() {
+        assert_eq!(line_gross(100.0, 0.0), 100.0);
+        assert_eq!(line_gross(100.0, 19.0), 119.0);
+        assert_eq!(line_gross(33.33, 19.0), 39.66);
+    }
+
+    /// Rounding per line then summing is what WME does; summing raw then rounding once
+    /// drifts on multi-line invoices and leaves a phantom balance of a few bani.
+    #[test]
+    fn per_line_rounding_is_used_for_invoice_totals() {
+        // Every line's gross lands just under half a ban, so each one rounds down on its
+        // own. Summing the raw products first instead rounds up, overstating the invoice by
+        // a ban — enough to leave a phantom balance that never clears.
+        let lines = [(0.05, 9.0), (0.05, 9.0), (0.05, 9.0)];
+        let per_line: f64 = round2(lines.iter().map(|(p, t)| line_gross(*p, *t)).sum::<f64>());
+        let naive: f64 = round2(lines.iter().map(|(p, t)| p * (1.0 + t / 100.0)).sum::<f64>());
+
+        assert_eq!(per_line, 0.15);
+        assert_eq!(naive, 0.16);
     }
 }
