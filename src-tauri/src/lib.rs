@@ -2,10 +2,13 @@ use log::info;
 use tauri::Manager;
 
 mod commands;
+mod database;
+mod db;
 mod domain;
 mod infra;
-mod database;
 mod models;
+#[cfg(test)]
+mod test_support;
 mod print_invoice;
 mod print_receipt;
 mod print_daily_report;
