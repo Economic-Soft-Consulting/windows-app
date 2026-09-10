@@ -96,6 +96,13 @@ pub struct Product {
     pub price: f64,
     pub class: Option<String>,
     pub tva_percent: Option<f64>,
+    /// WME's internal article code, sent back as `IDArticol` when invoicing.
+    ///
+    /// Kept separate from `id`: `id` is the local primary key that `invoice_items` points at
+    /// and must stay stable across syncs, while this is the identifier WME expects to receive.
+    /// They are not always the same value — see `convert_api_articles_to_model`.
+    #[serde(default)]
+    pub cod_intern: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

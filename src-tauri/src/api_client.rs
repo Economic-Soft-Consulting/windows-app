@@ -232,8 +232,9 @@ pub struct ArticleInfo {
     #[serde(rename = "CodExtern")]
     #[allow(dead_code)]
     pub cod_extern: Option<String>,
+    /// Sent back as `IDArticol` when invoicing: WME identifies the article by its internal
+    /// code, not by the CodObiect the sync falls back to when "ID" is absent.
     #[serde(rename = "CodIntern")]
-    #[allow(dead_code)]
     pub cod_intern: Option<String>,
     #[serde(rename = "Clasa")]
     pub clasa: Option<String>,

@@ -112,7 +112,22 @@ fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
         price: row.get(3)?,
         class: row.get(4)?,
         tva_percent,
+        // Not selected here on purpose: nothing on screen shows it, and the invoice payload
+        // reads it straight from `products` when building the line. Leaving it out keeps the
+        // four product queries that share this mapper on the same six columns.
+        cod_intern: None,
     })
+}
+
+/// The invoice lines as WME needs them, named so a test can run it against the real schema.
+///
+/// Two identifiers per row on purpose. `product_id` is the local key and stays the join key
+/// for the comanda lookup that fills LEGCOM. `articol_id` is what goes out as `IDArticol`:
+/// WME identifies an article by its internal code, and the two diverge on any server that
+/// omits "ID" from GetInfoArticole, where the sync falls back to CodObiect, a value WME does
+/// not accept back. Falling back to `product_id` leaves servers that do send an ID unchanged.
+fn invoice_items_for_wme_sql() -> &'static str {
+    "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure, COALESCE(NULLIF(TRIM(p.cod_intern), ''), ii.product_id) AS articol_id FROM invoice_items ii JOIN products p ON ii.product_id = p.id WHERE ii.invoice_id = ?1"
 }
 
 /// Waits until `path` exists and its size has stopped changing for `stable_ms`.
@@ -389,9 +404,9 @@ pub async fn sync_all_data(db: State<'_, Database>) -> Result<SyncStatus, String
             let tva_str = product.tva_percent.map(|t| t.to_string());
 
             tx.execute(
-                "INSERT INTO products (id, name, unit_of_measure, price, class, procent_tva) VALUES (?1, ?2, ?3, ?4, ?5, ?6) \
-                 ON CONFLICT(id) DO UPDATE SET name = excluded.name, unit_of_measure = excluded.unit_of_measure, price = excluded.price, class = excluded.class, procent_tva = excluded.procent_tva",
-                (&product.id, &product.name, &product.unit_of_measure, product.price, &product.class, &tva_str),
+                "INSERT INTO products (id, name, unit_of_measure, price, class, procent_tva, cod_intern) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
+                 ON CONFLICT(id) DO UPDATE SET name = excluded.name, unit_of_measure = excluded.unit_of_measure, price = excluded.price, class = excluded.class, procent_tva = excluded.procent_tva, cod_intern = excluded.cod_intern",
+                (&product.id, &product.name, &product.unit_of_measure, product.price, &product.class, &tva_str, &product.cod_intern),
             )
             .map_err(|e| format!("Failed to save product: {}", e))?;
         }
@@ -974,6 +989,15 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
                 None => None,
             };
 
+            // The code WME wants back on the invoice line, kept apart from the local id above.
+            // On a server that fills "ID" the two usually agree; on one that does not, `id`
+            // falls back to CodObiect, which WME does not accept as an article reference.
+            let cod_intern = api_article
+                .cod_intern
+                .as_ref()
+                .map(|c| c.trim().to_string())
+                .filter(|c| !c.is_empty());
+
             Product {
                 id: product_id,
                 name: api_article.denumire,
@@ -981,6 +1005,7 @@ fn convert_api_articles_to_model(api_articles: Vec<api_client::ArticleInfo>) -> 
                 price,
                 class: api_article.clasa,
                 tva_percent,
+                cod_intern,
             }
         })
         .collect()
@@ -1847,7 +1872,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     }
 
     // Get invoice details and items
-    let (invoice, items, partner_cod, location_id_sediu, invoice_number, partner_moneda, partner_payment_term): (Invoice, Vec<(String, f64, f64, String)>, Option<String>, Option<String>, i64, Option<String>, Option<String>) = {
+    let (invoice, items, partner_cod, location_id_sediu, invoice_number, partner_moneda, partner_payment_term): (Invoice, Vec<(String, f64, f64, String, String)>, Option<String>, Option<String>, i64, Option<String>, Option<String>) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
         // Get invoice with partner cod
@@ -1921,15 +1946,12 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
         // Get invoice items with UM from products
         let mut stmt = conn
             .prepare(
-                "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure \
-                 FROM invoice_items ii \
-                 JOIN products p ON ii.product_id = p.id \
-                 WHERE ii.invoice_id = ?1",
+                invoice_items_for_wme_sql(),
             )
             .map_err(|e| e.to_string())?;
 
-        let items: Vec<(String, f64, f64, String)> = stmt
-            .query_map([&invoice_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
+        let items: Vec<(String, f64, f64, String, String)> = stmt
+            .query_map([&invoice_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)))
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
             .collect();
@@ -2181,12 +2203,12 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
 
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
-        .map(|(product_id, quantity, price, um)| {
+        .map(|(product_id, quantity, price, um, articol_id)| {
             let quantity_r = (quantity * 100.0).round() / 100.0;
             let price_r = (price * 100.0).round() / 100.0;
             let (legcom1, legcom2) = lookup_legcoms(&comanda_legcom, &product_id);
             api_client::WmeInvoiceItem {
-                id_articol: product_id,
+                id_articol: articol_id,
                 cant: quantity_r,
                 pret: price_r,
                 um: Some(um),
@@ -2372,7 +2394,7 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
          items): (
         String, String, Option<String>, String, i64,
         Option<String>, Option<String>, Option<String>, Option<String>,
-        Vec<(String, f64, f64, String)>,
+        Vec<(String, f64, f64, String, String)>,
     ) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -2394,16 +2416,13 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
 
         let mut stmt = conn
             .prepare(
-                "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure \
-                 FROM invoice_items ii \
-                 JOIN products p ON ii.product_id = p.id \
-                 WHERE ii.invoice_id = ?1",
+                invoice_items_for_wme_sql(),
             )
             .map_err(|e| e.to_string())?;
 
-        let items: Vec<(String, f64, f64, String)> = stmt
+        let items: Vec<(String, f64, f64, String, String)> = stmt
             .query_map([&invoice_id], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
             })
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
@@ -2510,10 +2529,10 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
 
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
-        .map(|(product_id, quantity, price, um)| {
+        .map(|(product_id, quantity, price, um, articol_id)| {
             let (legcom1, legcom2) = lookup_legcoms(&comanda_legcom, &product_id);
             api_client::WmeInvoiceItem {
-                id_articol: product_id,
+                id_articol: articol_id,
                 cant: quantity,
                 pret: price,
                 um: Some(um),
@@ -5698,6 +5717,50 @@ mod tests {
             .expect("synced collection");
         assert_eq!(synced, 85.9138, "receipts WME already accepted must not be rewritten");
 
+        drop(conn);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+
+    /// IDArticol must carry WME's internal article code, not the local primary key.
+    ///
+    /// On a server that omits "ID" from GetInfoArticole the sync stores CodObiect as the
+    /// local id (129), while WME expects CodIntern (1027). Sending 129 back had the server
+    /// accept the request and create no document, which surfaced as an invoice stuck on
+    /// "in asteptare" and retried every 30 seconds forever.
+    #[test]
+    fn wme_line_sends_cod_intern_not_the_local_id() {
+        let (dir, db) = temp_db("wme_articol_id");
+        let conn = db.conn.lock().unwrap();
+
+        conn.execute("INSERT INTO partners (id, name, created_at, updated_at) VALUES ('P1', 'T', 'x', 'x')", []).unwrap();
+        conn.execute("INSERT INTO locations (id, partner_id, name) VALUES ('L1', 'P1', 'Sediu')", []).unwrap();
+        // Mirrors 10.30.0.57: the article WME returns without an "ID", carrying CodIntern 1027.
+        conn.execute("INSERT INTO products (id, name, unit_of_measure, price, cod_intern) VALUES ('129', 'OUA L', 'Buc', 0.88, '1027')", []).unwrap();
+        // An article synced before cod_intern was stored, so the fallback has to hold.
+        conn.execute("INSERT INTO products (id, name, unit_of_measure, price) VALUES ('130', 'OUA XL', 'Buc', 0.85)", []).unwrap();
+        conn.execute("INSERT INTO invoices (id, invoice_number, partner_id, location_id, status, total_amount, created_at) VALUES ('I1', 1, 'P1', 'L1', 'pending', 1.73, '2026-01-01')", []).unwrap();
+        conn.execute("INSERT INTO invoice_items (id, invoice_id, product_id, quantity, unit_price, total_price) VALUES ('A', 'I1', '129', 1.0, 0.88, 0.88)", []).unwrap();
+        conn.execute("INSERT INTO invoice_items (id, invoice_id, product_id, quantity, unit_price, total_price) VALUES ('B', 'I1', '130', 1.0, 0.85, 0.85)", []).unwrap();
+
+        let mut stmt = conn.prepare(super::invoice_items_for_wme_sql()).expect("valid SQL");
+        let mut rows: Vec<(String, String)> = stmt
+            .query_map(["I1"], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(4)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        rows.sort();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("129".to_string(), "1027".to_string()),
+                ("130".to_string(), "130".to_string()),
+            ],
+            "IDArticol must be cod_intern when known, and fall back to the local id otherwise"
+        );
+
+        drop(stmt);
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
     }

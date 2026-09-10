@@ -60,6 +60,8 @@ export interface Product {
   price: number;
   class: string | null;
   tva_percent: number | null;
+  /** WME's internal article code, sent as IDArticol when invoicing. */
+  cod_intern?: string | null;
 }
 
 export type InvoiceStatus = "pending" | "sending" | "sent" | "failed";
