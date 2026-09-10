@@ -2,6 +2,8 @@ use log::info;
 use tauri::Manager;
 
 mod commands;
+mod domain;
+mod infra;
 mod database;
 mod models;
 mod print_invoice;
