@@ -286,7 +286,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3 shrink-0">
         <Settings className="h-8 w-8" />
@@ -299,10 +299,10 @@ export default function SettingsPage() {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-6">
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-4">
         {/* WME Server Config */}
         <Card className={!agentSettings.wme_host?.trim() ? "border-amber-400 dark:border-amber-600" : ""}>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <Server className="h-4 w-4" />
               Server WME
@@ -314,7 +314,7 @@ export default function SettingsPage() {
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
+          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-3">
             <SettingField
               id="wmeHost"
               label="Adresă IP"
@@ -340,13 +340,13 @@ export default function SettingsPage() {
 
         {/* Agent identity */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4" />
               Identitate agent
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
             <SettingField
               id="agentName"
               label="Nume agent"
@@ -376,13 +376,13 @@ export default function SettingsPage() {
 
         {/* Series and booklets */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
               Serii și carnete
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
             <SettingField
               id="carnetSeries"
               label="Serie carnet"
@@ -436,13 +436,13 @@ export default function SettingsPage() {
 
         {/* Delegate */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <User className="h-4 w-4" />
               Delegat
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
             <SettingField
               id="codDelegat"
               label="Cod delegat"
@@ -479,13 +479,13 @@ export default function SettingsPage() {
 
         {/* Quality certificate */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
               Certificat de calitate
             </CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+          <CardContent className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
             <SettingField
               id="certComandaSerie"
               label="Serie comandă"
@@ -507,7 +507,7 @@ export default function SettingsPage() {
 
         {/* Numbering */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
               Numerotare
@@ -517,7 +517,7 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
               <SettingField
                 id="invoiceSeriesRead"
                 label="Serie facturi"
@@ -558,7 +558,7 @@ export default function SettingsPage() {
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-4 border-t">
+            <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4 pt-4 border-t">
               <SettingField
                 id="receiptSeries"
                 label="Serie chitanțe"
@@ -602,7 +602,7 @@ export default function SettingsPage() {
 
         {/* Automatic collection sync */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <RefreshCw className="h-4 w-4" />
               Sincronizare automată încasări
@@ -621,13 +621,12 @@ export default function SettingsPage() {
               />
             </div>
             {agentSettings.auto_sync_collections_enabled && (
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-x-4 gap-y-3 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="autoSyncTime" className="text-sm">Oră sincronizare</Label>
                   <Input
                     id="autoSyncTime"
                     type="time"
-                    className="h-10"
                     value={agentSettings.auto_sync_collections_time || "23:00"}
                     onChange={(e) =>
                       setAgentSettings((prev) => ({
@@ -656,16 +655,16 @@ export default function SettingsPage() {
 
         {/* Sync Settings */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5" />
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <RefreshCw className="h-4 w-4" />
               Sincronizare Date
             </CardTitle>
             <CardDescription>
               Sincronizează datele cu serverul WME pentru a obține ultimele informații despre parteneri și produse
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-3">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1 p-4 rounded-lg border bg-muted/30">
                 <p className="text-sm font-medium">Ultima sincronizare parteneri</p>
@@ -698,12 +697,12 @@ export default function SettingsPage() {
                   </>
                 ) : !isOnline ? (
                   <>
-                    <RefreshCw className="h-5 w-5" />
+                    <RefreshCw className="h-4 w-4" />
                     Offline - Nu se poate sincroniza
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="h-5 w-5" />
+                    <RefreshCw className="h-4 w-4" />
                     Sincronizează Acum
                   </>
                 )}
@@ -714,16 +713,16 @@ export default function SettingsPage() {
 
         {/* Printer Settings */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Printer className="h-5 w-5" />
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Printer className="h-4 w-4" />
               Setări Printare
             </CardTitle>
             <CardDescription>
               Configurează imprimanta și opțiunile de printare
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-3">
             {hasNoPrintersYet ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -838,9 +837,9 @@ export default function SettingsPage() {
 
         {/* Info Section */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" />
               Informații
             </CardTitle>
           </CardHeader>

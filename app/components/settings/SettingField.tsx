@@ -43,7 +43,7 @@ export function SettingField({
   className,
 }: SettingFieldProps) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-1", className)}>
       <div className="flex items-center gap-1">
         <Label htmlFor={id} className="text-sm">
           {label}
@@ -68,7 +68,7 @@ export function SettingField({
         min={min}
         placeholder={placeholder}
         disabled={disabled}
-        className={cn("h-10", disabled && "bg-muted")}
+        className={cn(disabled && "bg-muted")}
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
       />
