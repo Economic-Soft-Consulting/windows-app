@@ -121,13 +121,15 @@ fn map_product_row(row: &rusqlite::Row) -> rusqlite::Result<Product> {
 
 /// The invoice lines as WME needs them, named so a test can run it against the real schema.
 ///
-/// Two identifiers per row on purpose. `product_id` is the local key and stays the join key
-/// for the comanda lookup that fills LEGCOM. `articol_id` is what goes out as `IDArticol`:
-/// WME identifies an article by its internal code, and the two diverge on any server that
-/// omits "ID" from GetInfoArticole, where the sync falls back to CodObiect, a value WME does
-/// not accept back. Falling back to `product_id` leaves servers that do send an ID unchanged.
+/// `product_id` goes back out as `IDArticol`, unchanged — the line echoes the product key and
+/// decides nothing of its own.
+///
+/// What that key holds is settled once, at sync time, in `convert_api_articles_to_model`.
+/// Deciding it a second time here is what went wrong before: a `COALESCE` preferred
+/// `cod_intern` over the key, so the posted code depended on which of the two paths had last
+/// been edited. One place, one decision.
 fn invoice_items_for_wme_sql() -> &'static str {
-    "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure, COALESCE(NULLIF(TRIM(p.cod_intern), ''), ii.product_id) AS articol_id FROM invoice_items ii JOIN products p ON ii.product_id = p.id WHERE ii.invoice_id = ?1"
+    "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure FROM invoice_items ii JOIN products p ON ii.product_id = p.id WHERE ii.invoice_id = ?1"
 }
 
 // ==================== SYNC COMMANDS ====================
@@ -1884,7 +1886,7 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
     }
 
     // Get invoice details and items
-    let (invoice, items, partner_cod, location_id_sediu, invoice_number, partner_moneda, partner_payment_term): (Invoice, Vec<(String, f64, f64, String, String)>, Option<String>, Option<String>, i64, Option<String>, Option<String>) = {
+    let (invoice, items, partner_cod, location_id_sediu, invoice_number, partner_moneda, partner_payment_term): (Invoice, Vec<(String, f64, f64, String)>, Option<String>, Option<String>, i64, Option<String>, Option<String>) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
         // Get invoice with partner cod
@@ -1962,8 +1964,8 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
             )
             .map_err(|e| e.to_string())?;
 
-        let items: Vec<(String, f64, f64, String, String)> = stmt
-            .query_map([&invoice_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)))
+        let items: Vec<(String, f64, f64, String)> = stmt
+            .query_map([&invoice_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
             .collect();
@@ -2215,12 +2217,12 @@ pub async fn send_invoice(db: State<'_, Database>, invoice_id: String) -> Result
 
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
-        .map(|(product_id, quantity, price, um, articol_id)| {
+        .map(|(product_id, quantity, price, um)| {
             let quantity_r = (quantity * 100.0).round() / 100.0;
             let price_r = (price * 100.0).round() / 100.0;
             let (legcom1, legcom2) = lookup_legcoms(&comanda_legcom, &product_id);
             api_client::WmeInvoiceItem {
-                id_articol: articol_id,
+                id_articol: product_id,
                 cant: quantity_r,
                 pret: price_r,
                 um: Some(um),
@@ -2406,7 +2408,7 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
          items): (
         String, String, Option<String>, String, i64,
         Option<String>, Option<String>, Option<String>, Option<String>,
-        Vec<(String, f64, f64, String, String)>,
+        Vec<(String, f64, f64, String)>,
     ) = {
         let conn = db.conn.lock().map_err(|e| e.to_string())?;
 
@@ -2432,9 +2434,9 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
             )
             .map_err(|e| e.to_string())?;
 
-        let items: Vec<(String, f64, f64, String, String)> = stmt
+        let items: Vec<(String, f64, f64, String)> = stmt
             .query_map([&invoice_id], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
             })
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
@@ -2541,10 +2543,10 @@ pub async fn preview_invoice_json(db: State<'_, Database>, invoice_id: String) -
 
     let wme_items: Vec<api_client::WmeInvoiceItem> = items
         .into_iter()
-        .map(|(product_id, quantity, price, um, articol_id)| {
+        .map(|(product_id, quantity, price, um)| {
             let (legcom1, legcom2) = lookup_legcoms(&comanda_legcom, &product_id);
             api_client::WmeInvoiceItem {
-                id_articol: articol_id,
+                id_articol: product_id,
                 cant: quantity,
                 pret: price,
                 um: Some(um),
@@ -5734,30 +5736,34 @@ mod tests {
     }
 
 
-    /// IDArticol must carry WME's internal article code, not the local primary key.
+    /// IDArticol is the id WME itself supplied, echoed back untouched.
     ///
-    /// On a server that omits "ID" from GetInfoArticole the sync stores CodObiect as the
-    /// local id (129), while WME expects CodIntern (1027). Sending 129 back had the server
-    /// accept the request and create no document, which surfaced as an invoice stuck on
-    /// "in asteptare" and retried every 30 seconds forever.
+    /// Which article code that id holds is decided per installation, in WME's own REST
+    /// configuration — cod intern on the sites seen so far, but not by rule. A production
+    /// invoice posted correctly for an article whose cod obiect (1692) and cod intern (2590)
+    /// differ, which is only possible if the value being echoed is the right one already.
+    ///
+    /// So `cod_intern` must NOT take precedence here, however tempting: on any server whose
+    /// "ID" is not cod intern, preferring it silently changes what gets posted.
     #[test]
-    fn wme_line_sends_cod_intern_not_the_local_id() {
+    fn wme_line_echoes_the_id_wme_supplied() {
         let (dir, db) = temp_db("wme_articol_id");
         let conn = db.conn.lock().unwrap();
 
         conn.execute("INSERT INTO partners (id, name, created_at, updated_at) VALUES ('P1', 'T', 'x', 'x')", []).unwrap();
         conn.execute("INSERT INTO locations (id, partner_id, name) VALUES ('L1', 'P1', 'Sediu')", []).unwrap();
-        // Mirrors 10.30.0.57: the article WME returns without an "ID", carrying CodIntern 1027.
+        // A product whose stored cod_intern differs from its id: the id is what WME sent as
+        // "ID", so the id is what must go back, and 1027 must not hijack the line.
         conn.execute("INSERT INTO products (id, name, unit_of_measure, price, cod_intern) VALUES ('129', 'OUA L', 'Buc', 0.88, '1027')", []).unwrap();
-        // An article synced before cod_intern was stored, so the fallback has to hold.
+        // A product synced before cod_intern was stored at all.
         conn.execute("INSERT INTO products (id, name, unit_of_measure, price) VALUES ('130', 'OUA XL', 'Buc', 0.85)", []).unwrap();
         conn.execute("INSERT INTO invoices (id, invoice_number, partner_id, location_id, status, total_amount, created_at) VALUES ('I1', 1, 'P1', 'L1', 'pending', 1.73, '2026-01-01')", []).unwrap();
         conn.execute("INSERT INTO invoice_items (id, invoice_id, product_id, quantity, unit_price, total_price) VALUES ('A', 'I1', '129', 1.0, 0.88, 0.88)", []).unwrap();
         conn.execute("INSERT INTO invoice_items (id, invoice_id, product_id, quantity, unit_price, total_price) VALUES ('B', 'I1', '130', 1.0, 0.85, 0.85)", []).unwrap();
 
         let mut stmt = conn.prepare(super::invoice_items_for_wme_sql()).expect("valid SQL");
-        let mut rows: Vec<(String, String)> = stmt
-            .query_map(["I1"], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(4)?)))
+        let mut rows: Vec<String> = stmt
+            .query_map(["I1"], |r| r.get::<_, String>(0))
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
@@ -5765,11 +5771,8 @@ mod tests {
 
         assert_eq!(
             rows,
-            vec![
-                ("129".to_string(), "1027".to_string()),
-                ("130".to_string(), "130".to_string()),
-            ],
-            "IDArticol must be cod_intern when known, and fall back to the local id otherwise"
+            vec!["129".to_string(), "130".to_string()],
+            "IDArticol must stay the id WME supplied, even when cod_intern differs"
         );
 
         drop(stmt);
