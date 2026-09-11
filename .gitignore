@@ -45,3 +45,6 @@ target/
 src-tauri/target/
 *.rs.bk
 *.pdb
+
+# Playwright MCP scratch output (console logs and page snapshots from browser sessions)
+.playwright-mcp/
