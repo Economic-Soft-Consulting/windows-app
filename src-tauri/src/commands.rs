@@ -130,11 +130,6 @@ fn invoice_items_for_wme_sql() -> &'static str {
     "SELECT ii.product_id, ii.quantity, ii.unit_price, p.unit_of_measure, COALESCE(NULLIF(TRIM(p.cod_intern), ''), ii.product_id) AS articol_id FROM invoice_items ii JOIN products p ON ii.product_id = p.id WHERE ii.invoice_id = ?1"
 }
 
-/// Waits until `path` exists and its size has stopped changing for `stable_ms`.
-///
-/// Polls every 25 ms rather than 100 ms: the old interval meant ~400-500 ms of pure sleep
-/// per PDF even when the file was already complete before the call.
-
 // ==================== SYNC COMMANDS ====================
 
 #[tauri::command]
